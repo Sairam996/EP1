@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Rating } from "@/src/components/UI";
+import { useUserLocation, openInMaps } from "@/src/hooks/use-location";
 import { colors, radius, spacing } from "@/src/theme";
 
 const { width } = Dimensions.get("window");
@@ -14,6 +15,7 @@ const { width } = Dimensions.get("window");
 export default function VendorDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { coords } = useUserLocation();
   const [v, setV] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
@@ -21,15 +23,16 @@ export default function VendorDetail() {
   const [favorited, setFavorited] = useState(false);
 
   useEffect(() => {
+    const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
     (async () => {
       const [vd, r, s] = await Promise.all([
-        api.get(`/vendors/${id}`, { auth: false }),
+        api.get(`/vendors/${id}${q}`, { auth: false }),
         api.get(`/vendors/${id}/reviews`, { auth: false }),
         api.get(`/vendors/${id}/similar`, { auth: false }),
       ]);
       setV(vd); setReviews(r); setSimilar(s);
     })();
-  }, [id]);
+  }, [id, coords]);
 
   const toggleFav = async () => {
     try { const r = await api.post(`/favorites/${id}`); setFavorited(r.favorited); } catch {}
@@ -92,6 +95,22 @@ export default function VendorDetail() {
               <Text style={styles.h3}>Starting at</Text>
               <Text style={styles.priceBig}>₹{v.starting_price.toLocaleString("en-IN")}</Text>
             </View>
+            {v.lat != null && v.lng != null && (
+              <View>
+                <Text style={styles.h3}>Location</Text>
+                <View style={styles.locCard}>
+                  <Ionicons name="location" size={22} color={colors.brand} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontWeight: "500" }} numberOfLines={2}>{v.address || v.city}</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>{v.distance_km} km away</Text>
+                  </View>
+                  <Pressable testID="get-directions" onPress={() => openInMaps(v.lat, v.lng, v.name)} style={styles.dirBtn}>
+                    <Ionicons name="navigate" size={16} color={colors.onBrand} />
+                    <Text style={{ color: colors.onBrand, fontWeight: "600", fontSize: 13 }}>Directions</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         )}
         {tab === "reviews" && (
@@ -161,6 +180,8 @@ const styles = StyleSheet.create({
   facWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   fac: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surface2, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
   priceBig: { color: colors.brand, fontSize: 24, fontWeight: "600" },
+  locCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  dirBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.brand },
   review: { padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   simCard: { width: 160, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
   cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: spacing.xl, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 12 },

@@ -7,7 +7,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Literal
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query
+import math
+import secrets
+import string
+import json as json_mod
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -157,6 +161,10 @@ class AIChatIn(BaseModel):
 
 class PayOrderIn(BaseModel):
     booking_id: str
+    redeem_points: int = 0
+
+class ApplyReferralIn(BaseModel):
+    code: str
 
 class PayVerifyIn(BaseModel):
     booking_id: str
@@ -206,6 +214,21 @@ CATEGORIES = [
     {"id": "planning", "name": "Event Planning", "icon": "calendar"},
 ]
 CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"]
+CITY_COORDS = {
+    "Hyderabad": (17.3850, 78.4867), "Mumbai": (19.0760, 72.8777),
+    "Delhi": (28.6139, 77.2090),    "Bangalore": (12.9716, 77.5946),
+    "Chennai": (13.0827, 80.2707),  "Pune": (18.5204, 73.8567),
+}
+
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    R = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1); dl = math.radians(lng2 - lng1)
+    a = math.sin(dp/2)**2 + math.cos(p1) * math.cos(p2) * math.sin(dl/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
+def gen_referral_code() -> str:
+    return "EP" + "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 @api.get("/")
@@ -229,12 +252,14 @@ async def register(body: RegisterIn):
     doc = {
         "id": uid, "name": body.name, "email": body.email.lower(), "phone": body.phone,
         "password_hash": hash_pw(body.password), "role": body.role, "city": body.city,
+        "referral_code": gen_referral_code(), "points": 0,
         "avatar": f"https://ui-avatars.com/api/?name={body.name.replace(' ','+')}&background=D4AF37&color=0B0C10",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     if body.role == "vendor":
         vid = str(uuid.uuid4())
         doc["vendor_id"] = vid
+        clat, clng = CITY_COORDS.get(body.city or "Hyderabad", (17.3850, 78.4867))
         await db.vendors.insert_one({
             "id": vid, "owner_id": uid, "name": body.name + " Services",
             "category": "venues", "city": body.city or "Hyderabad",
@@ -243,7 +268,8 @@ async def register(body: RegisterIn):
             "description": "New vendor on EventPro.", "starting_price": 50000,
             "rating": 0.0, "reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
-            "phone": body.phone, "created_at": datetime.now(timezone.utc).isoformat(),
+            "phone": body.phone, "lat": clat, "lng": clng,
+            "created_at": datetime.now(timezone.utc).isoformat(),
         })
     await db.users.insert_one(doc)
     token = make_token(uid, body.role)
@@ -269,10 +295,16 @@ async def me(u: dict = Depends(get_current_user)):
             "avatar": u.get("avatar")}
 
 # --- Vendors ---
-def _vendor_pub(v: dict, user_city: str = "Hyderabad") -> dict:
-    # Pseudo-distance based on city match
-    same = v.get("city") == user_city
-    dist = 2.5 + (hash(v["id"]) % 80) / 10.0 if same else 50 + (hash(v["id"]) % 200) / 10.0
+def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float] = None, user_lng: Optional[float] = None) -> dict:
+    v_lat = v.get("lat"); v_lng = v.get("lng")
+    if user_lat is not None and user_lng is not None and v_lat is not None and v_lng is not None:
+        dist = haversine_km(user_lat, user_lng, v_lat, v_lng)
+    elif v_lat is not None and v_lng is not None and user_city in CITY_COORDS:
+        ulat, ulng = CITY_COORDS[user_city]
+        dist = haversine_km(ulat, ulng, v_lat, v_lng)
+    else:
+        same = v.get("city") == user_city
+        dist = 2.5 + (hash(v["id"]) % 80) / 10.0 if same else 50 + (hash(v["id"]) % 200) / 10.0
     return {
         "id": v["id"], "name": v["name"], "category": v["category"], "city": v["city"],
         "cover": v["cover"], "gallery": v.get("gallery", []), "description": v["description"],
@@ -281,12 +313,14 @@ def _vendor_pub(v: dict, user_city: str = "Hyderabad") -> dict:
         "verified": v.get("verified", False), "facilities": v.get("facilities", []),
         "event_types": v.get("event_types", []), "address": v.get("address", ""),
         "phone": v.get("phone", ""), "owner_id": v.get("owner_id"),
+        "lat": v_lat, "lng": v_lng,
     }
 
 @api.get("/vendors")
 async def list_vendors(city: Optional[str] = None, category: Optional[str] = None,
                        event_type: Optional[str] = None, q: Optional[str] = None,
-                       trending: Optional[bool] = None, limit: int = 50):
+                       trending: Optional[bool] = None, limit: int = 50,
+                       lat: Optional[float] = None, lng: Optional[float] = None):
     query: dict = {}
     if city: query["city"] = city
     if category: query["category"] = category
@@ -296,13 +330,13 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
     if trending:
         cursor = db.vendors.find(query, {"_id": 0}).sort("rating", -1).limit(limit)
     items = await cursor.to_list(limit)
-    return [_vendor_pub(v, city or "Hyderabad") for v in items]
+    return [_vendor_pub(v, city or "Hyderabad", lat, lng) for v in items]
 
 @api.get("/vendors/{vendor_id}")
-async def get_vendor(vendor_id: str):
+async def get_vendor(vendor_id: str, lat: Optional[float] = None, lng: Optional[float] = None):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not v: raise HTTPException(404, "Vendor not found")
-    return _vendor_pub(v, v.get("city", "Hyderabad"))
+    return _vendor_pub(v, v.get("city", "Hyderabad"), lat, lng)
 
 @api.get("/vendors/{vendor_id}/similar")
 async def similar_vendors(vendor_id: str):
@@ -479,12 +513,17 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
                                               "updated_at": datetime.now(timezone.utc).isoformat()})
     return {"conversation_id": cid, "reply": reply}
 
-# --- Payments (Razorpay or mock) ---
+# --- Payments (Razorpay or mock) + Loyalty redeem ---
 @api.post("/payments/order")
 async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
     if not b: raise HTTPException(404, "Booking not found")
-    amount_paise = b["amount"] * 100
+    # Redeem points: 1 pt = 1 INR, max 20% of amount and not more than user balance
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1})
+    available = int(user.get("points", 0)) if user else 0
+    max_redeem = min(available, body.redeem_points or 0, int(b["amount"] * 0.20))
+    final_amount = max(0, b["amount"] - max_redeem)
+    amount_paise = final_amount * 100
     if PAYMENT_MODE == "live" and RAZORPAY_KEY_ID:
         import razorpay
         rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -493,10 +532,12 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
         oid = order["id"]
     else:
         oid = f"order_mock_{uuid.uuid4().hex[:14]}"
-    await db.bookings.update_one({"id": b["id"]}, {"$set": {"razorpay_order_id": oid}})
+    await db.bookings.update_one({"id": b["id"]}, {"$set": {
+        "razorpay_order_id": oid, "points_redeemed": max_redeem, "final_amount": final_amount}})
     return {"order_id": oid, "amount": amount_paise, "currency": "INR",
             "razorpay_key_id": RAZORPAY_KEY_ID or "rzp_test_mock",
-            "mode": PAYMENT_MODE}
+            "mode": PAYMENT_MODE, "points_redeemed": max_redeem,
+            "final_amount": final_amount}
 
 @api.post("/payments/verify")
 async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("customer"))):
@@ -516,7 +557,64 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
     await db.bookings.update_one({"id": body.booking_id}, {"$set": {
         "payment_status": "paid", "status": "confirmed",
         "razorpay_payment_id": body.razorpay_payment_id}})
-    return {"success": True}
+    # Burn redeemed points
+    redeemed = int(b.get("points_redeemed", 0))
+    if redeemed > 0:
+        await db.users.update_one({"id": u["id"]}, {"$inc": {"points": -redeemed}})
+        await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
+            "delta": -redeemed, "reason": "redeem", "booking_id": body.booking_id,
+            "at": datetime.now(timezone.utc).isoformat()})
+    # Award loyalty: 5% of final paid amount as points
+    paid_amt = int(b.get("final_amount", b["amount"]))
+    earn = int(round(paid_amt * 0.05))
+    if earn > 0:
+        await db.users.update_one({"id": u["id"]}, {"$inc": {"points": earn}})
+        await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
+            "delta": earn, "reason": "earn", "booking_id": body.booking_id,
+            "at": datetime.now(timezone.utc).isoformat()})
+    return {"success": True, "earned_points": earn, "redeemed_points": redeemed}
+
+# --- Referrals & Loyalty ---
+@api.get("/me/referral")
+async def my_referral(u: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "password_hash": 0})
+    code = user.get("referral_code")
+    if not code:
+        code = gen_referral_code()
+        await db.users.update_one({"id": u["id"]}, {"$set": {"referral_code": code}})
+    invited = await db.users.count_documents({"referred_by": code})
+    share_text = (f"Join EventPro — India's premium event marketplace. "
+                  f"Use my code {code} to get 200 bonus points (worth ₹200 off). "
+                  f"Get the app: https://eventpro.in")
+    return {"code": code, "invited_count": invited, "share_text": share_text}
+
+@api.post("/me/apply-referral")
+async def apply_referral(body: ApplyReferralIn, u: dict = Depends(get_current_user)):
+    code = body.code.strip().upper()
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0})
+    if user.get("referred_by"):
+        raise HTTPException(400, "You've already used a referral code")
+    if user.get("referral_code") == code:
+        raise HTTPException(400, "Can't use your own code")
+    referrer = await db.users.find_one({"referral_code": code}, {"_id": 0})
+    if not referrer:
+        raise HTTPException(404, "Invalid referral code")
+    # Award both
+    BONUS = 200
+    await db.users.update_one({"id": u["id"]}, {"$set": {"referred_by": code}, "$inc": {"points": BONUS}})
+    await db.users.update_one({"id": referrer["id"]}, {"$inc": {"points": BONUS}})
+    now = datetime.now(timezone.utc).isoformat()
+    await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
+        "delta": BONUS, "reason": "referral_signup", "at": now})
+    await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": referrer["id"],
+        "delta": BONUS, "reason": "referral_bonus", "at": now})
+    return {"success": True, "awarded": BONUS}
+
+@api.get("/me/points")
+async def my_points(u: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1})
+    history = await db.point_history.find({"user_id": u["id"]}, {"_id": 0}).sort("at", -1).limit(50).to_list(50)
+    return {"balance": int(user.get("points", 0)) if user else 0, "history": history}
 
 # --- KYC ---
 @api.post("/kyc")
@@ -543,7 +641,7 @@ async def my_vendor(u: dict = Depends(require_role("vendor"))):
 @api.patch("/vendor/me")
 async def update_my_vendor(body: dict, u: dict = Depends(require_role("vendor"))):
     allowed = {"name", "category", "city", "cover", "gallery", "description",
-               "starting_price", "facilities", "event_types", "address", "phone"}
+               "starting_price", "facilities", "event_types", "address", "phone", "lat", "lng"}
     upd = {k: v for k, v in body.items() if k in allowed}
     await db.vendors.update_one({"id": u["vendor_id"]}, {"$set": upd})
     v = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0})
@@ -682,6 +780,11 @@ async def seed():
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         imgs = SEED_IMAGES.get(cat, SEED_IMAGES["venues"])
+        clat, clng = CITY_COORDS.get(city, (17.3850, 78.4867))
+        # Small offset so vendors are distributed within city
+        h = hash(name)
+        lat_offset = ((h >> 8) % 200 - 100) / 1000.0   # ±0.1°
+        lng_offset = ((h >> 16) % 200 - 100) / 1000.0
         docs.append({
             "id": vid, "owner_id": owner_id, "name": name, "category": cat, "city": city,
             "cover": imgs[0], "gallery": imgs,
@@ -690,6 +793,7 @@ async def seed():
             "facilities": facilities,
             "event_types": ["wedding", "sangeet", "reception"] if cat in ("venues","decor","music") else ["wedding","corporate","birthday"],
             "address": f"{name}, {city}", "phone": f"+9199{10000000+i}",
+            "lat": round(clat + lat_offset, 6), "lng": round(clng + lng_offset, 6),
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     await db.vendors.insert_many(docs)
@@ -702,7 +806,7 @@ async def seed():
             "id": str(uuid.uuid4()), "name": "Demo Customer",
             "email": "customer.demo@eventpro.in", "phone": "+919999999999",
             "password_hash": hash_pw("Demo@123"), "role": "customer",
-            "city": "Hyderabad",
+            "city": "Hyderabad", "referral_code": "EPDEMO1", "points": 500,
             "avatar": "https://ui-avatars.com/api/?name=Demo+Customer&background=D4AF37&color=0B0C10",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -719,5 +823,64 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     mongo.close()
+
+# ── WebSocket chat ───────────────────────────────────────────────────────────
+class ConnMgr:
+    def __init__(self): self.rooms: dict[str, set[WebSocket]] = {}
+    async def join(self, room: str, ws: WebSocket):
+        self.rooms.setdefault(room, set()).add(ws)
+    async def leave(self, room: str, ws: WebSocket):
+        if room in self.rooms:
+            self.rooms[room].discard(ws)
+            if not self.rooms[room]: del self.rooms[room]
+    async def broadcast(self, room: str, payload: dict, exclude: WebSocket = None):
+        for ws in list(self.rooms.get(room, [])):
+            if ws is exclude: continue
+            try: await ws.send_json(payload)
+            except Exception: pass
+mgr = ConnMgr()
+
+@app.websocket("/api/ws/chat/{booking_id}")
+async def ws_chat(websocket: WebSocket, booking_id: str, token: str = ""):
+    # Auth via query token
+    try:
+        data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        user = await db.users.find_one({"id": data["sub"]}, {"_id": 0, "password_hash": 0})
+        if not user: raise Exception("user not found")
+    except Exception:
+        await websocket.close(code=4401)
+        return
+    # Authorize: customer or vendor on this booking
+    b = await db.bookings.find_one({"id": booking_id})
+    if not b:
+        await websocket.close(code=4404); return
+    if user["role"] == "customer" and b["customer_id"] != user["id"]:
+        await websocket.close(code=4403); return
+    if user["role"] == "vendor" and b["vendor_id"] != user.get("vendor_id"):
+        await websocket.close(code=4403); return
+    await websocket.accept()
+    await mgr.join(booking_id, websocket)
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try: ev = json_mod.loads(raw)
+            except Exception: continue
+            kind = ev.get("type")
+            if kind == "typing":
+                await mgr.broadcast(booking_id, {"type": "typing", "user_id": user["id"],
+                                                  "sender_name": user["name"]}, exclude=websocket)
+            elif kind == "message":
+                text = (ev.get("text") or "").strip()
+                if not text: continue
+                msg = {"id": str(uuid.uuid4()), "booking_id": booking_id,
+                       "sender_id": user["id"], "sender_role": user["role"],
+                       "sender_name": user["name"], "text": text,
+                       "created_at": datetime.now(timezone.utc).isoformat()}
+                await db.chat_messages.insert_one(msg.copy())
+                await mgr.broadcast(booking_id, {"type": "message", "message": msg})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await mgr.leave(booking_id, websocket)
 
 app.include_router(api)

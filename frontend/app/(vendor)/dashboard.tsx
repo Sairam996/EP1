@@ -68,6 +68,11 @@ export default function Dashboard() {
         </View>
       </View>
       <View style={styles.actions}>
+        <Pressable testID="edit-profile-link" onPress={() => router.push("/vendor-profile-edit")} style={styles.action}>
+          <Ionicons name="create" size={22} color={colors.brand} />
+          <Text style={styles.actT}>Edit Business Profile</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
         <Pressable testID="services-link" onPress={() => router.push("/vendor-services")} style={styles.action}>
           <Ionicons name="construct" size={22} color={colors.brand} />
           <Text style={styles.actT}>Manage Services</Text>

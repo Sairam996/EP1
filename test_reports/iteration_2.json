@@ -1,0 +1,55 @@
+{
+  "summary": "EventPro Phase 2 full backend + frontend testing complete. Backend Phase 2 suite: 17/17 PASS (geo distance_km, referrals + own-code reject + double-apply reject + bilateral 200pt award + history, payments redemption capped at min(balance,request,20%), verify burns redeemed + awards 5% loyalty, PATCH /vendor/me allowed-fields + customer 403 + unknown-field rejection, WebSocket /api/ws/chat/{booking_id} bad-token=4401 / outsider=4403 / authorised customer+vendor exchange + message broadcast + typing-echo-to-others-not-sender + persistence to db.chat_messages). Combined Phase 1+2 suite: 58/60 PASS (the 2 failures are the same test-side artifacts as iteration 1 — lowercased-email assertion + reviews_count recompute baseline, NOT real bugs). Frontend (mobile viewport 390x844): Referrals screen shows code EPDEMO1 + share invite + apply-code field + 'View Points History' link (5 friends joined). Points screen shows balance 4000 with full history (referral_signup, referral_bonus, earn, redeem entries with correct +/- signs and dates). Profile shows new 'Refer & Earn — 200 pts per friend' and 'EventPro Points' menu entries. Checkout screen end-to-end works: 'Redeem Points' card shows 'Available: 4000 • Max usable: 2000 (20% off)', 'Use Max' button fills 2000, price breakdown updates live (Service 10000, Points -2000, GST 500, Total 8500), and earn-back hint updates from '~500 points' to '~400 points'. Vendor dashboard has 'Edit Business Profile' entry that opens /vendor-profile-edit, which prefilled all fields (name/category chips/cover/gallery/description/starting price/address/phone/facilities) and has 'Save Changes' button. Razorpay still in PAYMENT_MODE=mock as designed — order_mock_* IDs returned; verify accepts any signature; loyalty award still fully exercised end-to-end. No red screens, no breaking errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/payments/order", "issue": "20% redemption cap is computed on booking.amount (base) only, but UI displays GST on top. So '20% off' label = 20% of base, not 20% of UI total. Acceptable for MVP but worth aligning copy or cap basis."},
+      {"endpoint": "/api/payments/verify", "issue": "No idempotency — calling /verify twice on the same booking would award loyalty points twice and burn no points the second time (since points_redeemed already consumed). Consider guarding with payment_status==paid early-return."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Repeating RN-Web console warnings: 'shadow* style props are deprecated. Use boxShadow' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Cosmetic only — affects web preview not native build."]}
+    ],
+    "react_native_issues": [
+      {"component": "expo SDK version drift", "issue": "Same minor mismatch persists: expo@54.0.34 (expected 54.0.35), expo-font@14.0.11 (expected 14.0.12), expo-router@6.0.23 (expected 6.0.24). Reference: /app/frontend/package.json. Non-breaking. Run `yarn expo install --check` to fix."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2.py",
+    "/app/backend/tests/test_eventpro_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/pytest.ini",
+    "/app/test_reports/pytest/pytest_phase2.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Add idempotency guard at top of POST /api/payments/verify: if booking.payment_status == 'paid', return early instead of burning/awarding again.",
+    "(Optional) Align Phase-2 cap basis with UI: either compute redeem cap on amount-with-GST or change checkout copy from '(20% off)' to '(20% of service price)'.",
+    "(Optional) Align Expo package versions via `yarn expo install --check` to silence 4× boot warning.",
+    "(Optional) server.py is now 886 lines — exceeds 700-line guideline. Consider splitting into routers (auth, vendors, bookings, payments, referrals, chat, ai, vendor_self, ws)."
+  ],
+  "critical_code_review_comments": [
+    "WebSocket auth pattern is clean: JWT decode → user lookup → booking ownership check → close(4401|4403|4404) before accept(). Correct.",
+    "Referral self-code check uses upper-cased user code AFTER lookup by user.referral_code — works because stored codes are already uppercase from gen_referral_code(). OK but document it.",
+    "PATCH /vendor/me uses a whitelist set — good. Body is `dict` not Pydantic; type-loose but the whitelist prevents abuse.",
+    "Points balance read with projection {'_id':0,'points':1} — correct, no ObjectId leak.",
+    "Mongo never exposes _id in any Phase 2 response path. Verified.",
+    "server.py grew from 724 → 886 lines after Phase 2 — splitting is overdue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2.py (new)",
+    "/app/backend/tests/pytest.ini (new, enables asyncio_mode=auto for WS tests)"
+  ],
+  "success_rate": {
+    "backend": "17/17 Phase 2 (100%); 58/60 combined (96.7%, 2 known test-side artifacts from iteration 1)",
+    "frontend": "100% of Phase 2 critical flows verified — referrals screen, points screen, profile entries, checkout redeem-points (Use Max + live breakdown + earn-back hint), vendor dashboard Edit Business Profile entry, vendor-profile-edit screen prefilled with current data and Save Changes button"
+  },
+  "seed_data_creation": "Phase 2 tests created several TEST_p2_* customers (used for referral + fresh-user payment flow). Demo customer's referred_by is now set (so re-running test_referral_flow uses a fresh user each time — safe). Demo customer balance ends at 4000 points after these tests (verified live).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 test file: /app/backend/tests/test_phase2.py. Uses asyncio_mode=auto from /app/backend/tests/pytest.ini for websockets tests. WS URL pattern: replace https→wss on EXPO_PUBLIC_BACKEND_URL, then /api/ws/chat/{booking_id}?token=JWT. Close codes used: 4401 bad token, 4403 unauthorised user, 4404 booking not found. Frontend testIDs used: login-email, login-password, login-submit. New screens: /referrals /points /vendor-profile-edit (vendor only) /checkout/{booking_id}. Redeem points UI label 'Use Max' fills the input with min(balance, 20%*amount). Customer demo balance currently ~4000 after Phase 2 tests; if it gets exhausted, register a fresh customer + apply EPDEMO1 (200 pts) to test redemption flows. PAYMENT_MODE=mock; order_mock_* IDs; /verify accepts any signature.",
+  "rca_of_issue": "No critical issues. Two minor enhancement opportunities surfaced: (1) /payments/verify is not idempotent — duplicate calls would double-award loyalty; (2) 20% redeem cap basis is booking.amount (excluding GST) while UI shows total with GST — copy could be clearer. Both are minor and acceptable for MVP."
+}

@@ -16,6 +16,8 @@ export default function Profile() {
   };
 
   const items = [
+    { id: "ref", icon: "gift", label: "Refer & Earn — 200 pts per friend", onPress: () => router.push("/referrals") },
+    { id: "pts", icon: "diamond", label: "EventPro Points", onPress: () => router.push("/points") },
     { id: "fav", icon: "heart", label: "Favorites", onPress: () => router.push("/favorites") },
     { id: "ai", icon: "sparkles", label: "Ask AI Assistant", onPress: () => router.push("/ai-chat") },
     { id: "help", icon: "help-circle", label: "Help & Support", onPress: () => {} },
