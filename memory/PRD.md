@@ -1,52 +1,39 @@
-# EventPro — Product Requirements (Phase 1 MVP, shipped)
+# EventPro — Product Requirements
 
 ## Vision
 India's premium D2C marketplace for event services (weddings, sangeet, birthdays, corporate) — Swiggy/Zomato District × Urban Company. Gold-on-black luxe aesthetic.
 
 ## Tech Stack
-- **Frontend**: React Expo (React Native) + expo-router, gold (#D4AF37) / dark luxe theme
-- **Backend**: FastAPI + MongoDB (Motor) + JWT auth
+- **Frontend**: React Expo + expo-router, gold (#D4AF37) / dark luxe theme
+- **Backend**: FastAPI + MongoDB (Motor) + JWT auth + WebSockets
 - **AI**: GPT-5.2 via Emergent Universal LLM Key
-- **Payments**: Razorpay (mock mode for MVP, ready to flip live with `PAYMENT_MODE=live` + real keys)
+- **Payments**: Razorpay (mock mode by default; flip env to live + add keys to go live)
 
-## Roles
-- **Customer**: discover, book, chat, pay, review
-- **Vendor**: dashboard, manage services, accept/reject bookings, availability, KYC
+## Phase 1 (Shipped)
+Customer: discover → vendor → book → pay → review → chat → favorites · AI assistant · Vendor: dashboard, bookings inbox, services, availability, KYC.
 
-## Phase 1 Features (DONE)
-### Customer
-- Login/Signup with role toggle
-- Home: city picker, hero carousel, 10 event types, 6 categories, trending vendors, 3 combo packages
-- Search with category filters & live results
-- Vendor detail: gallery, About/Reviews/Gallery tabs, facilities, similar vendors, sticky Book Now
-- Booking form → checkout → Razorpay (mock) UPI success
-- My Bookings list with status badges; booking detail with star-review submit
-- Customer ↔ vendor chat (polling every 4s)
-- "Ask AI" floating button → multi-turn event-planning chat (gpt-5.2)
-- Favorites toggle
-- Profile + sign out
+## Phase 2 (Shipped — this iteration)
+1. **Razorpay real code path** in `/api/payments/{order,verify}` — toggle `PAYMENT_MODE=live` + add real `RAZORPAY_KEY_ID`/`SECRET` to go live.
+2. **WebSocket chat** at `/api/ws/chat/{booking_id}?token=JWT` with live "is typing…" indicator and live/connecting/offline status.
+3. **GPS + Maps**: `expo-location` requests permission, sends lat/lng to backend; Haversine real distance from user; "Get Directions" button opens native maps app with vendor coords.
+4. **Referrals & Loyalty**:
+   - Every user gets a referral code (`EPxxxxxx`).
+   - Friend signs up & uses code → both get **+200 points** instantly.
+   - On every paid booking → customer earns **5% of paid amount** as points.
+   - Redeem points at checkout: **1 pt = 1 INR**, capped at **20% of booking**.
+   - Idempotent `/payments/verify` (no double-award if called twice).
+5. **Vendor profile editor** at `/vendor-profile-edit`: edit business name, category, cover, gallery, description, starting price, address, phone, facilities — all updates persist via `PATCH /api/vendor/me`.
 
-### Vendor
-- Dashboard tiles (views, inquiries, bookings, revenue, status counts)
-- Bookings Inbox with Accept/Reject/Mark-Completed/Chat
-- Services CRUD
-- Availability calendar (blocked dates + max-per-day)
-- KYC submit → auto-approved verified badge
+## Demo Data
+- 20 verified vendors (Hyderabad/Mumbai/Delhi/Bangalore × 5 categories) with real lat/lng coordinates.
+- 3 combo packages.
+- Demo customer `customer.demo@eventpro.in` / `Demo@123` (referral code `EPDEMO1`, 500 starting points).
+- Vendor admins `vendor1..20@eventpro.in` / `Vendor@123`.
 
-### Backend APIs
-`/api/auth/{register,login,me}` · `/api/vendors[?city&category&event_type&q&trending]` · `/api/vendors/{id}{,/similar,/reviews}` · `/api/bookings` (CRUD + role-aware) · `/api/reviews` · `/api/favorites` · `/api/chat/{threads,messages,messages/{bid}}` · `/api/ai/chat` · `/api/payments/{order,verify}` · `/api/kyc` · `/api/vendor/{me,dashboard,services,availability}` · `/api/{categories,event-types,cities,combos}`
-
-## Seeded Demo Data
-- 20 verified vendors across Hyderabad / Mumbai / Delhi / Bangalore (5 categories)
-- 3 combo packages
-- 1 demo customer (`customer.demo@eventpro.in` / `Demo@123`)
-- 20 vendor admins (`vendorN@eventpro.in` / `Vendor@123`)
-
-## Phase 2 Backlog (not built)
-- Real Razorpay live mode (flip env when keys provided)
-- WebSocket chat (currently 4s polling)
-- Google Maps live navigation + GPS
-- Firebase push notifications
-- Multi-language (Hindi/Telugu/Tamil)
-- Referrals & loyalty
-- Admin moderation panel
+## Backlog (Phase 3)
+- Plug live Razorpay keys (env flip; checkout UI ready).
+- Embedded Google Static Map preview on vendor detail (needs API key).
+- Multi-language (Hindi/Telugu/Tamil) via i18next.
+- Admin moderation panel.
+- Refer-a-friend leaderboard / tiered loyalty (silver/gold/platinum).
+- FCM push notifications (requires real device builds — not Expo Go).

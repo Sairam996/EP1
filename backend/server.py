@@ -543,6 +543,12 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
 async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]})
     if not b: raise HTTPException(404)
+    # Idempotency: if already paid, return previously-stored result
+    if b.get("payment_status") == "paid":
+        return {"success": True,
+                "earned_points": int(b.get("points_earned", 0)),
+                "redeemed_points": int(b.get("points_redeemed", 0)),
+                "already_paid": True}
     if PAYMENT_MODE == "live" and RAZORPAY_KEY_ID:
         import razorpay
         rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -572,6 +578,8 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
         await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
             "delta": earn, "reason": "earn", "booking_id": body.booking_id,
             "at": datetime.now(timezone.utc).isoformat()})
+    # Persist points_earned on booking for idempotency replay
+    await db.bookings.update_one({"id": body.booking_id}, {"$set": {"points_earned": earn}})
     return {"success": True, "earned_points": earn, "redeemed_points": redeemed}
 
 # --- Referrals & Loyalty ---
