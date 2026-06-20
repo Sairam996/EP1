@@ -3,12 +3,16 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/src/context/AuthContext";
+import { api } from "@/src/api";
 import { colors, radius, spacing } from "@/src/theme";
 
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const [tier, setTier] = useState<any>(null);
+  useEffect(() => { if (user?.role === "customer") api.get("/me/tier").then(setTier).catch(() => {}); }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -34,6 +38,13 @@ export default function Profile() {
           <Ionicons name="location" size={12} color={colors.brand} />
           <Text style={{ color: colors.brand, fontSize: 12 }}>{user?.city}</Text>
         </View>
+        {tier?.tier && (
+          <Pressable testID="tier-badge" onPress={() => router.push("/points")} style={[styles.tierPill, { borderColor: tier.tier.color }]}>
+            <Ionicons name={tier.tier.icon} size={14} color={tier.tier.color} />
+            <Text style={{ color: tier.tier.color, fontSize: 12, fontWeight: "600", letterSpacing: 0.5 }}>{tier.tier.name} Member</Text>
+            {tier.tier.boost > 0 && <Text style={{ color: tier.tier.color, fontSize: 10 }}>+{Math.round(tier.tier.boost * 100)}% bonus</Text>}
+          </Pressable>
+        )}
       </View>
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.sm, marginTop: spacing.lg }}>
         {items.map(it => (
@@ -58,6 +69,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 22, fontWeight: "500", marginTop: spacing.md },
   email: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   badge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
+  tierPill: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface2 },
   row: { flexDirection: "row", alignItems: "center", gap: 14, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
   lbl: { color: colors.text, fontSize: 15, fontWeight: "500", flex: 1 },
 });

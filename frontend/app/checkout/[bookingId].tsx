@@ -14,7 +14,7 @@ export default function Checkout() {
   const [points, setPoints] = useState<{ balance: number } | null>(null);
   const [redeemInput, setRedeemInput] = useState("0");
   const [paying, setPaying] = useState(false);
-  const [done, setDone] = useState<{ earned: number; redeemed: number } | null>(null);
+  const [done, setDone] = useState<{ earned: number; redeemed: number; tier?: string; tier_up?: boolean; boost_pct?: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +38,13 @@ export default function Checkout() {
         razorpay_payment_id: paymentId,
         razorpay_signature: order.mode === "live" ? "TODO_real_signature_from_checkout_callback" : "mock_signature",
       });
-      if (verify.success) setDone({ earned: verify.earned_points || 0, redeemed: verify.redeemed_points || 0 });
+      if (verify.success) setDone({
+        earned: verify.earned_points || 0,
+        redeemed: verify.redeemed_points || 0,
+        tier: verify.tier,
+        tier_up: verify.tier_up,
+        boost_pct: verify.boost_pct,
+      });
     } catch (e: any) { setErr(e.message); }
     finally { setPaying(false); }
   };
@@ -54,7 +60,16 @@ export default function Checkout() {
         {done.earned > 0 && (
           <View style={styles.earnedCard} testID="earned-card">
             <Ionicons name="sparkles" size={20} color={colors.brand} />
-            <Text style={{ color: colors.brand, fontWeight: "600" }}>+{done.earned} EventPro Points earned</Text>
+            <Text style={{ color: colors.brand, fontWeight: "600" }}>
+              +{done.earned} EventPro Points earned
+              {done.boost_pct ? ` (incl. +${done.boost_pct}% ${done.tier} bonus)` : ""}
+            </Text>
+          </View>
+        )}
+        {done.tier_up && (
+          <View style={[styles.earnedCard, { backgroundColor: "#FFD70022", borderColor: "#FFD700" }]} testID="tier-up-banner">
+            <Ionicons name="trophy" size={22} color="#FFD700" />
+            <Text style={{ color: "#FFD700", fontWeight: "700" }}>🎉 You've leveled up to {done.tier}!</Text>
           </View>
         )}
         {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off)</Text>}

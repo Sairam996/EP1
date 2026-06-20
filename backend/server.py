@@ -570,17 +570,27 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
         await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
             "delta": -redeemed, "reason": "redeem", "booking_id": body.booking_id,
             "at": datetime.now(timezone.utc).isoformat()})
-    # Award loyalty: 5% of final paid amount as points
+    # Award loyalty: 5% of final paid amount + tier boost
     paid_amt = int(b.get("final_amount", b["amount"]))
-    earn = int(round(paid_amt * 0.05))
+    cur_user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "lifetime_points": 1})
+    lifetime_before = int((cur_user or {}).get("lifetime_points", 0))
+    tier = compute_tier(lifetime_before)
+    base = paid_amt * 0.05
+    earn = int(round(base * (1.0 + tier["boost"])))
     if earn > 0:
-        await db.users.update_one({"id": u["id"]}, {"$inc": {"points": earn}})
+        await db.users.update_one({"id": u["id"]},
+            {"$inc": {"points": earn, "lifetime_points": earn}})
         await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
             "delta": earn, "reason": "earn", "booking_id": body.booking_id,
+            "tier": tier["name"], "boost_pct": int(tier["boost"] * 100),
             "at": datetime.now(timezone.utc).isoformat()})
-    # Persist points_earned on booking for idempotency replay
+    # Check tier-up
+    new_lifetime = lifetime_before + earn
+    new_tier = compute_tier(new_lifetime)
+    tier_up = new_tier["name"] != tier["name"]
     await db.bookings.update_one({"id": body.booking_id}, {"$set": {"points_earned": earn}})
-    return {"success": True, "earned_points": earn, "redeemed_points": redeemed}
+    return {"success": True, "earned_points": earn, "redeemed_points": redeemed,
+            "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": int(tier["boost"] * 100)}
 
 # --- Referrals & Loyalty ---
 @api.get("/me/referral")
@@ -607,16 +617,40 @@ async def apply_referral(body: ApplyReferralIn, u: dict = Depends(get_current_us
     referrer = await db.users.find_one({"referral_code": code}, {"_id": 0})
     if not referrer:
         raise HTTPException(404, "Invalid referral code")
-    # Award both
+    # Award both — bonus also increments lifetime tier progress for referees
     BONUS = 200
-    await db.users.update_one({"id": u["id"]}, {"$set": {"referred_by": code}, "$inc": {"points": BONUS}})
-    await db.users.update_one({"id": referrer["id"]}, {"$inc": {"points": BONUS}})
+    await db.users.update_one({"id": u["id"]}, {"$set": {"referred_by": code},
+        "$inc": {"points": BONUS, "lifetime_points": BONUS}})
+    await db.users.update_one({"id": referrer["id"]},
+        {"$inc": {"points": BONUS, "lifetime_points": BONUS}})
     now = datetime.now(timezone.utc).isoformat()
     await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
         "delta": BONUS, "reason": "referral_signup", "at": now})
     await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": referrer["id"],
         "delta": BONUS, "reason": "referral_bonus", "at": now})
     return {"success": True, "awarded": BONUS}
+
+def compute_tier(lifetime: int) -> dict:
+    if lifetime >= 5000:
+        return {"name": "Platinum", "icon": "diamond", "color": "#E5E4E2",
+                "boost": 0.10, "min": 5000, "next": None, "next_at": None,
+                "perks": ["10% bonus cashback", "Priority support", "Exclusive concierge"]}
+    if lifetime >= 1000:
+        return {"name": "Gold", "icon": "trophy", "color": "#D4AF37",
+                "boost": 0.05, "min": 1000, "next": "Platinum", "next_at": 5000,
+                "perks": ["5% bonus cashback", "Early access to combos"]}
+    return {"name": "Silver", "icon": "medal", "color": "#C0C0C0",
+            "boost": 0.0, "min": 0, "next": "Gold", "next_at": 1000,
+            "perks": ["Standard 5% cashback", "Refer friends for +200 pts"]}
+
+@api.get("/me/tier")
+async def my_tier(u: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "lifetime_points": 1, "points": 1})
+    lifetime = int((user or {}).get("lifetime_points", 0))
+    balance = int((user or {}).get("points", 0))
+    tier = compute_tier(lifetime)
+    progress = 1.0 if tier["next_at"] is None else min(1.0, lifetime / tier["next_at"])
+    return {"lifetime_points": lifetime, "balance": balance, "tier": tier, "progress": round(progress, 3)}
 
 @api.get("/me/points")
 async def my_points(u: dict = Depends(get_current_user)):
@@ -814,7 +848,7 @@ async def seed():
             "id": str(uuid.uuid4()), "name": "Demo Customer",
             "email": "customer.demo@eventpro.in", "phone": "+919999999999",
             "password_hash": hash_pw("Demo@123"), "role": "customer",
-            "city": "Hyderabad", "referral_code": "EPDEMO1", "points": 500,
+            "city": "Hyderabad", "referral_code": "EPDEMO1", "points": 500, "lifetime_points": 1500,
             "avatar": "https://ui-avatars.com/api/?name=Demo+Customer&background=D4AF37&color=0B0C10",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
