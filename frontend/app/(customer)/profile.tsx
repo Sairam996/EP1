@@ -65,11 +65,11 @@ export default function Profile() {
 }
 const styles = StyleSheet.create({
   header: { alignItems: "center", paddingHorizontal: spacing.xl },
-  avatar: { width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: colors.brand },
-  name: { color: colors.text, fontSize: 22, fontWeight: "500", marginTop: spacing.md },
-  email: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
-  badge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
-  tierPill: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface2 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
-  lbl: { color: colors.text, fontSize: 15, fontWeight: "500", flex: 1 },
+  avatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: colors.brand },
+  name: { color: colors.text, fontSize: 17, fontWeight: "500", marginTop: spacing.sm },
+  email: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
+  tierPill: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface2 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  lbl: { color: colors.text, fontSize: 14, fontWeight: "500", flex: 1 },
 });

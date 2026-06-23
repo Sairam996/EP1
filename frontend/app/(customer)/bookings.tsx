@@ -67,12 +67,12 @@ export default function Bookings() {
   );
 }
 const styles = StyleSheet.create({
-  h: { color: colors.text, fontSize: 24, fontWeight: "500", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
-  card: { flexDirection: "row", backgroundColor: colors.surface2, borderRadius: radius.lg, marginBottom: spacing.md, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
-  img: { width: 100, height: 110 },
-  name: { color: colors.text, fontSize: 16, fontWeight: "500" },
-  meta: { color: colors.textMuted, fontSize: 12 },
-  tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1 },
-  tagT: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
-  exploreBtn: { backgroundColor: colors.brand, paddingHorizontal: 24, paddingVertical: 12, borderRadius: radius.md, marginTop: 12 },
+  h: { color: colors.text, fontSize: 18, fontWeight: "500", paddingHorizontal: spacing.xl, marginTop: spacing.xs, marginBottom: spacing.sm },
+  card: { flexDirection: "row", backgroundColor: colors.surface2, borderRadius: radius.lg, marginBottom: spacing.sm, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
+  img: { width: 84, height: 92 },
+  name: { color: colors.text, fontSize: 14, fontWeight: "500" },
+  meta: { color: colors.textMuted, fontSize: 11 },
+  tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, borderWidth: 1 },
+  tagT: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  exploreBtn: { backgroundColor: colors.brand, paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.md, marginTop: 12 },
 });

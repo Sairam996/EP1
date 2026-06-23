@@ -60,14 +60,14 @@ export function Rating({ value, size = 14 }: { value: number; size?: number }) {
 }
 
 const styles = StyleSheet.create({
-  gBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
-  gBtnText: { color: colors.onBrand, fontSize: 16, fontWeight: "600", letterSpacing: 0.3 },
-  ghBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.brand },
-  ghBtnText: { color: colors.brand, fontSize: 15, fontWeight: "500" },
-  card: { backgroundColor: colors.surface2, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
-  h1: { color: colors.text, fontSize: 28, fontWeight: "500", letterSpacing: 0.3 },
-  h2: { color: colors.text, fontSize: 20, fontWeight: "500" },
-  body: { color: colors.text, fontSize: 14, lineHeight: 20 },
-  pill: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2, alignItems: "center", justifyContent: "center" },
-  pillText: { color: colors.textSubtle, fontSize: 13, fontWeight: "500" },
+  gBtn: { backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 11, alignItems: "center", justifyContent: "center" },
+  gBtnText: { color: colors.onBrand, fontSize: 14, fontWeight: "600", letterSpacing: 0.3 },
+  ghBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.brand },
+  ghBtnText: { color: colors.brand, fontSize: 14, fontWeight: "500" },
+  card: { backgroundColor: colors.surface2, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
+  h1: { color: colors.text, fontSize: 22, fontWeight: "500", letterSpacing: 0.3 },
+  h2: { color: colors.text, fontSize: 17, fontWeight: "500" },
+  body: { color: colors.text, fontSize: 13, lineHeight: 19 },
+  pill: { paddingHorizontal: 12, height: 32, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2, alignItems: "center", justifyContent: "center" },
+  pillText: { color: colors.textSubtle, fontSize: 12, fontWeight: "500" },
 });
