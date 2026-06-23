@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Pill, Body } from "@/src/components/UI";
+import { DateField } from "@/src/components/DateField";
 import { colors, radius, spacing } from "@/src/theme";
 
 const EVENT_TYPES = ["wedding", "sangeet", "haldi", "mehendi", "reception", "birthday", "corporate", "engagement"];
@@ -58,9 +59,7 @@ export default function BookingForm() {
             <Pill key={et} label={et[0].toUpperCase() + et.slice(1)} active={eventType === et} onPress={() => setEventType(et)} testID={`et-${et}`} />
           ))}
         </ScrollView>
-        <Text style={styles.label}>Event Date (YYYY-MM-DD)</Text>
-        <TextInput testID="booking-date" value={date} onChangeText={setDate} placeholder="2026-12-15"
-          placeholderTextColor={colors.textMuted} style={styles.input} />
+        <DateField label="Event Date" value={date} onChange={setDate} testID="booking-date-field" />
         <Text style={styles.label}>Number of Guests</Text>
         <TextInput testID="booking-guests" value={guests} onChangeText={setGuests} placeholder="100"
           placeholderTextColor={colors.textMuted} style={styles.input} keyboardType="number-pad" />

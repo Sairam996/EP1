@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { colors, radius, spacing } from "@/src/theme";
@@ -35,43 +36,50 @@ export default function Points() {
         <Text style={styles.title}>EventPro Points</Text>
       </View>
 
-      {/* Tier card */}
-      <View testID="tier-card" style={[styles.tierCard, { borderColor: t.color }]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={[styles.tierIcon, { backgroundColor: t.color + "22", borderColor: t.color }]}>
-            <Ionicons name={t.icon} size={28} color={t.color} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.textMuted, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" }}>Your Tier</Text>
-            <Text style={[styles.tierName, { color: t.color }]}>{t.name}</Text>
-          </View>
-          {t.boost > 0 && (
-            <View style={[styles.boostBadge, { borderColor: t.color }]}>
-              <Text style={{ color: t.color, fontSize: 11, fontWeight: "700" }}>+{Math.round(t.boost * 100)}%</Text>
+      {/* Premium gold-gradient tier card */}
+      <View testID="tier-card" style={styles.tierShadow}>
+        <LinearGradient colors={
+          t.name === "Platinum" ? ["#E5E4E2", "#B8B6B0", "#7A7872"] :
+          t.name === "Gold"     ? ["#F8E27E", "#D4AF37", "#8C7022"] :
+                                  ["#D8D8D8", "#9A9A9A", "#5A5A5A"]
+        } start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tierCard}>
+          <LinearGradient colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)"]} style={StyleSheet.absoluteFillObject} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={styles.tierIcon}>
+              <Ionicons name={t.icon} size={26} color={t.name === "Gold" ? "#3A2D08" : "#1A1A1F"} />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.tierEyebrow}>EVENTPRO MEMBER</Text>
+              <Text style={styles.tierName}>{t.name}</Text>
+            </View>
+            {t.boost > 0 && (
+              <View style={styles.boostBadge}>
+                <Text style={styles.boostText}>+{Math.round(t.boost * 100)}%</Text>
+              </View>
+            )}
+          </View>
+          {t.next ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.progressLbl}>
+                {remaining} pts to <Text style={{ fontWeight: "700" }}>{t.next}</Text>
+              </Text>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+              </View>
+              <Text style={styles.lifeT}>Lifetime: {tier.lifetime_points} pts</Text>
+            </View>
+          ) : (
+            <Text style={[styles.lifeT, { marginTop: spacing.md }]}>👑 Top tier — Lifetime {tier.lifetime_points} pts</Text>
           )}
-        </View>
-        {t.next ? (
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={{ color: colors.textSubtle, fontSize: 12 }}>
-              {remaining} pts to <Text style={{ color: colors.brand, fontWeight: "600" }}>{t.next}</Text>
-            </Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: t.color }]} />
-            </View>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 4 }}>Lifetime earned: {tier.lifetime_points}</Text>
+          <View style={styles.perks}>
+            {t.perks.map((p: string) => (
+              <View key={p} style={styles.perk}>
+                <Ionicons name="checkmark-circle" size={13} color="rgba(255,255,255,0.95)" />
+                <Text style={styles.perkText}>{p}</Text>
+              </View>
+            ))}
           </View>
-        ) : (
-          <Text style={{ color: t.color, fontSize: 12, marginTop: spacing.md }}>👑 Top tier unlocked</Text>
-        )}
-        <View style={styles.perks}>
-          {t.perks.map((p: string) => (
-            <View key={p} style={styles.perk}>
-              <Ionicons name="checkmark-circle" size={14} color={t.color} />
-              <Text style={{ color: colors.textSubtle, fontSize: 12 }}>{p}</Text>
-            </View>
-          ))}
-        </View>
+        </LinearGradient>
       </View>
 
       {/* Balance card */}
@@ -111,14 +119,20 @@ export default function Points() {
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
-  tierCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1 },
-  tierIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  tierName: { fontSize: 20, fontWeight: "500", letterSpacing: 0.5 },
-  boostBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, borderWidth: 1 },
-  progressBar: { height: 5, backgroundColor: colors.surface3, borderRadius: 3, overflow: "hidden", marginTop: 5 },
-  progressFill: { height: "100%", borderRadius: 3 },
-  perks: { marginTop: spacing.sm, gap: 4 },
+  tierShadow: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: 20, shadowColor: colors.brand, shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  tierCard: { padding: 18, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" },
+  tierIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(255,255,255,0.9)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+  tierEyebrow: { color: "rgba(255,255,255,0.85)", fontSize: 10, letterSpacing: 3, fontWeight: "600" },
+  tierName: { color: "#fff", fontSize: 24, fontWeight: "600", letterSpacing: 1, marginTop: 2, textShadowColor: "rgba(0,0,0,0.4)", textShadowRadius: 6 },
+  boostBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: "rgba(0,0,0,0.35)", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+  boostText: { color: "#fff", fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  progressLbl: { color: "rgba(255,255,255,0.95)", fontSize: 12 },
+  progressBar: { height: 6, backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 3, overflow: "hidden", marginTop: 6 },
+  progressFill: { height: "100%", borderRadius: 3, backgroundColor: "#fff" },
+  lifeT: { color: "rgba(255,255,255,0.7)", fontSize: 10, marginTop: 4, letterSpacing: 0.5 },
+  perks: { marginTop: spacing.md, gap: 5 },
   perk: { flexDirection: "row", alignItems: "center", gap: 6 },
+  perkText: { color: "rgba(255,255,255,0.92)", fontSize: 12 },
   balanceCard: { alignItems: "center", padding: spacing.lg, marginHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, gap: 2 },
   balance: { color: colors.brand, fontSize: 34, fontWeight: "300", marginTop: 2 },
   balanceLbl: { color: colors.textSubtle, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },

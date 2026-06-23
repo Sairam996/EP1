@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput, Platform } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput, Platform, Dimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConfettiCannon from "react-native-confetti-cannon";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { colors, radius, spacing } from "@/src/theme";
+
+const { width, height } = Dimensions.get("window");
 
 export default function Checkout() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -54,6 +57,14 @@ export default function Checkout() {
   if (done) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: spacing.xl }}>
+        {done.tier_up && (
+          <>
+            <ConfettiCannon count={150} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={350}
+              colors={["#D4AF37", "#FFD700", "#E5E4E2", "#FFF8DC", "#B5952F"]} />
+            <ConfettiCannon count={80} origin={{ x: width, y: 0 }} fadeOut autoStart explosionSpeed={300}
+              colors={["#D4AF37", "#FFD700", "#FFF"]} />
+          </>
+        )}
         <View style={styles.successCircle}><Ionicons name="checkmark" size={48} color={colors.onBrand} /></View>
         <Text style={styles.successTitle}>Payment Successful!</Text>
         <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>Your booking with {booking.vendor_name} is confirmed.</Text>

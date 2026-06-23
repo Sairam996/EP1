@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, Dimensions } from "react-native";
 import { Image } from "expo-image";
-import { Link, router } from "expo-router";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
-import { GoldButton, Body } from "@/src/components/UI";
+import { GoldButton } from "@/src/components/UI";
 import { colors, radius, spacing } from "@/src/theme";
 
+const { width, height } = Dimensions.get("window");
+
 export default function Login() {
+  const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,51 +29,64 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <Image source={{ uri: "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg" }}
-          style={styles.hero} contentFit="cover" />
-        <LinearGradient colors={["transparent", colors.surface]} style={styles.scrim} />
-        <View style={styles.brandWrap}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      {/* Full-screen background image */}
+      <Image source={{ uri: "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg" }}
+        style={StyleSheet.absoluteFillObject} contentFit="cover" />
+      <LinearGradient colors={["rgba(11,12,16,0.35)", "rgba(11,12,16,0.85)", "rgba(11,12,16,0.98)"]}
+        locations={[0, 0.45, 1]} style={StyleSheet.absoluteFillObject} />
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* Brand */}
+        <View style={[styles.brandWrap, { paddingTop: insets.top + 56 }]}>
           <Text style={styles.brand}>EventPro</Text>
+          <View style={styles.brandLine} />
           <Text style={styles.tag}>India's premium event marketplace</Text>
         </View>
-        <View style={styles.form}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Body muted style={{ marginBottom: spacing.xl }}>Sign in to plan your next celebration</Body>
-          <Text style={styles.label}>Email</Text>
-          <TextInput testID="login-email" value={email} onChangeText={setEmail} placeholder="[email protected]"
-            placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="none" keyboardType="email-address" />
-          <Text style={styles.label}>Password</Text>
-          <TextInput testID="login-password" value={password} onChangeText={setPassword} placeholder="••••••••"
-            placeholderTextColor={colors.textMuted} style={styles.input} secureTextEntry />
-          {err ? <Text style={styles.err}>{err}</Text> : null}
-          <GoldButton testID="login-submit" title="Sign In" onPress={submit} loading={loading} />
-          <Pressable testID="goto-signup" onPress={() => router.push("/(auth)/signup")} style={{ marginTop: spacing.lg, alignItems: "center" }}>
-            <Body muted>New here? <Text style={{ color: colors.brand }}>Create an account</Text></Body>
-          </Pressable>
-          <View style={styles.demo}>
-            <Body muted style={{ fontSize: 12 }}>Demo: [email protected] / Demo@123</Body>
-            <Body muted style={{ fontSize: 12 }}>Vendor: [email protected] / Vendor@123</Body>
-          </View>
+
+        {/* Glass login card */}
+        <View style={styles.cardWrap}>
+          <BlurView intensity={Platform.OS === "ios" ? 35 : 50} tint="dark" style={styles.blurCard}>
+            <View style={styles.cardInner}>
+              <Text style={styles.title}>Welcome back</Text>
+              <Text style={styles.subtitle}>Sign in to continue</Text>
+              <View style={{ height: spacing.lg }} />
+              <TextInput testID="login-email" value={email} onChangeText={setEmail} placeholder="Email"
+                placeholderTextColor="rgba(255,255,255,0.5)" style={styles.input}
+                autoCapitalize="none" keyboardType="email-address" />
+              <TextInput testID="login-password" value={password} onChangeText={setPassword} placeholder="Password"
+                placeholderTextColor="rgba(255,255,255,0.5)" style={styles.input} secureTextEntry />
+              {err ? <Text style={styles.err}>{err}</Text> : null}
+              <GoldButton testID="login-submit" title="Sign In" onPress={submit} loading={loading} style={{ marginTop: 4 }} />
+              <Pressable testID="goto-signup" onPress={() => router.push("/(auth)/signup")} style={{ marginTop: 12, alignItems: "center" }}>
+                <Text style={styles.linkMuted}>
+                  New here? <Text style={{ color: colors.brand, fontWeight: "600" }}>Create account</Text>
+                </Text>
+              </Pressable>
+            </View>
+          </BlurView>
+          <Text style={styles.demoHint}>
+            Demo · customer.demo@eventpro.in / Demo@123
+          </Text>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { width: "100%", height: 280, position: "absolute" },
-  scrim: { position: "absolute", left: 0, right: 0, top: 100, height: 220 },
-  brandWrap: { marginTop: 70, alignItems: "center", paddingHorizontal: spacing.xl },
-  brand: { color: colors.brand, fontSize: 44, fontWeight: "300", letterSpacing: 5 },
-  tag: { color: colors.textSubtle, marginTop: 4, fontStyle: "italic" },
-  form: { marginTop: 200, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
-  title: { color: colors.text, fontSize: 28, fontWeight: "500" },
-  label: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14,
-    color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
-  err: { color: colors.error, marginTop: spacing.md, marginBottom: spacing.sm },
-  demo: { marginTop: spacing.xxl, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, gap: 4 },
+  brandWrap: { alignItems: "center", paddingHorizontal: spacing.xl },
+  brand: { color: colors.brand, fontSize: 38, fontWeight: "300", letterSpacing: 6 },
+  brandLine: { width: 60, height: 1, backgroundColor: colors.brand, opacity: 0.5, marginTop: 6 },
+  tag: { color: "rgba(255,255,255,0.7)", marginTop: 8, fontStyle: "italic", fontSize: 12, letterSpacing: 0.5 },
+  cardWrap: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.xl, paddingBottom: 60 },
+  blurCard: { borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(212,175,55,0.25)" },
+  cardInner: { padding: 22, backgroundColor: "rgba(20,20,26,0.55)" },
+  title: { color: colors.text, fontSize: 22, fontWeight: "500" },
+  subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 },
+  input: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12,
+    color: colors.text, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", fontSize: 14, marginBottom: 10 },
+  err: { color: "#FF8A8A", marginBottom: 8, fontSize: 12 },
+  linkMuted: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
+  demoHint: { color: "rgba(255,255,255,0.4)", fontSize: 10, textAlign: "center", marginTop: 14, letterSpacing: 0.3 },
 });

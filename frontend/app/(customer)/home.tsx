@@ -9,6 +9,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
 import { colors, radius, spacing } from "@/src/theme";
 import { Rating } from "@/src/components/UI";
+import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
 
 const { width } = Dimensions.get("window");
 
@@ -99,29 +100,17 @@ export default function Home() {
         <Text style={styles.section}>Event Types</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {eventTypes.map(et => (
-            <Pressable key={et.id} testID={`event-${et.id}`}
-              onPress={() => router.push(`/search?event_type=${et.id}`)}
-              style={styles.eventTile}>
-              <View style={styles.eventIconWrap}>
-                <Ionicons name={et.icon} size={22} color={colors.brand} />
-              </View>
-              <Text style={styles.eventLbl}>{et.name}</Text>
-            </Pressable>
+            <AnimatedEventTile key={et.id} testID={`event-${et.id}`} label={et.name} icon={et.icon}
+              onPress={() => router.push(`/search?event_type=${et.id}`)} />
           ))}
         </ScrollView>
         {/* Categories */}
         <Text style={styles.section}>Categories</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          <Pressable testID="cat-all" onPress={() => setCategory(null)}
-            style={[styles.catChip, !category && { borderColor: colors.brand, backgroundColor: colors.brandTint }]}>
-            <Text style={{ color: !category ? colors.brand : colors.textSubtle, fontWeight: "500" }}>All</Text>
-          </Pressable>
+          <AnimatedChip testID="cat-all" label="All" active={!category} onPress={() => setCategory(null)} />
           {categories.map(c => (
-            <Pressable key={c.id} testID={`cat-${c.id}`} onPress={() => setCategory(c.id)}
-              style={[styles.catChip, category === c.id && { borderColor: colors.brand, backgroundColor: colors.brandTint }]}>
-              <Ionicons name={c.icon} size={14} color={category === c.id ? colors.brand : colors.textMuted} style={{ marginRight: 6 }} />
-              <Text style={{ color: category === c.id ? colors.brand : colors.textSubtle, fontWeight: "500" }}>{c.name}</Text>
-            </Pressable>
+            <AnimatedChip key={c.id} testID={`cat-${c.id}`} label={c.name} icon={c.icon}
+              active={category === c.id} onPress={() => setCategory(c.id)} />
           ))}
         </ScrollView>
         {/* Trending vendors */}
