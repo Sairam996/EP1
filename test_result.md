@@ -101,3 +101,48 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: EventPro Indian D2C event marketplace — production polish, in-app live Google-Maps-style navigation, mocked payments & mocked email.
+
+frontend:
+  - task: "In-app live navigation (Leaflet + OSRM inside WebView/iframe)"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/navigate/[vendorId].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "New /navigate/[vendorId] screen. Uses NavMapHost (WebView on native, srcDoc iframe on web) to embed Leaflet.js from cdnjs (bypasses Cloudflare email obfuscation). Fetches OSRM public demo routing for turn-by-turn steps, live GPS via expo-location watchPositionAsync (native) / navigator.geolocation.watchPosition (web). Displays: top instruction card with maneuver icon & upcoming step, bottom ETA/distance card, recenter & locate FABs, Start turn-by-turn CTA that deep-links to Google/Apple Maps for real voice nav. Vendor detail page now shows a 'Live Nav' primary button + 'Open Maps' secondary. Screenshot-verified on web preview at Hyderabad coordinates — route drawn, 22 min / 16.8 km ETA, instructions localized to street names."
+
+backend:
+  - task: "Fix pre-existing SyntaxError in server.py"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        -working: true
+        -agent: "main"
+        -comment: "Removed stray duplicate WS block (lines 993-999) that caused uvicorn to fail to import server.py. Backend now boots cleanly."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 4
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "In-app live navigation (Leaflet + OSRM inside WebView/iframe)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Added in-app live navigation. Route + turn-by-turn instructions + ETA + live GPS updates working on web preview via iframe + Leaflet + OSRM. On iOS/Android same HTML runs inside react-native-webview. No API key needed. External Google/Apple Maps fallback preserved for voice guidance."

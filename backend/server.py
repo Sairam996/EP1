@@ -19,6 +19,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 from passlib.context import CryptContext
 from jose import jwt, JWTError
+from notifications import (send_push, send_email, register_device,
+    tpl_welcome, tpl_login_alert, tpl_booking_created_customer, tpl_booking_new_vendor,
+    tpl_booking_status, tpl_payment_receipt, tpl_review_received)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -155,6 +158,11 @@ class ChatMsgIn(BaseModel):
     booking_id: str
     text: str
 
+class RegisterPushIn(BaseModel):
+    user_id: str
+    platform: str
+    device_token: str
+
 class AIChatIn(BaseModel):
     conversation_id: Optional[str] = None
     message: str
@@ -243,6 +251,11 @@ async def get_categories(): return CATEGORIES
 @api.get("/cities")
 async def get_cities(): return CITIES
 
+@api.post("/register-push", status_code=201)
+async def api_register_push(body: RegisterPushIn):
+    await register_device(body.user_id, body.platform, body.device_token)
+    return {"status": "registered"}
+
 # --- Auth ---
 @api.post("/auth/register", response_model=AuthOut)
 async def register(body: RegisterIn):
@@ -281,6 +294,10 @@ async def login(body: LoginIn):
     u = await db.users.find_one({"email": body.email.lower()})
     if not u or not verify_pw(body.password, u["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
+    try:
+        subj, html, preview = tpl_login_alert(u["name"])
+        await send_email(u["email"], subj, html, preview)
+    except Exception as e: logger.warning(f"login notify failed: {e}")
     token = make_token(u["id"], u["role"])
     return {"token": token, "user": {
         "id": u["id"], "name": u["name"], "email": u["email"], "phone": u["phone"],
@@ -390,6 +407,24 @@ async def create_booking(body: BookingIn, u: dict = Depends(require_role("custom
            "status": "pending", "payment_status": "unpaid",
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.bookings.insert_one(doc.copy())
+    # Notify customer + vendor owner
+    try:
+        v = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0, "name": 1, "owner_id": 1})
+        owner = await db.users.find_one({"id": v.get("owner_id")}, {"_id": 0, "email": 1, "name": 1, "id": 1}) if v else None
+        # Customer confirmation
+        subj, html, prev = tpl_booking_created_customer(u["name"], v["name"], body.event_type, body.event_date, body.amount)
+        await send_email(u["email"], subj, html, prev)
+        await send_push([u["id"]], "Booking request sent",
+            f"Waiting for {v['name']} to confirm your {body.event_type} on {body.event_date}.",
+            action_url=f"/booking-detail/{bid}")
+        # Vendor new-inquiry
+        if owner:
+            subj2, html2, prev2 = tpl_booking_new_vendor(owner["name"], u["name"], body.event_type, body.event_date, body.amount)
+            await send_email(owner["email"], subj2, html2, prev2)
+            await send_push([owner["id"]], f"New inquiry — {u['name']}",
+                f"{body.event_type.title()} on {body.event_date} · ₹{body.amount:,}",
+                action_url="/(vendor)/bookings")
+    except Exception as e: logger.warning(f"booking notify failed: {e}")
     return await _enrich_booking(doc)
 
 @api.get("/bookings")
@@ -420,6 +455,17 @@ async def update_booking_status(bid: str, status_val: str, u: dict = Depends(req
         raise HTTPException(404, "Booking not found")
     await db.bookings.update_one({"id": bid}, {"$set": {"status": status_val}})
     b["status"] = status_val
+    # Notify customer of status change
+    try:
+        cust = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "name": 1, "email": 1, "id": 1})
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
+        if cust and v and status_val in ("confirmed", "rejected", "completed"):
+            subj, html, prev = tpl_booking_status(cust["name"], v["name"], status_val, b["event_date"])
+            await send_email(cust["email"], subj, html, prev)
+            verb = {"confirmed": "confirmed 🎉", "rejected": "declined", "completed": "marked completed ✓"}[status_val]
+            await send_push([cust["id"]], f"Your booking is {verb}",
+                f"{v['name']} · {b['event_date']}", action_url=f"/booking-detail/{bid}")
+    except Exception as e: logger.warning(f"status notify failed: {e}")
     return await _enrich_booking(b)
 
 # --- Reviews ---
@@ -436,6 +482,16 @@ async def add_review(body: ReviewIn, u: dict = Depends(require_role("customer"))
         avg = sum(r["rating"] for r in revs) / len(revs)
         await db.vendors.update_one({"id": body.vendor_id},
                                     {"$set": {"rating": avg, "reviews_count": len(revs)}})
+    # Notify vendor
+    try:
+        v = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0, "owner_id": 1, "name": 1})
+        owner = await db.users.find_one({"id": v.get("owner_id")}, {"_id": 0, "email": 1, "name": 1, "id": 1}) if v else None
+        if owner:
+            subj, html, prev = tpl_review_received(owner["name"], u["name"], body.rating, body.comment)
+            await send_email(owner["email"], subj, html, prev)
+            await send_push([owner["id"]], f"{u['name']} left a {body.rating}★ review",
+                (body.comment[:80] + "…") if body.comment and len(body.comment) > 80 else (body.comment or "Tap to view"))
+    except Exception as e: logger.warning(f"review notify failed: {e}")
     return {k: v for k, v in doc.items()}
 
 # --- Chat (booking threads) ---
@@ -589,6 +645,14 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
     new_tier = compute_tier(new_lifetime)
     tier_up = new_tier["name"] != tier["name"]
     await db.bookings.update_one({"id": body.booking_id}, {"$set": {"points_earned": earn}})
+    # Payment receipt email + push
+    try:
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
+        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn)
+        await send_email(u["email"], subj, html, prev)
+        await send_push([u["id"]], "Payment successful ✓",
+            f"₹{paid_amt:,} paid to {v['name'] if v else 'vendor'}." + (f" +{earn} points!" if earn else ""))
+    except Exception as e: logger.warning(f"payment notify failed: {e}")
     return {"success": True, "earned_points": earn, "redeemed_points": redeemed,
             "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": int(tier["boost"] * 100)}
 

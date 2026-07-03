@@ -104,10 +104,16 @@ export default function VendorDetail() {
                     <Text style={{ color: colors.text, fontWeight: "500" }} numberOfLines={2}>{v.address || v.city}</Text>
                     <Text style={{ color: colors.textMuted, fontSize: 12 }}>{v.distance_km} km away</Text>
                   </View>
-                  <Pressable testID="get-directions" onPress={() => openInMaps(v.lat, v.lng, v.name)} style={styles.dirBtn}>
-                    <Ionicons name="navigate" size={16} color={colors.onBrand} />
-                    <Text style={{ color: colors.onBrand, fontWeight: "600", fontSize: 13 }}>Directions</Text>
-                  </Pressable>
+                  <View style={{ gap: 6, alignItems: "flex-end" }}>
+                    <Pressable testID="in-app-nav" onPress={() => router.push(`/navigate/${v.id}` as any)} style={styles.dirBtn}>
+                      <Ionicons name="navigate-circle" size={16} color={colors.onBrand} />
+                      <Text style={{ color: colors.onBrand, fontWeight: "600", fontSize: 13 }}>Live Nav</Text>
+                    </Pressable>
+                    <Pressable testID="get-directions" onPress={() => openInMaps(v.lat, v.lng, v.name)} style={styles.dirBtnGhost}>
+                      <Ionicons name="open-outline" size={13} color={colors.brand} />
+                      <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 11 }}>Open Maps</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             )}
@@ -182,6 +188,7 @@ const styles = StyleSheet.create({
   priceBig: { color: colors.brand, fontSize: 24, fontWeight: "600" },
   locCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   dirBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.brand },
+  dirBtnGhost: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand, backgroundColor: "transparent" },
   review: { padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   simCard: { width: 160, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
   cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: spacing.xl, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 12 },

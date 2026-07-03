@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 import { api, setToken, loadToken } from "../api";
 
 export type User = {
@@ -36,16 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  const registerPush = async (userId: string) => {
+    if (Platform.OS === "web") return;
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") return;
+      const tokenResp = await Notifications.getDevicePushTokenAsync();
+      await api.post("/register-push", {
+        user_id: userId, platform: Platform.OS, device_token: tokenResp.data,
+      }, { auth: false });
+    } catch (e) { console.warn("push register failed", e); }
+  };
+
   const signIn = async (email: string, password: string) => {
     const r = await api.post("/auth/login", { email, password }, { auth: false });
     await setToken(r.token);
     setUser(r.user);
+    registerPush(r.user.id);
     return r.user;
   };
   const signUp = async (data: any) => {
     const r = await api.post("/auth/register", data, { auth: false });
     await setToken(r.token);
     setUser(r.user);
+    registerPush(r.user.id);
     return r.user;
   };
   const signOut = async () => {
