@@ -12,6 +12,9 @@ _push_client = httpx.AsyncClient(base_url=PUSH_BASE_URL, headers={"X-Push-Key": 
 
 async def register_device(user_id: str, platform: str, device_token: str) -> None:
     """Register a device token so the user can receive pushes."""
+    if PUSH_KEY == "placeholder":
+        logger.info(f"[PUSH mock] register user={user_id} platform={platform} token={device_token[:20]}…")
+        return
     try:
         resp = await _push_client.post("/api/v1/push/users/register",
             json={"user_id": user_id, "platform": platform, "device_token": device_token})

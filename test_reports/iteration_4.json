@@ -1,0 +1,35 @@
+{
+  "summary": "Verified backend Push (Emergent) + Email (Resend) notification triggers in MOCK mode for EventPro. Created /app/backend/tests/test_notifications.py with 10 tests covering login, register, booking creation, booking status transitions (confirmed/rejected/completed), review, payment verify (mock), register-push, and non-blocking behavior. All 10 tests PASSED. Each test asserts (a) parent endpoint returns 2xx/201 with the expected response body AND (b) the corresponding '[EMAIL mock]' and/or '[PUSH mock]' INFO log lines appear in /var/log/supervisor/backend.err.log. Booking flow emits >=2 [EMAIL mock] + >=2 [PUSH mock] entries (customer + vendor). Payment verify short-circuits Razorpay in PAYMENT_MODE=mock and emits payment-receipt email + push mocks; booking transitions to paid/confirmed and points are awarded. /api/register-push returns 201 {status:'registered'} without hitting the real Emergent endpoint (EMERGENT_PUSH_KEY='placeholder'). Notifications are try/except wrapped and do not block parent endpoints.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications.py",
+    "/app/test_reports/pytest/pytest_notifications.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "notifications.py: module-level `_push_client = httpx.AsyncClient(...)` is created at import time with a hardcoded X-Push-Key header. Since PUSH_KEY == 'placeholder' the mock short-circuit is fine today, but if EMERGENT_PUSH_KEY is later set the header will still be captured only at import time — consider constructing the client lazily inside register_device/send_push so key rotation via .env reload works.",
+    "server.py:400 create_booking: variable `v` is reassigned inside the try/except (line 412) using a projection lacking full vendor doc, and the return path calls `_enrich_booking(doc)` which re-fetches — OK, but the local `v` shadowing is easy to misread.",
+    "server.py:290 register endpoint currently does NOT trigger tpl_welcome() email/push (only login does). Not a bug — request only mandated non-500 success — but noting that welcome-flow wiring is missing if that was the intent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Tests create TEST-prefixed bookings/reviews via customer.demo@eventpro.in against vendor1's shop (Taj Krishna Banquets). Data is not cleaned up but is clearly prefixed with 'TEST' in notes field.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Notification mock verification is complete. Log file is /var/log/supervisor/backend.err.log — python's logging.basicConfig sends INFO records to stderr, so [EMAIL mock]/[PUSH mock] lines appear there (not backend.out.log). Tests use byte-offset reads to isolate each endpoint's log output. If RESEND_API_KEY or EMERGENT_PUSH_KEY are later populated with real credentials, these tests will fail (they assert the mock log lines) — that's the intended behavior.",
+  "rca_of_issue": "N/A — no bugs found. All notification triggers fire correctly in mock mode, all parent endpoints return successful status codes, and none of the notification helpers block or 500 their parent handler."
+}
