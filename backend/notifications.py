@@ -31,9 +31,11 @@ async def send_push(recipients: list, title: str, message: str, action_url: str 
         logger.info(f"[PUSH mock] to={recipients} title={title!r} msg={message!r}")
         return
     data = {"title": title, "message": message}
-    if action_url: data["action_url"] = action_url
+    if action_url:
+        data["action_url"] = action_url
     payload = {"recipients": recipients[:100], "data": data}
-    if idempotency_key: payload["$idempotency_key"] = idempotency_key
+    if idempotency_key:
+        payload["$idempotency_key"] = idempotency_key
     try:
         r = await _push_client.post("/api/v1/push/trigger", json=payload)
         if r.status_code >= 400:
@@ -124,9 +126,9 @@ def tpl_booking_status(name: str, vendor: str, status: str, date: str) -> tuple:
     return (f"Your booking is {verb}",
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>{icon} Booking {verb}</h2>"
         f"<p>Hi {name.split()[0]}, <b>{vendor}</b> has {verb} your booking for {date}.</p>"
-        + (f"<p>Get ready — your event is on!</p>" if status == "confirmed" else
+        + ("<p>Get ready — your event is on!</p>" if status == "confirmed" else
            f"<p>Don't worry — plenty more premium vendors on {APP_NAME}.</p>" if status == "rejected" else
-           f"<p>Loved the experience? Leave them a review.</p>"),
+           "<p>Loved the experience? Leave them a review.</p>"),
         f"Your booking is {verb}.")
 
 def tpl_payment_receipt(name: str, vendor: str, amount: int, earned: int) -> tuple:
