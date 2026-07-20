@@ -673,7 +673,7 @@ async def my_referral(u: dict = Depends(get_current_user)):
     invited = await db.users.count_documents({"referred_by": code})
     share_text = (f"Join Thara — India's premium event marketplace. "
                   f"Use my code {code} to get 200 bonus points (worth ₹200 off). "
-                  f"Get the app: https://eventpro.in")
+                  f"Get the app: https://thara.app")
     return {"code": code, "invited_count": invited, "share_text": share_text}
 
 @api.post("/me/apply-referral")
