@@ -1,0 +1,36 @@
+{
+  "summary": "Thara rebrand + welcome-email + light/dark toggle verified end-to-end. Backend: 12/12 tests PASS in /app/backend/tests/test_notifications.py (added 3 new tests: welcome-email on customer register, welcome-email + vendor-record on vendor register, GET /api/ reports 'Thara API'). Found + FIXED a real backend bug: register endpoint called send_email(..., text=text) but the helper signature is send_email(..., preview=''); the TypeError was being swallowed by try/except so registration returned 200 but the welcome mock was NEVER emitted. After fixing to `preview=preview` in server.py:293, [EMAIL mock] with subject 'Welcome to Thara, <name>!' is logged for both customer and vendor registration. Login-alert subject now correctly reads 'New sign-in to your Thara account' (previously EventPro). Booking (2 emails + 2 pushes), status transitions, review, and payment/verify (mock) receipt notifications all still fire. Frontend: on mobile viewport 375x667 the strings 'EventPro' / 'EVENTPRO' do NOT appear on /, /login, /home, /profile, /points, or /settings — only the demo credential hint 'customer.demo@eventpro.in / Demo@123' remains on /login (allowed, it's an email address). /settings renders with all three testIDs (theme-system / theme-light / theme-dark). Tapping 'theme-light' updates the active checkmark on the row and switches the preview card background from midnight to warm cream (visible in screenshots). After page reload the choice persists — localStorage['thara:theme-mode'] === 'light' (AsyncStorage backing key confirmed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications.py",
+    "/app/test_reports/pytest/pytest_notifications.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:293 — welcome-email call previously passed `text=` kwarg to send_email() which only accepts `preview=`. The TypeError was swallowed by the try/except, silently disabling the welcome mock. Fixed in this iteration (kwarg renamed). Consider tightening the try/except to only catch httpx/network errors so future signature mismatches surface immediately.",
+    "notifications.py — module-level _push_client is created at import time capturing the initial X-Push-Key header; consider constructing it lazily so a later env change is picked up without a full restart.",
+    "server.py root emits {service: 'Thara API'} but referral share_text still contains 'https://eventpro.in' (line ~676). Not on the customer-facing UI checklist so left as-is, but worth updating for full rebrand consistency."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (fixed send_email kwarg text→preview on welcome email dispatch)",
+    "/app/backend/tests/test_notifications.py (added 3 tests: customer-register welcome mock, vendor-register welcome+vendor-record, /api/ returns 'Thara API')"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 notification tests pass; welcome-email + rebrand assertions included)",
+    "frontend": "100% (theme toggle, persistence, no EventPro brand leaks on /, /login, /home, /profile, /points, /settings)"
+  },
+  "seed_data_creation": "Test registrations create TEST_-prefixed users (name='TEST User <hex>') and TEST-prefixed bookings/reviews against vendor1 (Taj Krishna Banquets). Not cleaned up — clearly labeled for identification.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Welcome-email dispatch bug was fixed in this iteration (kwarg mismatch). If the register endpoint is refactored, ensure send_email uses preview=..., not text=.... All notification-log assertions read /var/log/supervisor/backend.err.log via byte-offset seek. Backend was restarted mid-iteration; supervisor is clean. Referral share_text still contains 'eventpro.in' link (not user-facing so out of scope for this pass). Frontend backend URL comes from EXPO_PUBLIC_BACKEND_URL — the test file also honors that env var name.",
+  "rca_of_issue": "Register→welcome-email was silently failing because server.py called `send_email(to=..., subject=..., html=..., text=text)` while notifications.send_email() has signature `(to, subject, html, preview='')`. Python raised TypeError('unexpected keyword argument text') which the surrounding try/except caught and logged as a WARNING. Registration itself returned 200 (bug was silent), but the '[EMAIL mock]' log line never appeared. Fix: rename kwarg to `preview=preview`. Verified by re-running the pytest suite — welcome-mock line now present for both customer + vendor register."
+}

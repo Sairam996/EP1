@@ -1,4 +1,4 @@
-"""Push (Emergent) + Email (Resend) notification helpers for EventPro."""
+"""Push (Emergent) + Email (Resend) notification helpers for Thara."""
 import os
 import logging
 import httpx
@@ -45,8 +45,8 @@ async def send_push(recipients: list, title: str, message: str, action_url: str 
 
 # ── Email (Resend) ───────────────────────────────────────────────────────────
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "EventPro <onboarding@resend.dev>")
-APP_NAME = os.environ.get("APP_NAME", "EventPro")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "Thara <onboarding@resend.dev>")
+APP_NAME = os.environ.get("APP_NAME", "Thara")
 
 _BRAND = "#D4AF37"
 def _wrap(inner_html: str, preview: str = "") -> str:
@@ -57,7 +57,7 @@ def _wrap(inner_html: str, preview: str = "") -> str:
     <table role="presentation" width="560" cellpadding="0" cellspacing="0"
       style="background:#1A1D24;border:1px solid #262A33;border-radius:16px;max-width:560px;width:100%">
       <tr><td style="padding:28px 32px 8px 32px">
-        <div style="color:{_BRAND};font-size:26px;font-weight:300;letter-spacing:5px">EventPro</div>
+        <div style="color:{_BRAND};font-size:26px;font-weight:300;letter-spacing:5px">Thara</div>
         <div style="height:1px;width:48px;background:{_BRAND};opacity:0.5;margin-top:8px"></div>
       </td></tr>
       <tr><td style="padding:20px 32px 32px 32px;line-height:1.55;font-size:14px;color:#F3F4F6">{inner_html}</td></tr>
@@ -135,7 +135,7 @@ def tpl_payment_receipt(name: str, vendor: str, amount: int, earned: int) -> tup
     return (f"Payment receipt — ₹{amount:,}",
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>Payment received ✓</h2>"
         f"<p>Hi {name.split()[0]}, your payment of <b style='color:{_BRAND}'>₹{amount:,}</b> to {vendor} is confirmed.</p>"
-        + (f"<p style='color:{_BRAND}'>🎁 You earned <b>+{earned} EventPro Points</b> on this booking.</p>" if earned else ""),
+        + (f"<p style='color:{_BRAND}'>🎁 You earned <b>+{earned} Thara Points</b> on this booking.</p>" if earned else ""),
         f"Paid ₹{amount:,} to {vendor}.")
 
 def tpl_review_received(vendor_name: str, reviewer: str, rating: int, comment: str) -> tuple:

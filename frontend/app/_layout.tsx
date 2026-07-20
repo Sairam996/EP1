@@ -7,8 +7,8 @@ import * as Linking from "expo-linking";
 import { router as expoRouter } from "expo-router";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/context/AuthContext";
+import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { colors } from "@/src/theme";
 
 LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +24,16 @@ if (Platform.OS === "android") {
   Notifications.setNotificationChannelAsync("default", {
     name: "Default", importance: Notifications.AndroidImportance.MAX, sound: "default",
   });
+}
+
+function ThemedStack() {
+  const { colors, isDark, effectiveMode } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.surface }} key={effectiveMode}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.surface} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface }, animation: "fade" }} />
+    </View>
+  );
 }
 
 export default function RootLayout() {
@@ -50,12 +60,11 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <View style={{ flex: 1, backgroundColor: colors.surface }}>
-          <StatusBar barStyle="light-content" backgroundColor={colors.surface} />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface }, animation: "fade" }} />
-        </View>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ThemedStack />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

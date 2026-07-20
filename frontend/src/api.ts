@@ -28,8 +28,16 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("json") ? await res.json() : await res.text();
   if (!res.ok) {
-    const msg = typeof data === "object" ? data.detail || JSON.stringify(data) : data;
-    throw new Error(msg || `HTTP ${res.status}`);
+    let msg = `HTTP ${res.status}`;
+    if (typeof data === "string") msg = data || msg;
+    else if (data && typeof data === "object") {
+      const d = (data as any).detail;
+      if (typeof d === "string") msg = d;
+      else if (Array.isArray(d)) msg = d.map((x: any) => x?.msg || JSON.stringify(x)).join(", ");
+      else if (d) msg = JSON.stringify(d);
+      else msg = JSON.stringify(data);
+    }
+    throw new Error(msg);
   }
   return data;
 }

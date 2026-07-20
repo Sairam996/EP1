@@ -1,17 +1,30 @@
-import { useEffect, useState, useCallback } from "react";
-import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { useState, useCallback } from "react";
+import { View, Text, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { colors, radius, spacing } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
+import { radius, spacing, useThemedStyles } from "@/src/theme";
 
 export default function ChatList() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(false);
+
+  const styles = useThemedStyles((c) => ({
+    root: { flex: 1, backgroundColor: c.surface },
+    h: { color: c.text, fontSize: 24, fontWeight: "600", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
+    row: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: c.border },
+    av: { width: 52, height: 52, borderRadius: 26 },
+    name: { color: c.text, fontSize: 15, fontWeight: "600" },
+    last: { color: c.textMuted, fontSize: 12 },
+    empty: { color: c.textMuted },
+    emptyMuted: { color: c.textMuted, fontSize: 12 },
+  }));
 
   const load = useCallback(async () => {
     try { setItems(await api.get("/chat/threads")); }
@@ -21,7 +34,7 @@ export default function ChatList() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + 8 }}>
+    <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <Text style={styles.h}>Messages</Text>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
         <FlatList
@@ -32,8 +45,8 @@ export default function ChatList() {
           ListEmptyComponent={
             <View style={{ alignItems: "center", marginTop: 80, gap: 8 }}>
               <Ionicons name="chatbubbles-outline" size={56} color={colors.textMuted} />
-              <Text style={{ color: colors.textMuted }}>No conversations yet</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 12 }}>Book a vendor to start chatting</Text>
+              <Text style={styles.empty}>No conversations yet</Text>
+              <Text style={styles.emptyMuted}>Book a vendor to start chatting</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -51,10 +64,3 @@ export default function ChatList() {
     </View>
   );
 }
-const styles = StyleSheet.create({
-  h: { color: colors.text, fontSize: 24, fontWeight: "500", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
-  av: { width: 50, height: 50, borderRadius: 25 },
-  name: { color: colors.text, fontSize: 15, fontWeight: "500" },
-  last: { color: colors.textMuted, fontSize: 12 },
-});

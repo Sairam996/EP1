@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
+import { View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import { GoldButton, Body, Pill } from "@/src/components/UI";
+import { TharaLogo } from "@/src/components/TharaLogo";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "@/src/theme";
+import { radius, spacing, useThemedStyles } from "@/src/theme";
 
 const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 
 export default function Signup() {
   const { signUp } = useAuth();
+  const { colors } = useTheme();
   const [role, setRole] = useState<"customer" | "vendor">("customer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +21,26 @@ export default function Signup() {
   const [city, setCity] = useState("Hyderabad");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const styles = useThemedStyles((c) => ({
+    root: { flex: 1, backgroundColor: c.surface },
+    title: { color: c.text, fontSize: 28, fontWeight: "500", marginTop: spacing.lg, marginBottom: 4 },
+    label: { color: c.textMuted, fontSize: 11, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: "600" },
+    input: {
+      backgroundColor: c.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14,
+      color: c.text, borderWidth: 1, borderColor: c.border, fontSize: 15,
+    },
+    roleRow: { flexDirection: "row", gap: 12, marginTop: spacing.md },
+    roleBtn: {
+      flex: 1, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center",
+      backgroundColor: c.surface2, borderRadius: radius.md, paddingVertical: 14, borderWidth: 1, borderColor: c.border,
+    },
+    roleActive: { borderColor: c.brand, backgroundColor: c.brandTint },
+    roleText: { color: c.textMuted, fontWeight: "600" },
+    err: { color: c.error, marginTop: spacing.md, marginBottom: spacing.sm },
+    brandTxt: { color: c.brand },
+    logoWrap: { alignItems: "center", marginBottom: spacing.lg },
+  }));
 
   const submit = async () => {
     setErr(null); setLoading(true);
@@ -29,14 +52,18 @@ export default function Signup() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingTop: 70 }} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
+
+        <View style={styles.logoWrap}>
+          <TharaLogo variant="wordmark" width={160} />
+        </View>
+
         <Text style={styles.title}>Create account</Text>
-        <Body muted style={{ marginBottom: spacing.lg }}>Join EventPro to plan unforgettable events</Body>
+        <Body muted style={{ marginBottom: spacing.lg }}>Join Thara to plan unforgettable celebrations</Body>
 
         <View style={styles.roleRow} testID="role-selector">
           <Pressable testID="role-customer" onPress={() => setRole("customer")}
@@ -66,28 +93,16 @@ export default function Signup() {
         <Text style={styles.label}>City</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 8, paddingVertical: 4 }} style={{ marginBottom: spacing.md }}>
-          {CITIES.map(c => (
+          {CITIES.map((c) => (
             <Pill key={c} label={c} active={city === c} onPress={() => setCity(c)} testID={`city-${c}`} />
           ))}
         </ScrollView>
         {err ? <Text style={styles.err}>{err}</Text> : null}
         <GoldButton testID="signup-submit" title="Create Account" onPress={submit} loading={loading} />
         <Pressable onPress={() => router.back()} style={{ marginTop: spacing.lg, alignItems: "center" }}>
-          <Body muted>Already a member? <Text style={{ color: colors.brand }}>Sign in</Text></Body>
+          <Body muted>Already a member? <Text style={styles.brandTxt}>Sign in</Text></Body>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: 28, fontWeight: "500", marginTop: spacing.lg, marginBottom: 4 },
-  label: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14,
-    color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
-  roleRow: { flexDirection: "row", gap: 12, marginTop: spacing.md },
-  roleBtn: { flex: 1, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surface2, borderRadius: radius.md, paddingVertical: 14, borderWidth: 1, borderColor: colors.border },
-  roleActive: { borderColor: colors.brand, backgroundColor: colors.brandTint },
-  roleText: { color: colors.textMuted, fontWeight: "500" },
-  err: { color: colors.error, marginTop: spacing.md, marginBottom: spacing.sm },
-});

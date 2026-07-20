@@ -1,14 +1,24 @@
-import React, { useRef } from "react";
-import { Pressable, Text, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import React from "react";
+import { Pressable, Text, StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from "react-native-reanimated";
-import { colors, radius } from "@/src/theme";
+import { radius, useThemedStyles } from "@/src/theme";
+import { useTheme } from "@/src/context/ThemeContext";
 
 const AnimPress = Animated.createAnimatedComponent(Pressable);
 
 /** Animated chip that springs on press and glows when active. */
 export function AnimatedChip({ label, icon, active, onPress, testID, style }:
   { label: string; icon?: string; active?: boolean; onPress?: () => void; testID?: string; style?: StyleProp<ViewStyle> }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles((c) => ({
+    chip: {
+      flexDirection: "row", alignItems: "center", paddingHorizontal: 14, height: 38, borderRadius: radius.pill,
+      borderWidth: 1, flexShrink: 0,
+      shadowColor: c.brand, shadowRadius: 12, shadowOffset: { width: 0, height: 0 },
+    },
+    chipText: { color: c.textSubtle, fontSize: 13, fontWeight: "500" },
+  }));
   const scale = useSharedValue(1);
   const glow = useSharedValue(active ? 1 : 0);
   React.useEffect(() => { glow.value = withTiming(active ? 1 : 0, { duration: 220 }); }, [active]);
@@ -32,6 +42,16 @@ export function AnimatedChip({ label, icon, active, onPress, testID, style }:
 /** Larger animated event-type tile with bouncy press + active glow. */
 export function AnimatedEventTile({ label, icon, active, onPress, testID }:
   { label: string; icon: string; active?: boolean; onPress?: () => void; testID?: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles((c) => ({
+    tile: { alignItems: "center", width: 80 },
+    tileIcon: {
+      width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center",
+      borderWidth: 1,
+      shadowColor: c.brand, shadowRadius: 14, shadowOffset: { width: 0, height: 0 },
+    },
+    tileLbl: { color: c.textSubtle, fontSize: 12, marginTop: 7, textAlign: "center" },
+  }));
   const scale = useSharedValue(1);
   const ring = useSharedValue(active ? 1 : 0);
   React.useEffect(() => { ring.value = withTiming(active ? 1 : 0, { duration: 250 }); }, [active]);
@@ -54,15 +74,3 @@ export function AnimatedEventTile({ label, icon, active, onPress, testID }:
     </AnimPress>
   );
 }
-
-const styles = StyleSheet.create({
-  chip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, height: 38, borderRadius: radius.pill,
-    borderWidth: 1, flexShrink: 0,
-    shadowColor: colors.brand, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
-  chipText: { color: colors.textSubtle, fontSize: 13, fontWeight: "500" },
-  tile: { alignItems: "center", width: 80 },
-  tileIcon: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center",
-    borderWidth: 1,
-    shadowColor: colors.brand, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } },
-  tileLbl: { color: colors.textSubtle, fontSize: 12, marginTop: 7, textAlign: "center" },
-});

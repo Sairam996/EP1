@@ -72,7 +72,7 @@ export default function Checkout() {
           <View style={styles.earnedCard} testID="earned-card">
             <Ionicons name="sparkles" size={20} color={colors.brand} />
             <Text style={{ color: colors.brand, fontWeight: "600" }}>
-              +{done.earned} EventPro Points earned
+              +{done.earned} Thara Points earned
               {done.boost_pct ? ` (incl. +${done.boost_pct}% ${done.tier} bonus)` : ""}
             </Text>
           </View>

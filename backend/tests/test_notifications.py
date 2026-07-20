@@ -99,16 +99,17 @@ def test_login_triggers_email_mock():
     logs = _log_since(off, wait_s=2.0)
     assert "[EMAIL mock]" in logs, f"Missing [EMAIL mock] after login. Logs:\n{logs[-2000:]}"
     assert f"to={CUSTOMER_EMAIL}" in logs, f"Login mock did not target customer email. Logs:\n{logs[-2000:]}"
-    assert "New sign-in to your EventPro account" in logs, f"Login subject missing. Logs:\n{logs[-2000:]}"
+    assert "New sign-in to your Thara account" in logs, f"Login subject missing. Logs:\n{logs[-2000:]}"
 
 
-# ── 2) Register succeeds without notification-related 500 ────────────────────
-def test_register_succeeds_and_no_500():
+# ── 2) Register (customer) triggers welcome EMAIL mock ───────────────────────
+def test_register_customer_triggers_welcome_email_mock():
     off = _log_size()
     uniq = uuid.uuid4().hex[:8]
+    email = f"test_notify_{uniq}@example.com"
     payload = {
         "name": f"TEST User {uniq}",
-        "email": f"test_notify_{uniq}@example.com",
+        "email": email,
         "phone": f"9{uniq[:9]}",
         "password": "Test@1234",
         "role": "customer",
@@ -116,10 +117,46 @@ def test_register_succeeds_and_no_500():
     }
     r = requests.post(f"{BASE_URL}/api/auth/register", json=payload, timeout=20)
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
-    assert "token" in r.json()
-    # Even if no explicit welcome email is wired, endpoint must succeed and not crash logger
-    logs = _log_since(off, wait_s=1.0)
+    data = r.json()
+    assert "token" in data and "user" in data
+    logs = _log_since(off, wait_s=2.0)
+    assert "[EMAIL mock]" in logs, f"Missing [EMAIL mock] after register.\n{logs[-2000:]}"
+    assert f"to={email}" in logs, f"Welcome email did not target new user.\n{logs[-2000:]}"
+    assert "Welcome to Thara" in logs, f"Welcome subject missing 'Welcome to Thara'.\n{logs[-2000:]}"
     assert " ERROR " not in logs, f"Unexpected ERROR on register:\n{logs[-2000:]}"
+
+
+# ── 2b) Register (vendor) triggers welcome EMAIL mock + vendor record ────────
+def test_register_vendor_triggers_welcome_and_creates_vendor():
+    off = _log_size()
+    uniq = uuid.uuid4().hex[:8]
+    email = f"test_vnotify_{uniq}@example.com"
+    payload = {
+        "name": f"TEST Vendor {uniq}",
+        "email": email,
+        "phone": f"8{uniq[:9]}",
+        "password": "Vend@1234",
+        "role": "vendor",
+        "city": "Mumbai",
+    }
+    r = requests.post(f"{BASE_URL}/api/auth/register", json=payload, timeout=20)
+    assert r.status_code == 200, f"vendor register failed: {r.status_code} {r.text}"
+    data = r.json()
+    assert data["user"]["role"] == "vendor"
+    assert data["user"].get("vendor_id"), f"vendor_id missing on register: {data}"
+    logs = _log_since(off, wait_s=2.0)
+    assert "[EMAIL mock]" in logs
+    assert f"to={email}" in logs
+    assert "Welcome to Thara" in logs, f"Missing Welcome to Thara subject.\n{logs[-2000:]}"
+
+
+# ── 2c) /api/ root returns Thara API (rebrand from EventPro) ─────────────────
+def test_api_root_reports_thara_service():
+    r = requests.get(f"{BASE_URL}/api/", timeout=10)
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("ok") is True
+    assert body.get("service") == "Thara API", f"service should be 'Thara API', got {body}"
 
 
 # ── 3) POST /bookings triggers 2x EMAIL + 2x PUSH mocks ──────────────────────

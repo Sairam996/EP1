@@ -1,4 +1,4 @@
-"""EventPro backend — Indian D2C marketplace for event services."""
+"""Thara backend — Indian D2C marketplace for event services."""
 import os
 import uuid
 import asyncio
@@ -194,7 +194,7 @@ class ServiceIn(BaseModel):
     photos: List[str] = []
 
 # ── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="EventPro API")
+app = FastAPI(title="Thara API")
 api = APIRouter(prefix="/api")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
@@ -240,7 +240,7 @@ def gen_referral_code() -> str:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 @api.get("/")
-async def root(): return {"ok": True, "service": "EventPro API"}
+async def root(): return {"ok": True, "service": "Thara API"}
 
 @api.get("/event-types") 
 async def get_event_types(): return EVENT_TYPES
@@ -278,7 +278,7 @@ async def register(body: RegisterIn):
             "category": "venues", "city": body.city or "Hyderabad",
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
-            "description": "New vendor on EventPro.", "starting_price": 50000,
+            "description": "New vendor on Thara.", "starting_price": 50000,
             "rating": 0.0, "reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": body.phone, "lat": clat, "lng": clng,
@@ -287,6 +287,12 @@ async def register(body: RegisterIn):
     await db.users.insert_one(doc)
     token = make_token(uid, body.role)
     user = {k: v for k, v in doc.items() if k != "password_hash" and k != "created_at"}
+    # Welcome email (mocked when RESEND_API_KEY is empty).
+    try:
+        subj, html, preview = tpl_welcome(body.name)
+        await send_email(to=body.email.lower(), subject=subj, html=html, preview=preview)
+    except Exception as e:
+        logger.warning(f"Welcome email dispatch failed (non-blocking): {e}")
     return {"token": token, "user": user}
 
 @api.post("/auth/login", response_model=AuthOut)
@@ -545,7 +551,7 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=cid,
-                       system_message=("You are EventPro AI, an expert Indian event-planning assistant. "
+                       system_message=("You are Thara AI, an expert Indian event-planning assistant. "
                                        "Help users plan weddings, sangeet, birthdays, corporate events. "
                                        "Suggest vendors, budgets in INR, timelines. Be concise, warm, premium."))
         chat = chat.with_model("openai", "gpt-5.2")
@@ -665,7 +671,7 @@ async def my_referral(u: dict = Depends(get_current_user)):
         code = gen_referral_code()
         await db.users.update_one({"id": u["id"]}, {"$set": {"referral_code": code}})
     invited = await db.users.count_documents({"referred_by": code})
-    share_text = (f"Join EventPro — India's premium event marketplace. "
+    share_text = (f"Join Thara — India's premium event marketplace. "
                   f"Use my code {code} to get 200 bonus points (worth ₹200 off). "
                   f"Get the app: https://eventpro.in")
     return {"code": code, "invited_count": invited, "share_text": share_text}
