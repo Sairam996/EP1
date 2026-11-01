@@ -21,10 +21,10 @@ export const buildNavMapHtml = (opts: {
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
-  html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#0B0C10;}
-  .leaflet-container{background:#1A1D24;}
-  .user-dot{width:22px;height:22px;border-radius:11px;background:#3B82F6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,130,246,0.35);}
-  .dest-pin{width:34px;height:34px;border-radius:17px;background:${brand};border:3px solid #0B0C10;display:flex;align-items:center;justify-content:center;color:#0B0C10;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.5);}
+  html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#000000;}
+  .leaflet-container{background:#0A0A0A;}
+  .user-dot{width:22px;height:22px;border-radius:11px;background:#D4AF37;border:3px solid #fff;box-shadow:0 0 0 4px rgba(212,175,55,0.35);}
+  .dest-pin{width:34px;height:34px;border-radius:17px;background:${brand};border:3px solid #000000;display:flex;align-items:center;justify-content:center;color:#000000;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.5);}
   .leaflet-control-attribution{background:rgba(0,0,0,0.5)!important;color:#9CA3AF!important;font-size:10px;}
   .leaflet-control-attribution a{color:${brand}!important;}
 </style>

@@ -11,7 +11,7 @@ export default function CustomerLayout() {
       tabBarInactiveTintColor: colors.textMuted,
       tabBarStyle: {
         backgroundColor: colors.surface,
-        borderTopColor: colors.border,
+        borderTopColor: colors.borderStrong,
         borderTopWidth: 1,
         height: 64,
         paddingBottom: 8,

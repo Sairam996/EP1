@@ -23,7 +23,7 @@ const calTheme = {
   arrowColor: colors.brand,
   todayTextColor: colors.brand,
   dayTextColor: colors.text,
-  textDisabledColor: "#3a3f4a",
+  textDisabledColor: "#555049",
   selectedDayBackgroundColor: colors.brand,
   selectedDayTextColor: colors.onBrand,
   textDayFontWeight: "500" as const,
