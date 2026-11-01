@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import List, Optional, Literal
 
 import math
+import re
 import secrets
 import string
 import json as json_mod
+import time
+from collections import defaultdict, deque
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Request, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
@@ -35,12 +39,43 @@ MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 JWT_SECRET = os.environ["JWT_SECRET_KEY"]
 JWT_ALG = os.environ.get("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_MIN = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
+ACCESS_TOKEN_MIN = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 PAYMENT_MODE = os.environ.get("PAYMENT_MODE", "mock")
 ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
+KYC_ENCRYPTION_KEY = os.environ.get("KYC_ENCRYPTION_KEY", "")
+ENABLE_DEMO_SEED = os.environ.get("ENABLE_DEMO_SEED", "false").lower() == "true"
+CORS_ORIGINS = [o.strip() for o in os.environ.get(
+    "CORS_ORIGINS", "http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006"
+).split(",") if o.strip() and o.strip() != "*"]
+_fernet = Fernet(KYC_ENCRYPTION_KEY.encode()) if KYC_ENCRYPTION_KEY else None
+KYC_SECRET_FIELDS = ("pan_number", "gst_number", "document_url")
+
+def kyc_encrypt(val: str) -> str:
+    if not _fernet: raise HTTPException(503, "KYC encryption is not configured (set KYC_ENCRYPTION_KEY)")
+    return _fernet.encrypt(val.encode()).decode() if val else ""
+
+def kyc_decrypt(val: str) -> str:
+    if not val or not _fernet: return ""
+    try: return _fernet.decrypt(val.encode()).decode()
+    except InvalidToken: return ""
+
+def _mask(v: str) -> str:
+    return ("•" * max(0, len(v) - 4) + v[-4:]) if v else ""
+
+# Simple in-memory sliding-window rate limiter (per process).
+_rl_hits: dict = defaultdict(deque)
+def rate_limit(key: str, limit: int, window: int = 60):
+    now = time.monotonic(); q = _rl_hits[key]
+    while q and now - q[0] > window: q.popleft()
+    if len(q) >= limit: raise HTTPException(429, "Too many requests, please slow down")
+    q.append(now)
+
+def _ip(request) -> str:
+    return request.client.host if request and request.client else "unknown"
+
 BACKEND_URL = os.environ.get("BACKEND_URL", "").rstrip("/")
 UPLOAD_DIR = ROOT_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -167,7 +202,7 @@ class ChatMsgIn(BaseModel):
     text: str
 
 class RegisterPushIn(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None  # ignored; authenticated user is used
     platform: str
     device_token: str
 
@@ -235,7 +270,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 # Also reachable under /api/media/* for ingress setups that only route /api to the backend.
 app.mount("/api/media", StaticFiles(directory=str(UPLOAD_DIR)), name="api-media")
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -290,13 +325,14 @@ async def get_categories(): return CATEGORIES
 async def get_cities(): return CITIES
 
 @api.post("/register-push", status_code=201)
-async def api_register_push(body: RegisterPushIn):
-    await register_device(body.user_id, body.platform, body.device_token)
+async def api_register_push(body: RegisterPushIn, u: dict = Depends(get_current_user)):
+    await register_device(u["id"], body.platform, body.device_token)
     return {"status": "registered"}
 
 # --- Auth ---
 @api.post("/auth/register", response_model=AuthOut)
-async def register(body: RegisterIn):
+async def register(body: RegisterIn, request: Request):
+    rate_limit(f"register:{_ip(request)}", 5)
     if await db.users.find_one({"email": body.email.lower()}):
         raise HTTPException(400, "Email already registered")
     uid = str(uuid.uuid4())
@@ -334,7 +370,8 @@ async def register(body: RegisterIn):
     return {"token": token, "user": user}
 
 @api.post("/auth/login", response_model=AuthOut)
-async def login(body: LoginIn):
+async def login(body: LoginIn, request: Request):
+    rate_limit(f"login:{_ip(request)}", 10)
     u = await db.users.find_one({"email": body.email.lower()})
     if not u or not verify_pw(body.password, u["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
@@ -365,12 +402,14 @@ def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float]
         dist = haversine_km(ulat, ulng, v_lat, v_lng)
     else:
         same = v.get("city") == user_city
-        dist = 2.5 + (hash(v["id"]) % 80) / 10.0 if same else 50 + (hash(v["id"]) % 200) / 10.0
+        dist = None  # unknown — don't fabricate a distance
+    if dist is not None and dist < 0.05 and user_lat is None:
+        dist = None  # vendor pinned at the default city centre: distance is meaningless
     return {
         "id": v["id"], "name": v["name"], "category": v["category"], "city": v["city"],
         "cover": v["cover"], "gallery": v.get("gallery", []), "description": v["description"],
         "starting_price": v["starting_price"], "rating": round(v.get("rating", 0), 1),
-        "reviews_count": v.get("reviews_count", 0), "distance_km": round(dist, 1),
+        "reviews_count": v.get("reviews_count", 0), "distance_km": round(dist, 1) if dist is not None else None,
         "verified": v.get("verified", False), "facilities": v.get("facilities", []),
         "event_types": v.get("event_types", []), "address": v.get("address", ""),
         "phone": v.get("phone", ""), "owner_id": v.get("owner_id"),
@@ -388,7 +427,8 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
     if city: query["city"] = city
     if category: query["category"] = category
     if event_type: query["event_types"] = event_type
-    if q: query["name"] = {"$regex": q, "$options": "i"}
+    limit = max(1, min(int(limit), 50))
+    if q: query["name"] = {"$regex": re.escape(q[:100]), "$options": "i"}
     cursor = db.vendors.find(query, {"_id": 0}).limit(limit)
     if trending:
         cursor = db.vendors.find(query, {"_id": 0}).sort("rating", -1).limit(limit)
@@ -545,6 +585,14 @@ async def update_booking_status(bid: str, status_val: str, u: dict = Depends(req
 # --- Reviews ---
 @api.post("/reviews")
 async def add_review(body: ReviewIn, u: dict = Depends(require_role("customer"))):
+    if not body.booking_id: raise HTTPException(400, "booking_id is required to review")
+    bk = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
+    if not bk or bk["customer_id"] != u["id"] or bk["vendor_id"] != body.vendor_id:
+        raise HTTPException(403, "You can only review your own bookings")
+    if bk.get("status") != "completed":
+        raise HTTPException(400, "You can review only after the booking is completed")
+    if await db.reviews.find_one({"booking_id": body.booking_id}):
+        raise HTTPException(409, "This booking has already been reviewed")
     doc = {"id": str(uuid.uuid4()), "vendor_id": body.vendor_id, "booking_id": body.booking_id,
            "user_id": u["id"], "user_name": u["name"], "user_avatar": u.get("avatar"),
            "rating": body.rating, "comment": body.comment,
@@ -599,7 +647,10 @@ async def chat_messages(bid: str, u: dict = Depends(get_current_user)):
 @api.post("/chat/messages")
 async def send_message(body: ChatMsgIn, u: dict = Depends(get_current_user)):
     b = await db.bookings.find_one({"id": body.booking_id})
-    if not b: raise HTTPException(404)
+    if not b: raise HTTPException(404, "Thread not found")
+    is_cust = u["role"] == "customer" and b["customer_id"] == u["id"]
+    is_vend = u["role"] == "vendor" and b["vendor_id"] == u.get("vendor_id")
+    if not (is_cust or is_vend): raise HTTPException(403, "Not a participant of this booking")
     doc = {"id": str(uuid.uuid4()), "booking_id": body.booking_id, "sender_id": u["id"],
            "sender_role": u["role"], "sender_name": u["name"], "text": body.text,
            "created_at": datetime.now(timezone.utc).isoformat()}
@@ -799,8 +850,12 @@ async def my_points(u: dict = Depends(get_current_user)):
 # --- KYC ---
 @api.post("/kyc")
 async def submit_kyc(body: KycIn, u: dict = Depends(require_role("vendor"))):
+    data = body.dict()
+    for f in KYC_SECRET_FIELDS:
+        data[f] = kyc_encrypt((data.get(f) or "").strip())
+    data["encrypted"] = True
     doc = {"id": str(uuid.uuid4()), "vendor_id": u["vendor_id"], "user_id": u["id"],
-           **body.dict(), "status": "pending",
+           **data, "status": "pending",
            "submitted_at": datetime.now(timezone.utc).isoformat()}
     await db.kyc.insert_one(doc.copy())
     # No auto-approval: a Thara admin reviews and calls POST /api/admin/vendors/{id}/verify.
@@ -810,6 +865,11 @@ async def submit_kyc(body: KycIn, u: dict = Depends(require_role("vendor"))):
 @api.get("/kyc/me")
 async def my_kyc(u: dict = Depends(require_role("vendor"))):
     k = await db.kyc.find_one({"vendor_id": u["vendor_id"]}, {"_id": 0}, sort=[("submitted_at", -1)])
+    if k:  # vendor-self view: masked values only
+        for f in ("pan_number", "gst_number"):
+            raw = kyc_decrypt(k.get(f, "")) if k.get("encrypted") else k.get(f, "")
+            k[f] = _mask(raw)
+        k.pop("document_url", None)
     v = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0, "verified": 1})
     if v and v.get("verified"):
         return {**(k or {}), "status": "approved"}
@@ -842,6 +902,14 @@ async def admin_verify_vendor(vendor_id: str, body: Optional[AdminVerifyIn] = No
     v.update(upd)
     return {"vendor_id": vendor_id, "kyc_status": st, "verified": body.approve,
             "completeness": profile_completeness(v, svc)}
+
+@api.get("/admin/vendors/{vendor_id}/kyc")
+async def admin_vendor_kyc(vendor_id: str, _: bool = Depends(require_admin)):
+    k = await db.kyc.find_one({"vendor_id": vendor_id}, {"_id": 0}, sort=[("submitted_at", -1)])
+    if not k: raise HTTPException(404, "No KYC submitted")
+    if k.get("encrypted"):
+        for f in KYC_SECRET_FIELDS: k[f] = kyc_decrypt(k.get(f, ""))
+    return k
 
 @api.get("/admin/vendors/pending")
 async def admin_pending(_: bool = Depends(require_admin)):
@@ -939,6 +1007,7 @@ async def delete_service(sid: str, u: dict = Depends(require_role("vendor"))):
 @api.post("/uploads")
 async def upload_image(request: Request, file: UploadFile = File(...),
                        u: dict = Depends(get_current_user)):
+    rate_limit(f"upload:{u['id']}", 30)
     ext = UPLOAD_TYPES.get((file.content_type or "").lower())
     if not ext:
         raise HTTPException(415, "Only JPEG, PNG or WebP images are allowed")
@@ -1080,6 +1149,9 @@ SEED_COMBOS = [
 ]
 
 async def seed():
+    if not ENABLE_DEMO_SEED:
+        logger.info("Demo seed disabled (set ENABLE_DEMO_SEED=true for local demo data)")
+        return
     if await db.vendors.count_documents({}) > 0:
         return
     logger.info("Seeding vendors…")
@@ -1152,6 +1224,7 @@ async def on_startup():
     await db.bookings.create_index("customer_id")
     await db.bookings.create_index("vendor_id")
     await seed()
+    if not ENABLE_DEMO_SEED: return
     # Backfill: existing seeded demo vendors get a package so they remain listed.
     demo_owners = [x["id"] for x in await db.users.find(
         {"role": "vendor", "email": {"$regex": "@eventpro\\.in$"}}, {"_id": 0, "id": 1}).to_list(500)]

@@ -16,7 +16,7 @@ SplashScreen.preventAutoHideAsync();
 // Foreground handler — MODULE SCOPE
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }),
+    handleNotification: async () => ({ shouldShowAlert: true, shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
   });
 }
 // Android channel — MODULE SCOPE

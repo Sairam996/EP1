@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 const STEPS = [
   { key: "description", label: "Describe your business", route: "/vendor-profile-edit" },
@@ -16,6 +16,14 @@ const STEPS = [
   { key: "availability", label: "Set your availability", route: "/vendor-availability" },
   { key: "kyc", label: "Get KYC verified", route: "/kyc" },
 ];
+
+function formatINRShort(n: number): string {
+  const v = Math.max(0, Number(n) || 0);
+  if (v >= 1e7) return `₹${+(v / 1e7).toFixed(1)}Cr`;
+  if (v >= 1e5) return `₹${+(v / 1e5).toFixed(1)}L`;
+  if (v >= 1000) return `₹${+(v / 1000).toFixed(1)}k`;
+  return `₹${Math.round(v).toLocaleString("en-IN")}`;
+}
 
 export default function Dashboard() {
   const insets = useSafeAreaInsets();
@@ -45,7 +53,7 @@ export default function Dashboard() {
     { lbl: "Views", val: data.views, icon: "eye" },
     { lbl: "Inquiries", val: data.inquiries, icon: "chatbubble" },
     { lbl: "Bookings", val: data.total_bookings, icon: "calendar" },
-    { lbl: "Revenue", val: `₹${(data.revenue / 1000).toFixed(1)}k`, icon: "trending-up" },
+    { lbl: "Revenue", val: formatINRShort(data.revenue), icon: "trending-up" },
   ];
 
   return (
@@ -138,7 +146,7 @@ export default function Dashboard() {
     </ScrollView>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   welcome: { color: colors.textMuted, fontSize: 14 },
   name: { color: colors.text, fontSize: 28, fontWeight: "500" },
   kycPrompt: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.warning + "55" },
@@ -162,4 +170,4 @@ const styles = StyleSheet.create({
   actions: { paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: spacing.sm },
   action: { flexDirection: "row", alignItems: "center", gap: 14, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   actT: { color: colors.text, fontSize: 15, fontWeight: "500", flex: 1 },
-});
+}));

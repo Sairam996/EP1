@@ -5,7 +5,7 @@ import { useFocusEffect, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
 
@@ -78,7 +78,7 @@ export default function VendorBookings() {
     </View>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   h: { color: colors.text, fontSize: 24, fontWeight: "500", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
   card: { padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
   av: { width: 50, height: 50, borderRadius: 25 },
@@ -87,4 +87,4 @@ const styles = StyleSheet.create({
   notes: { color: colors.textSubtle, fontSize: 13, marginTop: 6, fontStyle: "italic" },
   btn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md },
   ghBtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface3 },
-});
+}));

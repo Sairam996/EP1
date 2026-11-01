@@ -73,8 +73,8 @@ export default function Search() {
                 <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.cardMeta}>{item.category} • {item.city}</Text>
                 <View style={{ flexDirection: "row", gap: 8, alignItems: "center", marginTop: 2 }}>
-                  <Rating value={item.rating} size={12} />
-                  <Text style={styles.cardMeta}>• {item.distance_km} km</Text>
+                  {item.reviews_count > 0 ? <Rating value={item.rating} size={12} /> : <Text style={styles.cardMeta}>New</Text>}
+                  {item.distance_km != null && item.distance_km > 0 && <Text style={styles.cardMeta}>• {item.distance_km} km</Text>}
                 </View>
                 <Text style={styles.cardPrice}>₹{item.starting_price.toLocaleString("en-IN")}+</Text>
               </View>
