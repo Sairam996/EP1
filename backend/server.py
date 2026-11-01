@@ -11,7 +11,8 @@ import math
 import secrets
 import string
 import json as json_mod
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Request, Header
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -26,7 +27,7 @@ from notifications import (send_push, send_email, register_device,
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-logger = logging.getLogger("eventpro")
+logger = logging.getLogger("thara")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -39,6 +40,12 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 PAYMENT_MODE = os.environ.get("PAYMENT_MODE", "mock")
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
+BACKEND_URL = os.environ.get("BACKEND_URL", "").rstrip("/")
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+UPLOAD_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 # ── DB ───────────────────────────────────────────────────────────────────────
 mongo = AsyncIOMotorClient(MONGO_URL)
@@ -130,7 +137,8 @@ class BookingIn(BaseModel):
     event_date: str  # YYYY-MM-DD
     guests: int = 100
     notes: str = ""
-    amount: int  # in INR
+    amount: int  # in INR (ignored when service_id given — server uses package price)
+    service_id: Optional[str] = None
 
 class BookingOut(BaseModel):
     id: str
@@ -188,14 +196,44 @@ class KycIn(BaseModel):
     document_url: str = ""
 
 class ServiceIn(BaseModel):
-    title: str
-    description: str
-    price: int
-    photos: List[str] = []
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    price: int = Field(ge=0)
+    photos: List[str] = Field(default_factory=list, max_length=15)
+
+class ServicePatch(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    price: Optional[int] = Field(default=None, ge=0)
+    photos: Optional[List[str]] = Field(default=None, max_length=15)
+
+class VendorPatch(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    category: Optional[Literal["venues", "catering", "photography", "decor", "music", "planning"]] = None
+    city: Optional[str] = None
+    locality: Optional[str] = Field(default=None, max_length=120)
+    cover: Optional[str] = None
+    gallery: Optional[List[str]] = Field(default=None, max_length=30)
+    description: Optional[str] = Field(default=None, max_length=3000)
+    starting_price: Optional[int] = Field(default=None, ge=0)
+    facilities: Optional[List[str]] = None
+    event_types: Optional[List[str]] = None
+    address: Optional[str] = Field(default=None, max_length=300)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    lng: Optional[float] = Field(default=None, ge=-180, le=180)
+
+class AvailabilityIn(BaseModel):
+    blocked_dates: List[str] = []
+    max_per_day: int = Field(default=1, ge=1, le=50)
 
 # ── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Thara API")
 api = APIRouter(prefix="/api")
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Also reachable under /api/media/* for ingress setups that only route /api to the backend.
+app.mount("/api/media", StaticFiles(directory=str(UPLOAD_DIR)), name="api-media")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
@@ -278,7 +316,7 @@ async def register(body: RegisterIn):
             "category": "venues", "city": body.city or "Hyderabad",
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
-            "description": "New vendor on Thara.", "starting_price": 50000,
+            "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
             "rating": 0.0, "reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": body.phone, "lat": clat, "lng": clng,
@@ -336,7 +374,8 @@ def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float]
         "verified": v.get("verified", False), "facilities": v.get("facilities", []),
         "event_types": v.get("event_types", []), "address": v.get("address", ""),
         "phone": v.get("phone", ""), "owner_id": v.get("owner_id"),
-        "lat": v_lat, "lng": v_lng,
+        "lat": v_lat, "lng": v_lng, "locality": v.get("locality", ""),
+        "kyc_status": v.get("kyc_status", "approved" if v.get("verified") else "not_submitted"),
     }
 
 @api.get("/vendors")
@@ -344,7 +383,8 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
                        event_type: Optional[str] = None, q: Optional[str] = None,
                        trending: Optional[bool] = None, limit: int = 50,
                        lat: Optional[float] = None, lng: Optional[float] = None):
-    query: dict = {}
+    # Listing gate: only verified vendors with a launch-ready profile are listed.
+    query: dict = {"verified": True}
     if city: query["city"] = city
     if category: query["category"] = category
     if event_type: query["event_types"] = event_type
@@ -353,20 +393,33 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
     if trending:
         cursor = db.vendors.find(query, {"_id": 0}).sort("rating", -1).limit(limit)
     items = await cursor.to_list(limit)
+    svc_counts = await _service_counts([v["id"] for v in items])
+    items = [v for v in items if profile_completeness(v, svc_counts.get(v["id"], 0))["listable"]]
     return [_vendor_pub(v, city or "Hyderabad", lat, lng) for v in items]
 
 @api.get("/vendors/{vendor_id}")
 async def get_vendor(vendor_id: str, lat: Optional[float] = None, lng: Optional[float] = None):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not v: raise HTTPException(404, "Vendor not found")
-    return _vendor_pub(v, v.get("city", "Hyderabad"), lat, lng)
+    await db.vendors.update_one({"id": vendor_id}, {"$inc": {"views": 1}})
+    out = _vendor_pub(v, v.get("city", "Hyderabad"), lat, lng)
+    out["founding_vendor"] = bool(v.get("founding_vendor"))
+    return out
+
+@api.get("/vendors/{vendor_id}/services")
+async def public_vendor_services(vendor_id: str):
+    return await db.services.find({"vendor_id": vendor_id}, {"_id": 0}).sort("price", 1).to_list(100)
+
+@api.get("/vendors/{vendor_id}/availability")
+async def public_vendor_availability(vendor_id: str):
+    return await _availability_summary(vendor_id)
 
 @api.get("/vendors/{vendor_id}/similar")
 async def similar_vendors(vendor_id: str):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not v: return []
     items = await db.vendors.find(
-        {"category": v["category"], "id": {"$ne": vendor_id}}, {"_id": 0}
+        {"category": v["category"], "id": {"$ne": vendor_id}, "verified": True}, {"_id": 0}
     ).limit(6).to_list(6)
     return [_vendor_pub(x, v.get("city", "Hyderabad")) for x in items]
 
@@ -406,10 +459,25 @@ async def _enrich_booking(b: dict) -> dict:
 async def create_booking(body: BookingIn, u: dict = Depends(require_role("customer"))):
     v = await db.vendors.find_one({"id": body.vendor_id})
     if not v: raise HTTPException(404, "Vendor not found")
+    avail = await _availability_summary(body.vendor_id)
+    if body.event_date in avail["blocked_dates"]:
+        raise HTTPException(409, "Vendor is not available on this date")
+    if body.event_date in avail["full_dates"]:
+        raise HTTPException(409, "Vendor is fully booked on this date")
+    amount = body.amount
+    service_title = None
+    if body.service_id:
+        svc = await db.services.find_one({"id": body.service_id, "vendor_id": body.vendor_id}, {"_id": 0})
+        if not svc: raise HTTPException(404, "Package not found")
+        amount = int(svc["price"]); service_title = svc["title"]
+    elif not amount or amount <= 0:
+        amount = int(v.get("starting_price", 0))
+    body.amount = amount
     bid = str(uuid.uuid4())
     doc = {"id": bid, "vendor_id": body.vendor_id, "customer_id": u["id"],
            "event_type": body.event_type, "event_date": body.event_date,
            "guests": body.guests, "notes": body.notes, "amount": body.amount,
+           "service_id": body.service_id, "service_title": service_title,
            "status": "pending", "payment_status": "unpaid",
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.bookings.insert_one(doc.copy())
@@ -735,14 +803,50 @@ async def submit_kyc(body: KycIn, u: dict = Depends(require_role("vendor"))):
            **body.dict(), "status": "pending",
            "submitted_at": datetime.now(timezone.utc).isoformat()}
     await db.kyc.insert_one(doc.copy())
-    # auto-approve for demo
-    await db.vendors.update_one({"id": u["vendor_id"]}, {"$set": {"verified": True}})
-    return {"status": "approved", "kyc_id": doc["id"]}
+    # No auto-approval: a Thara admin reviews and calls POST /api/admin/vendors/{id}/verify.
+    await db.vendors.update_one({"id": u["vendor_id"]}, {"$set": {"kyc_status": "pending"}})
+    return {"status": "pending", "kyc_id": doc["id"]}
 
 @api.get("/kyc/me")
 async def my_kyc(u: dict = Depends(require_role("vendor"))):
-    k = await db.kyc.find_one({"vendor_id": u["vendor_id"]}, {"_id": 0})
+    k = await db.kyc.find_one({"vendor_id": u["vendor_id"]}, {"_id": 0}, sort=[("submitted_at", -1)])
+    v = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0, "verified": 1})
+    if v and v.get("verified"):
+        return {**(k or {}), "status": "approved"}
     return k or {"status": "not_submitted"}
+
+# --- Admin (manual verification for Hyderabad founding vendors) ---
+def require_admin(x_admin_secret: str = Header(default="")):
+    if not ADMIN_SECRET or not secrets.compare_digest(x_admin_secret, ADMIN_SECRET):
+        raise HTTPException(403, "Admin secret required")
+    return True
+
+class AdminVerifyIn(BaseModel):
+    approve: bool = True
+    founding: bool = False
+    note: str = ""
+
+@api.post("/admin/vendors/{vendor_id}/verify")
+async def admin_verify_vendor(vendor_id: str, body: Optional[AdminVerifyIn] = None, _: bool = Depends(require_admin)):
+    body = body or AdminVerifyIn()
+    v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
+    if not v: raise HTTPException(404, "Vendor not found")
+    st = "approved" if body.approve else "rejected"
+    upd = {"verified": body.approve, "kyc_status": st,
+           "verified_at": datetime.now(timezone.utc).isoformat() if body.approve else None}
+    if body.founding: upd["founding_vendor"] = True
+    await db.vendors.update_one({"id": vendor_id}, {"$set": upd})
+    await db.kyc.update_many({"vendor_id": vendor_id, "status": "pending"},
+                             {"$set": {"status": st, "review_note": body.note}})
+    svc = await db.services.count_documents({"vendor_id": vendor_id})
+    v.update(upd)
+    return {"vendor_id": vendor_id, "kyc_status": st, "verified": body.approve,
+            "completeness": profile_completeness(v, svc)}
+
+@api.get("/admin/vendors/pending")
+async def admin_pending(_: bool = Depends(require_admin)):
+    items = await db.vendors.find({"kyc_status": "pending"}, {"_id": 0}).to_list(200)
+    return [{"id": v["id"], "name": v["name"], "city": v.get("city"), "category": v.get("category")} for v in items]
 
 # --- Vendor self (services, dashboard) ---
 @api.get("/vendor/me")
@@ -751,10 +855,15 @@ async def my_vendor(u: dict = Depends(require_role("vendor"))):
     return _vendor_pub(v, v["city"]) if v else None
 
 @api.patch("/vendor/me")
-async def update_my_vendor(body: dict, u: dict = Depends(require_role("vendor"))):
-    allowed = {"name", "category", "city", "cover", "gallery", "description",
-               "starting_price", "facilities", "event_types", "address", "phone", "lat", "lng"}
-    upd = {k: v for k, v in body.items() if k in allowed}
+async def update_my_vendor(body: VendorPatch, u: dict = Depends(require_role("vendor"))):
+    upd = body.dict(exclude_none=True)
+    if upd.get("cover") and upd["cover"] != STOCK_COVER: upd["cover_is_placeholder"] = False
+    if "city" in upd and upd["city"] not in CITIES:
+        raise HTTPException(422, f"City must be one of {', '.join(CITIES)}")
+    if "event_types" in upd:
+        valid = {e["id"] for e in EVENT_TYPES}
+        upd["event_types"] = [e for e in upd["event_types"] if e in valid]
+    if not upd: raise HTTPException(400, "Nothing to update")
     await db.vendors.update_one({"id": u["vendor_id"]}, {"$set": upd})
     v = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0})
     return _vendor_pub(v, v["city"])
@@ -771,9 +880,18 @@ async def vendor_dashboard(u: dict = Depends(require_role("vendor"))):
     agg = await db.bookings.aggregate(pipeline).to_list(1)
     revenue = agg[0]["sum"] if agg else 0
     v = await db.vendors.find_one({"id": vid}, {"_id": 0})
+    svc = await db.services.count_documents({"vendor_id": vid})
+    has_avail = bool(await db.availability.find_one({"vendor_id": vid}))
+    kyc = await db.kyc.find_one({"vendor_id": vid}, {"_id": 0, "status": 1}, sort=[("submitted_at", -1)])
+    kyc_status = "approved" if (v or {}).get("verified") else ((kyc or {}).get("status") or "not_submitted")
+    completeness = profile_completeness(v or {}, svc, has_avail)
+    chats = await db.chat_messages.distinct("booking_id", {"booking_id": {"$in": [
+        b["id"] for b in await db.bookings.find({"vendor_id": vid}, {"_id": 0, "id": 1}).to_list(500)]}})
     return {"total_bookings": total, "pending": pending, "confirmed": confirmed,
             "completed": completed, "revenue": revenue,
-            "views": (hash(vid) % 500) + 120, "inquiries": (hash(vid) % 80) + 25,
+            "views": int((v or {}).get("views", 0)), "inquiries": len(chats) + pending,
+            "kyc_status": kyc_status, "completeness": completeness,
+            "services_count": svc, "founding_vendor": bool((v or {}).get("founding_vendor")),
             "rating": v.get("rating", 0) if v else 0,
             "reviews_count": v.get("reviews_count", 0) if v else 0,
             "verified": v.get("verified", False) if v else False}
@@ -784,9 +902,9 @@ async def get_availability(u: dict = Depends(require_role("vendor"))):
     return a or {"vendor_id": u["vendor_id"], "blocked_dates": [], "max_per_day": 1}
 
 @api.post("/vendor/availability")
-async def set_availability(body: dict, u: dict = Depends(require_role("vendor"))):
-    blocked = body.get("blocked_dates", [])
-    max_pd = int(body.get("max_per_day", 1))
+async def set_availability(body: AvailabilityIn, u: dict = Depends(require_role("vendor"))):
+    blocked = sorted({d for d in body.blocked_dates if _is_iso_date(d)})
+    max_pd = body.max_per_day
     await db.availability.update_one({"vendor_id": u["vendor_id"]},
         {"$set": {"vendor_id": u["vendor_id"], "blocked_dates": blocked, "max_per_day": max_pd}},
         upsert=True)
@@ -803,10 +921,97 @@ async def add_service(body: ServiceIn, u: dict = Depends(require_role("vendor"))
     await db.services.insert_one(doc.copy())
     return doc
 
+@api.patch("/vendor/services/{sid}")
+async def update_service(sid: str, body: ServicePatch, u: dict = Depends(require_role("vendor"))):
+    upd = body.dict(exclude_none=True)
+    if not upd: raise HTTPException(400, "Nothing to update")
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    r = await db.services.update_one({"id": sid, "vendor_id": u["vendor_id"]}, {"$set": upd})
+    if r.matched_count == 0: raise HTTPException(404, "Service not found")
+    return await db.services.find_one({"id": sid}, {"_id": 0})
+
 @api.delete("/vendor/services/{sid}")
 async def delete_service(sid: str, u: dict = Depends(require_role("vendor"))):
     await db.services.delete_one({"id": sid, "vendor_id": u["vendor_id"]})
     return {"ok": True}
+
+# --- Uploads ---
+@api.post("/uploads")
+async def upload_image(request: Request, file: UploadFile = File(...),
+                       u: dict = Depends(get_current_user)):
+    ext = UPLOAD_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(415, "Only JPEG, PNG or WebP images are allowed")
+    data = await file.read(UPLOAD_MAX_BYTES + 1)
+    if len(data) > UPLOAD_MAX_BYTES:
+        raise HTTPException(413, "Image too large (max 5 MB)")
+    if not data: raise HTTPException(400, "Empty file")
+    name = f"{uuid.uuid4().hex}{ext}"
+    (UPLOAD_DIR / name).write_bytes(data)
+    await db.uploads.insert_one({"file": name, "user_id": u["id"], "size": len(data),
+                                 "created_at": datetime.now(timezone.utc).isoformat()})
+    rel = f"/api/media/{name}"  # same file is also served at /uploads/{name}
+    base = BACKEND_URL or str(request.base_url).rstrip("/")
+    return {"url": f"{base}{rel}", "path": rel}
+
+# --- Profile completeness / listing gate helpers ---
+PLACEHOLDER_DESCRIPTIONS = {"new vendor on thara.", "new vendor on eventpro.", ""}
+STOCK_COVER = "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"
+
+def _is_uploaded(url: str) -> bool:
+    return "/uploads/" in (url or "") or "/api/media/" in (url or "")
+
+def profile_completeness(v: dict, services_count: int, has_availability: bool = True) -> dict:
+    """Listing rules (all must pass for GET /api/vendors to return a vendor):
+      1. verified == True (set only by admin via POST /api/admin/vendors/{id}/verify, or seed data)
+      2. description is not the signup placeholder and is >= 30 chars
+      3. cover is set and is not the signup stock image (cover_is_placeholder flag)
+      4. photos: >= 3 gallery photos, OR an uploaded cover plus >= 1 uploaded gallery photo
+      5. category is set
+      6. >= 1 service package exists
+    Availability is tracked for the strength meter only (not required to list)."""
+    desc = (v.get("description") or "").strip()
+    cover = v.get("cover") or ""
+    gallery = [g for g in (v.get("gallery") or []) if g]
+    checks = {
+        "description": desc.lower() not in PLACEHOLDER_DESCRIPTIONS and len(desc) >= 30,
+        # Signup stock cover doesn't count until the vendor sets their own (legacy rows: stock cover + placeholder text).
+        "cover": bool(cover) and not v.get("cover_is_placeholder")
+                 and not (cover == STOCK_COVER and desc.lower() in PLACEHOLDER_DESCRIPTIONS),
+        "photos": len(gallery) >= 3 or (_is_uploaded(cover) and any(_is_uploaded(g) for g in gallery)),
+        "category": bool(v.get("category")),
+        "services": services_count >= 1,
+        "event_types": bool(v.get("event_types")),
+        "availability": has_availability,
+        "kyc": bool(v.get("verified")),
+    }
+    required = ["description", "cover", "photos", "category", "services", "kyc"]
+    pct = int(round(100 * sum(checks.values()) / len(checks)))
+    return {"percent": pct, "checks": checks,
+            "listable": all(checks[k] for k in required),
+            "missing": [k for k in required if not checks[k]]}
+
+async def _service_counts(vendor_ids: List[str]) -> dict:
+    if not vendor_ids: return {}
+    rows = await db.services.aggregate([{"$match": {"vendor_id": {"$in": vendor_ids}}},
+                                        {"$group": {"_id": "$vendor_id", "n": {"$sum": 1}}}]).to_list(1000)
+    return {r["_id"]: r["n"] for r in rows}
+
+def _is_iso_date(d: str) -> bool:
+    try: datetime.strptime(d, "%Y-%m-%d"); return True
+    except Exception: return False
+
+async def _availability_summary(vendor_id: str) -> dict:
+    """Blocked dates set by vendor + dates where confirmed/paid bookings reached max_per_day."""
+    a = await db.availability.find_one({"vendor_id": vendor_id}, {"_id": 0}) or {}
+    max_pd = int(a.get("max_per_day", 1) or 1)
+    rows = await db.bookings.aggregate([
+        {"$match": {"vendor_id": vendor_id, "$or": [{"status": {"$in": ["confirmed", "completed"]}},
+                                                     {"payment_status": "paid"}]}},
+        {"$group": {"_id": "$event_date", "n": {"$sum": 1}}}]).to_list(2000)
+    full = sorted(r["_id"] for r in rows if r["n"] >= max_pd)
+    return {"vendor_id": vendor_id, "blocked_dates": sorted(a.get("blocked_dates", [])),
+            "full_dates": full, "max_per_day": max_pd}
 
 # --- Combo Packages ---
 @api.get("/combos")
@@ -909,6 +1114,7 @@ async def seed():
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     await db.vendors.insert_many(docs)
+    await _seed_services(docs)
     # Combos
     for c in SEED_COMBOS:
         await db.combos.update_one({"id": c["id"]}, {"$set": c}, upsert=True)
@@ -924,6 +1130,21 @@ async def seed():
         })
     logger.info("Seeding complete — %d vendors, %d combos", len(docs), len(SEED_COMBOS))
 
+async def _seed_services(vendors: List[dict]):
+    """Give seeded demo vendors one package each so they pass the listing gate."""
+    pool = [u for imgs in SEED_IMAGES.values() for u in imgs]
+    for v in vendors:
+        gal = list(dict.fromkeys(v.get("gallery") or []))
+        if len(gal) < 3:
+            gal += [u for u in pool if u not in gal][: 3 - len(gal)]
+            await db.vendors.update_one({"id": v["id"]}, {"$set": {"gallery": gal}})
+            v["gallery"] = gal
+        if await db.services.count_documents({"vendor_id": v["id"]}) == 0:
+            await db.services.insert_one({"id": str(uuid.uuid4()), "vendor_id": v["id"],
+                "title": "Signature Package", "description": v["description"],
+                "price": v["starting_price"], "photos": v.get("gallery", [])[:3],
+                "created_at": datetime.now(timezone.utc).isoformat()})
+
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
@@ -931,6 +1152,11 @@ async def on_startup():
     await db.bookings.create_index("customer_id")
     await db.bookings.create_index("vendor_id")
     await seed()
+    # Backfill: existing seeded demo vendors get a package so they remain listed.
+    demo_owners = [x["id"] for x in await db.users.find(
+        {"role": "vendor", "email": {"$regex": "@eventpro\\.in$"}}, {"_id": 0, "id": 1}).to_list(500)]
+    demo = await db.vendors.find({"owner_id": {"$in": demo_owners}}, {"_id": 0}).to_list(500)
+    await _seed_services(demo)
 
 @app.on_event("shutdown")
 async def on_shutdown():

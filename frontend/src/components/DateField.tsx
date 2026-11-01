@@ -11,6 +11,8 @@ type Props = {
   placeholder?: string;
   testID?: string;
   minDate?: string;
+  /** Dates (YYYY-MM-DD) the customer cannot pick — greyed out. */
+  disabledDates?: string[];
 };
 
 const calTheme = {
@@ -31,7 +33,7 @@ const calTheme = {
   textDayHeaderFontSize: 11,
 };
 
-export function DateField({ value, onChange, label, placeholder = "Pick a date", testID, minDate }: Props) {
+export function DateField({ value, onChange, label, placeholder = "Pick a date", testID, minDate, disabledDates = [] }: Props) {
   const [open, setOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const display = value ? new Date(value + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "";
@@ -54,11 +56,15 @@ export function DateField({ value, onChange, label, placeholder = "Pick a date",
               theme={calTheme as any}
               minDate={minDate || today}
               current={value || today}
-              onDayPress={(d: any) => { onChange(d.dateString); setOpen(false); }}
-              markedDates={value ? { [value]: { selected: true, selectedColor: colors.brand } } : {}}
+              onDayPress={(d: any) => { if (disabledDates.includes(d.dateString)) return; onChange(d.dateString); setOpen(false); }}
+              markedDates={{
+                ...Object.fromEntries(disabledDates.map(d => [d, { disabled: true, disableTouchEvent: true }])),
+                ...(value ? { [value]: { selected: true, selectedColor: colors.brand } } : {}),
+              }}
               hideExtraDays
               enableSwipeMonths
             />
+            {disabledDates.length > 0 && <Text style={styles.note}>Greyed-out dates are unavailable for this vendor.</Text>}
           </Pressable>
         </Pressable>
       </Modal>
@@ -73,5 +79,6 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 18 },
   modal: { backgroundColor: colors.surface2, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   modalHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderBottomWidth: 1, borderColor: colors.border },
+  note: { color: colors.textMuted, fontSize: 12, padding: 12, borderTopWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.text, fontSize: 16, fontWeight: "500" },
 });

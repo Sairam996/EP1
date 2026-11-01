@@ -86,3 +86,7 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# User uploads
+backend/uploads/*
+!backend/uploads/.gitkeep

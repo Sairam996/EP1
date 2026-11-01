@@ -35,6 +35,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#000"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Thara needs access to your photos so you can showcase your work to customers.",
+          "cameraPermission": "Thara needs camera access so you can capture photos of your venue and work."
+        }
       ]
     ],
     "experiments": {
