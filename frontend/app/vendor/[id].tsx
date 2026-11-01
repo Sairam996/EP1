@@ -31,7 +31,7 @@ export default function VendorDetail() {
     heroScrim: { position: "absolute", top: 200, left: 0, right: 0, height: 200 },
     iconCircle: { position: "absolute", width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
     heroText: { position: "absolute", top: 240, left: 16, right: 16 },
-    name: { color: "#F3F4F6", fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
+    name: { color: "#F5F0E6", fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
     muted: { color: "rgba(243,244,246,0.8)", fontSize: 11 },
     verBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: c.brand, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, marginBottom: 6 },
     verT: { color: c.onBrand, fontSize: 10, fontWeight: "700" },
@@ -98,7 +98,7 @@ export default function VendorDetail() {
         </ScrollView>
         <LinearGradient colors={["transparent", "rgba(0,0,0,0.95)"]} style={styles.heroScrim} />
         <Pressable onPress={() => router.back()} style={[styles.iconCircle, { top: insets.top + 8, left: 16 }]}>
-          <Ionicons name="arrow-back" size={20} color="#F3F4F6" />
+          <Ionicons name="arrow-back" size={20} color="#F5F0E6" />
         </Pressable>
         <Pressable testID="fav-btn" onPress={toggleFav} style={[styles.iconCircle, { top: insets.top + 8, right: 16 }]}>
           <Ionicons name={favorited ? "heart" : "heart-outline"} size={20} color={favorited ? colors.error : "#F3F4F6"} />

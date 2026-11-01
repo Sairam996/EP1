@@ -23,15 +23,15 @@ export default function Login() {
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     brandWrap: { alignItems: "center", paddingHorizontal: spacing.xl },
-    tag: { color: "rgba(255,255,255,0.75)", marginTop: 10, fontStyle: "italic", fontSize: 12, letterSpacing: 0.5 },
+    tag: { color: "rgba(212,175,55,0.85)", marginTop: 10, fontStyle: "italic", fontSize: 12, letterSpacing: 0.5 },
     cardWrap: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.xl, paddingBottom: 60 },
-    blurCard: { borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(212,175,55,0.28)" },
-    cardInner: { padding: 22, backgroundColor: "rgba(20,20,26,0.62)" },
-    title: { color: "#F3F4F6", fontSize: 22, fontWeight: "500" },
+    blurCard: { borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(212,175,55,0.45)" },
+    cardInner: { padding: 22, backgroundColor: "rgba(0,0,0,0.72)" },
+    title: { color: "#F5F0E6", fontSize: 22, fontWeight: "500" },
     subtitle: { color: "rgba(255,255,255,0.65)", fontSize: 12, marginTop: 2 },
     input: {
       backgroundColor: "rgba(255,255,255,0.09)", borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12,
-      color: "#F3F4F6", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", fontSize: 14, marginBottom: 10,
+      color: "#F5F0E6", borderWidth: 1, borderColor: "rgba(212,175,55,0.28)", fontSize: 14, marginBottom: 10,
     },
     err: { color: "#FF8A8A", marginBottom: 8, fontSize: 12 },
     linkMuted: { color: "rgba(255,255,255,0.65)", fontSize: 13 },
@@ -52,7 +52,7 @@ export default function Login() {
     <View style={styles.root}>
       <Image source={{ uri: "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg" }}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" />
-      <LinearGradient colors={["rgba(11,12,16,0.35)", "rgba(11,12,16,0.85)", "rgba(11,12,16,0.98)"]}
+      <LinearGradient colors={["rgba(0,0,0,0.40)", "rgba(0,0,0,0.82)", "rgba(0,0,0,0.96)"]}
         locations={[0, 0.45, 1]} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>

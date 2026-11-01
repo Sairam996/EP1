@@ -2,7 +2,7 @@
  * ThemeContext — light / dark / system with persistence + reactive palette.
  *
  * Behavior:
- *  - First launch: mode = "system"; the effective palette follows the OS setting.
+ *  - First launch: mode = "dark" (logo gold/black). User can still pick light / system in Settings.
  *  - User can pick light / dark / system in Settings; stored in AsyncStorage.
  *  - When the mode changes, we also mutate the legacy `colors` module-level
  *    object so components that read colors inline still update on next render.
@@ -30,7 +30,7 @@ const ThemeCtx = createContext<Ctx | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [mode, setModeState] = useState<ThemeMode>("dark");
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from storage on mount.

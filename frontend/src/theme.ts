@@ -38,50 +38,50 @@ export type Palette = {
 
 export const darkPalette: Palette = {
   mode: "dark",
-  surface: "#0B0C10",
-  surface2: "#1A1D24",
-  surface3: "#262A33",
-  text: "#F3F4F6",
-  textMuted: "#A1A1AA",
-  textSubtle: "#D1D5DB",
+  // Logo gold/black — glossy premier dark
+  surface: "#000000",
+  surface2: "#0C0C0C",
+  surface3: "#1A1A1A",
+  text: "#FFF8EB",       // high-contrast warm white (always readable)
+  textMuted: "#C4B89A",  // brighter muted for WCAG-ish readability on black
+  textSubtle: "#E8DCC4",
   brand: "#D4AF37",
-  brand2: "#B5952F",
-  brandTint: "#332A0D",
-  onBrand: "#0B0C10",
-  success: "#22C55E",
-  warning: "#F59E0B",
-  error: "#EF4444",
-  info: "#3B82F6",
-  border: "#262A33",
-  borderStrong: "#4B5563",
-  divider: "#1A1D24",
-  overlay: "rgba(11,12,16,0.72)",
-  glass: "rgba(20,20,26,0.55)",
+  brand2: "#E5C65A",     // lighter gold highlight for glossy accents
+  brandTint: "#2E250A",
+  onBrand: "#000000",    // black on gold buttons — max contrast
+  success: "#34D399",
+  warning: "#FBBF24",
+  error: "#F87171",
+  info: "#D4AF37",
+  border: "#2E2A1F",
+  borderStrong: "#D4AF37",
+  divider: "#1C1C1C",
+  overlay: "rgba(0,0,0,0.80)",
+  glass: "rgba(12,12,12,0.70)",
 };
 
-// Warm, luxurious light palette — cream / ivory background, warm brass borders,
-// deep charcoal text. Gold accent unchanged so the brand reads on both modes.
+// N3 light logo palette — pure white, champagne gold mark, charcoal wordmark.
 export const lightPalette: Palette = {
   mode: "light",
-  surface: "#F7F1E4",   // warm cream (champagne / ivory)
-  surface2: "#FFFCF3",  // milky white cards
-  surface3: "#F1E9D6",  // slightly warmer elevated surface / inputs
-  text: "#1F1A10",      // deep espresso
-  textMuted: "#7A6A4D", // warm taupe
-  textSubtle: "#4A3F2A",// darker taupe (still readable secondary)
-  brand: "#B08820",     // richer gold on light (better contrast on cream)
-  brand2: "#8C6B18",    // brand darker
-  brandTint: "#F6EAC7", // soft champagne tint background
-  onBrand: "#FFFDF5",   // near-white text on gold
-  success: "#166534",
+  surface: "#FFFFFF",      // N3 pure white background
+  surface2: "#FFFFFF",     // glossy white cards
+  surface3: "#F6F1E6",     // soft champagne elevated / inputs
+  text: "#1C1C1C",         // N3 charcoal THARA
+  textMuted: "#5C5344",    // readable taupe on white
+  textSubtle: "#2F2A22",
+  brand: "#C4A35A",        // N3 champagne gold
+  brand2: "#A8893E",       // deeper champagne for pressed/hover
+  brandTint: "#F4EBD4",    // soft champagne wash
+  onBrand: "#1C1C1C",      // charcoal on gold — clear buttons
+  success: "#15803D",
   warning: "#B45309",
   error: "#B91C1C",
-  info: "#1D4ED8",
-  border: "#E7DDC4",
-  borderStrong: "#C8B48A",
-  divider: "#EFE7CF",
-  overlay: "rgba(31,26,16,0.35)",
-  glass: "rgba(255,252,243,0.72)",
+  info: "#C4A35A",
+  border: "#E6DCC4",
+  borderStrong: "#C4A35A",
+  divider: "#EFE8D8",
+  overlay: "rgba(28,28,28,0.38)",
+  glass: "rgba(255,255,255,0.86)",
 };
 
 // Legacy mutable colors object — mutated on theme swap by ThemeContext so any

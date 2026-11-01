@@ -7,7 +7,7 @@ export default function VendorLayout() {
       headerShown: false,
       tabBarActiveTintColor: colors.brand,
       tabBarInactiveTintColor: colors.textMuted,
-      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, height: 64, paddingBottom: 8, paddingTop: 8 },
+      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.borderStrong, borderTopWidth: 1, height: 64, paddingBottom: 8, paddingTop: 8 },
       tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
     }}>
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard", tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
