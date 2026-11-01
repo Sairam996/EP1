@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, ScrollView, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Pill } from "@/src/components/UI";
+import { PhotoPicker } from "@/src/components/PhotoPicker";
 import { colors, radius, spacing } from "@/src/theme";
 
 const CATS = ["venues", "catering", "photography", "decor", "music", "planning"];
@@ -13,15 +13,21 @@ const FACILITY_LIBRARY = ["AC Hall", "Valet", "Bridal Suite", "Stage", "Outdoor"
   "Live Counters", "Vegetarian", "Non-Veg", "Buffet", "Tandoor", "Drone", "Same-Day Edits",
   "Pre-Wedding", "Candid", "Cinematography", "Albums", "Floral", "Lighting", "Mandap",
   "DJ", "Dhol", "Sound System", "End-to-End", "Destination"];
+const EVENT_TYPES = [
+  { id: "wedding", name: "Wedding" }, { id: "sangeet", name: "Sangeet" }, { id: "haldi", name: "Haldi" },
+  { id: "mehendi", name: "Mehendi" }, { id: "reception", name: "Reception" }, { id: "engagement", name: "Engagement" },
+  { id: "birthday", name: "Birthday" }, { id: "corporate", name: "Corporate" }, { id: "anniversary", name: "Anniversary" },
+  { id: "baby_shower", name: "Baby Shower" },
+];
+const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
+const PLACEHOLDER = "New vendor on Thara.";
 
 export default function VendorProfileEdit() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [v, setV] = useState<any>({});
-  const [coverInput, setCoverInput] = useState("");
-  const [galleryInput, setGalleryInput] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     api.get("/vendor/me").then(d => { setV(d); setLoading(false); }).catch(() => setLoading(false));
@@ -35,29 +41,32 @@ export default function VendorProfileEdit() {
     set("facilities", next);
   };
 
-  const setCover = () => {
-    if (!coverInput.trim()) return;
-    set("cover", coverInput.trim());
-    setCoverInput("");
+  const toggleEvent = (e: string) => {
+    const cur = v.event_types || [];
+    set("event_types", cur.includes(e) ? cur.filter((x: string) => x !== e) : [...cur, e]);
   };
-  const addGallery = () => {
-    if (!galleryInput.trim()) return;
-    set("gallery", [...(v.gallery || []), galleryInput.trim()]);
-    setGalleryInput("");
-  };
-  const rmGallery = (i: number) => set("gallery", (v.gallery || []).filter((_: any, idx: number) => idx !== i));
 
   const save = async () => {
+    const desc = (v.description || "").trim();
+    if (!v.name || v.name.trim().length < 2) { setMsg({ t: "Business name is required", ok: false }); return; }
+    if (desc === PLACEHOLDER || desc.length < 30) { setMsg({ t: "Write at least 30 characters about your business", ok: false }); return; }
+    const lat = v.lat === "" || v.lat == null ? undefined : parseFloat(String(v.lat));
+    const lng = v.lng === "" || v.lng == null ? undefined : parseFloat(String(v.lng));
+    if ((lat !== undefined && isNaN(lat)) || (lng !== undefined && isNaN(lng))) { setMsg({ t: "Latitude/longitude must be numbers", ok: false }); return; }
     setSaving(true);
     try {
-      const upd = {
-        name: v.name, category: v.category, city: v.city, cover: v.cover,
-        gallery: v.gallery, description: v.description, starting_price: parseInt(String(v.starting_price), 10) || 0,
-        facilities: v.facilities, address: v.address, phone: v.phone,
+      const upd: any = {
+        name: v.name.trim(), category: v.category, city: v.city || "Hyderabad", cover: v.cover,
+        gallery: v.gallery || [], description: desc, starting_price: parseInt(String(v.starting_price), 10) || 0,
+        facilities: v.facilities || [], event_types: v.event_types || [], address: v.address || "",
+        phone: v.phone || "", locality: v.locality || "",
       };
-      await api.patch("/vendor/me", upd);
-      setMsg("Saved!"); setTimeout(() => setMsg(null), 2500);
-    } catch (e: any) { setMsg(e.message); }
+      if (lat !== undefined) upd.lat = lat;
+      if (lng !== undefined) upd.lng = lng;
+      const d = await api.patch("/vendor/me", upd);
+      setV(d);
+      setMsg({ t: "Saved ✓", ok: true }); setTimeout(() => setMsg(null), 2500);
+    } catch (e: any) { setMsg({ t: e.message, ok: false }); }
     finally { setSaving(false); }
   };
 
@@ -78,35 +87,35 @@ export default function VendorProfileEdit() {
           {CATS.map(c => <Pill key={c} label={c[0].toUpperCase() + c.slice(1)} active={v.category === c} onPress={() => set("category", c)} testID={`vp-cat-${c}`} />)}
         </ScrollView>
 
-        <Text style={styles.lbl}>Cover Image</Text>
-        {v.cover ? (
-          <View style={{ position: "relative", marginBottom: 8 }}>
-            <Image source={{ uri: v.cover }} style={styles.cover} contentFit="cover" />
-          </View>
-        ) : <Text style={{ color: colors.textMuted, marginBottom: 8 }}>No cover yet</Text>}
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput value={coverInput} onChangeText={setCoverInput} placeholder="Paste image URL"
-            placeholderTextColor={colors.textMuted} style={[styles.input, { flex: 1 }]} testID="vp-cover-input" />
-          <Pressable onPress={setCover} style={styles.addBtn} testID="vp-cover-set"><Ionicons name="checkmark" size={20} color={colors.onBrand} /></Pressable>
-        </View>
-
-        <Text style={styles.lbl}>Gallery</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {(v.gallery || []).map((g: string, i: number) => (
-            <View key={i} style={{ position: "relative" }}>
-              <Image source={{ uri: g }} style={styles.thumb} contentFit="cover" />
-              <Pressable onPress={() => rmGallery(i)} style={styles.thumbRm} testID={`vp-rm-${i}`}><Ionicons name="close" size={12} color={colors.text} /></Pressable>
-            </View>
-          ))}
+        <Text style={styles.lbl}>City</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+          {CITIES.map(c => <Pill key={c} label={c} active={(v.city || "Hyderabad") === c} onPress={() => set("city", c)} testID={`vp-city-${c}`} />)}
         </ScrollView>
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-          <TextInput value={galleryInput} onChangeText={setGalleryInput} placeholder="Image URL to add"
-            placeholderTextColor={colors.textMuted} style={[styles.input, { flex: 1 }]} testID="vp-gal-input" />
-          <Pressable onPress={addGallery} style={styles.addBtn} testID="vp-gal-add"><Ionicons name="add" size={20} color={colors.onBrand} /></Pressable>
+
+        <Text style={styles.lbl}>Event Types You Serve</Text>
+        <View style={styles.facWrap}>
+          {EVENT_TYPES.map(e => {
+            const on = (v.event_types || []).includes(e.id);
+            return (
+              <Pressable key={e.id} onPress={() => toggleEvent(e.id)} testID={`vp-et-${e.id}`}
+                style={[styles.facChip, on && { borderColor: colors.brand, backgroundColor: colors.brandTint }]}>
+                <Text style={{ color: on ? colors.brand : colors.textSubtle, fontSize: 12 }}>{e.name}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        <Text style={styles.lbl}>Description</Text>
-        <TextInput value={v.description || ""} onChangeText={t => set("description", t)} multiline
+        <Text style={styles.lbl}>Cover Photo</Text>
+        <PhotoPicker single value={v.cover ? [v.cover] : []} onChange={(u) => set("cover", u[0] || "")} testID="vp-cover"
+          hint="Your hero image on Thara — landscape, bright, shows your best work." />
+
+        <Text style={styles.lbl}>Gallery ({(v.gallery || []).length}/20)</Text>
+        <PhotoPicker value={v.gallery || []} onChange={(u) => set("gallery", u)} max={20} testID="vp-gal"
+          hint="Add at least 3 photos. Use ◀ ▶ to reorder — the first photo shows first." />
+
+        <Text style={styles.lbl}>About Your Business</Text>
+        <TextInput value={v.description === PLACEHOLDER ? "" : (v.description || "")} placeholder="What makes you special? Experience, signature style, capacity…"
+          placeholderTextColor={colors.textMuted} onChangeText={t => set("description", t)} multiline
           style={[styles.input, { height: 100, textAlignVertical: "top" }]} testID="vp-desc" />
 
         <Text style={styles.lbl}>Starting Price (INR)</Text>
@@ -114,6 +123,18 @@ export default function VendorProfileEdit() {
 
         <Text style={styles.lbl}>Address</Text>
         <TextInput value={v.address || ""} onChangeText={t => set("address", t)} style={styles.input} testID="vp-addr" />
+
+        <Text style={styles.lbl}>Locality / Area</Text>
+        <TextInput value={v.locality || ""} onChangeText={t => set("locality", t)} placeholder="e.g. Jubilee Hills, Gachibowli"
+          placeholderTextColor={colors.textMuted} style={styles.input} testID="vp-locality" />
+
+        <Text style={styles.lbl}>Map Pin (optional)</Text>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TextInput value={v.lat != null ? String(v.lat) : ""} onChangeText={t => set("lat", t)} placeholder="Latitude 17.43"
+            placeholderTextColor={colors.textMuted} keyboardType="numbers-and-punctuation" style={[styles.input, { flex: 1 }]} testID="vp-lat" />
+          <TextInput value={v.lng != null ? String(v.lng) : ""} onChangeText={t => set("lng", t)} placeholder="Longitude 78.41"
+            placeholderTextColor={colors.textMuted} keyboardType="numbers-and-punctuation" style={[styles.input, { flex: 1 }]} testID="vp-lng" />
+        </View>
 
         <Text style={styles.lbl}>Phone</Text>
         <TextInput value={v.phone || ""} onChangeText={t => set("phone", t)} keyboardType="phone-pad" style={styles.input} testID="vp-phone" />
@@ -128,7 +149,7 @@ export default function VendorProfileEdit() {
           ))}
         </View>
 
-        {msg && <Text style={{ color: colors.success, marginTop: spacing.md }}>{msg}</Text>}
+        {msg && <Text style={{ color: msg.ok ? colors.success : colors.error, marginTop: spacing.md }}>{msg.t}</Text>}
         <GoldButton testID="vp-save" title="Save Changes" onPress={save} loading={saving} style={{ marginTop: spacing.xl }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -139,10 +160,6 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
   input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
-  cover: { width: "100%", height: 160, borderRadius: radius.md },
-  thumb: { width: 80, height: 80, borderRadius: radius.md },
-  thumbRm: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
-  addBtn: { backgroundColor: colors.brand, width: 48, height: 48, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   facWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   facChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
 });

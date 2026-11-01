@@ -17,9 +17,10 @@ export default function Kyc() {
 
   const submit = async () => {
     if (!biz || !pan || !addr) { alert("Please fill all required fields"); return; }
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan.trim().toUpperCase())) { alert("Enter a valid PAN (e.g. ABCDE1234F)"); return; }
     setLoading(true);
     try {
-      const r = await api.post("/kyc", { business_name: biz, gst_number: gst, pan_number: pan, address: addr, document_url: "" });
+      const r = await api.post("/kyc", { business_name: biz, gst_number: gst, pan_number: pan.trim().toUpperCase(), address: addr, document_url: "" });
       setStatus(r.status);
     } catch (e: any) { alert(e.message); }
     finally { setLoading(false); }
@@ -34,12 +35,19 @@ export default function Kyc() {
       {status === "approved" ? (
         <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }}>
           <View style={styles.okCircle}><Ionicons name="checkmark" size={40} color={colors.onBrand} /></View>
-          <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>You're Verified ✨</Text>
+          <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>You{"'"}re Verified ✨</Text>
           <Text style={{ color: colors.textMuted, textAlign: "center" }}>Your business is verified. The gold badge is now on your listing.</Text>
+        </View>
+      ) : status === "pending" ? (
+        <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }} testID="kyc-pending">
+          <View style={[styles.okCircle, { backgroundColor: colors.warning }]}><Ionicons name="time" size={40} color={colors.onBrand} /></View>
+          <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>Under Review</Text>
+          <Text style={{ color: colors.textMuted, textAlign: "center" }}>Thanks! The Thara team is verifying your details. You{"'"}ll get the Verified badge within 1–2 business days.</Text>
         </View>
       ) : (
         <View style={{ padding: spacing.xl, gap: 6 }}>
-          <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to earn the Verified badge & higher visibility.</Text>
+          {status === "rejected" && <Text style={{ color: colors.error, marginBottom: spacing.sm }}>Your previous submission needs changes — please re-submit.</Text>}
+          <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to get verified — only verified vendors are listed to customers on Thara.</Text>
           <Text style={styles.lbl}>Business Name *</Text>
           <TextInput value={biz} onChangeText={setBiz} placeholder="Registered name" placeholderTextColor={colors.textMuted} style={styles.input} testID="kyc-biz" />
           <Text style={styles.lbl}>PAN Number *</Text>

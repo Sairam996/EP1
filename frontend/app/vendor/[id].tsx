@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api } from "@/src/api";
+import { api, resolveImg } from "@/src/api";
 import { GoldButton, Rating } from "@/src/components/UI";
 import { useUserLocation, openInMaps } from "@/src/hooks/use-location";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -21,7 +21,8 @@ export default function VendorDetail() {
   const [v, setV] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
-  const [tab, setTab] = useState<"about" | "reviews" | "gallery">("about");
+  const [services, setServices] = useState<any[]>([]);
+  const [tab, setTab] = useState<"about" | "packages" | "reviews" | "gallery">("about");
   const [favorited, setFavorited] = useState(false);
 
   const styles = useThemedStyles((c) => ({
@@ -61,6 +62,11 @@ export default function VendorDetail() {
     ctaLabel: { color: c.textMuted, fontSize: 11 },
     ctaPrice: { color: c.brand, fontSize: 18, fontWeight: "700" },
     empty: { color: c.textMuted },
+    pkgCard: { padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
+    pkgTitle: { color: c.text, fontSize: 15, fontWeight: "600" },
+    pkgPrice: { color: c.brand, fontSize: 16, fontWeight: "700" },
+    pkgBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, paddingVertical: 10, borderRadius: radius.md, backgroundColor: c.brand },
+    pkgBtnT: { color: c.onBrand, fontWeight: "600", fontSize: 13 },
   }));
 
   useEffect(() => {
@@ -72,6 +78,7 @@ export default function VendorDetail() {
         api.get(`/vendors/${id}/similar`, { auth: false }),
       ]);
       setV(vd); setReviews(r); setSimilar(s);
+      api.get(`/vendors/${id}/services`, { auth: false }).then(setServices).catch(() => setServices([]));
     })();
   }, [id, coords]);
 
@@ -86,7 +93,7 @@ export default function VendorDetail() {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
           {v.gallery.map((src: string, i: number) => (
-            <Image key={i} source={{ uri: src }} style={{ width, height: 340 }} contentFit="cover" />
+            <Image key={i} source={{ uri: resolveImg(src) }} style={{ width, height: 340 }} contentFit="cover" />
           ))}
         </ScrollView>
         <LinearGradient colors={["transparent", "rgba(0,0,0,0.95)"]} style={styles.heroScrim} />
@@ -97,7 +104,10 @@ export default function VendorDetail() {
           <Ionicons name={favorited ? "heart" : "heart-outline"} size={20} color={favorited ? colors.error : "#F3F4F6"} />
         </Pressable>
         <View style={styles.heroText}>
-          {v.verified && <View style={styles.verBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verT}>Verified</Text></View>}
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {v.verified && <View style={styles.verBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verT}>Verified</Text></View>}
+            {v.founding_vendor && <View style={styles.verBadge}><Ionicons name="star" size={12} color={colors.onBrand} /><Text style={styles.verT}>Founding Vendor · {v.city}</Text></View>}
+          </View>
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
             <Rating value={v.rating} size={14} />
@@ -109,7 +119,7 @@ export default function VendorDetail() {
         </View>
 
         <View style={styles.tabRow}>
-          {(["about", "reviews", "gallery"] as const).map((t) => (
+          {(["about", "packages", "reviews", "gallery"] as const).map((t) => (
             <Pressable key={t} testID={`tab-${t}`} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
               <Text style={[styles.tabT, tab === t && styles.tabActiveText]}>{t[0].toUpperCase() + t.slice(1)}</Text>
             </Pressable>
@@ -159,6 +169,34 @@ export default function VendorDetail() {
           </View>
         )}
 
+        {tab === "packages" && (
+          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
+            {services.length === 0 ? <Text style={styles.empty}>Packages coming soon — book to get a custom quote.</Text> :
+              services.map((s) => (
+                <View key={s.id} style={styles.pkgCard} testID={`pkg-${s.id}`}>
+                  {s.photos?.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                      {s.photos.map((p: string, i: number) => (
+                        <Image key={i} source={{ uri: resolveImg(p) }} style={{ width: 120, height: 90, borderRadius: radius.sm }} contentFit="cover" />
+                      ))}
+                    </ScrollView>
+                  )}
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: s.photos?.length ? 10 : 0 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pkgTitle}>{s.title}</Text>
+                      {s.description ? <Text style={styles.reviewText}>{s.description}</Text> : null}
+                    </View>
+                    <Text style={styles.pkgPrice}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
+                  </View>
+                  <Pressable onPress={() => router.push(`/booking-form/${v.id}?serviceId=${s.id}` as any)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
+                    <Text style={styles.pkgBtnT}>Select & Book</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.onBrand} />
+                  </Pressable>
+                </View>
+              ))}
+          </View>
+        )}
+
         {tab === "reviews" && (
           <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
             {reviews.length === 0 ? <Text style={styles.empty}>No reviews yet.</Text> :
@@ -177,7 +215,7 @@ export default function VendorDetail() {
         {tab === "gallery" && (
           <View style={{ paddingHorizontal: spacing.xl, flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.lg }}>
             {v.gallery.map((src: string, i: number) => (
-              <Image key={i} source={{ uri: src }} style={{ width: (width - spacing.xl * 2 - 8) / 2, height: 140, borderRadius: radius.md }} contentFit="cover" />
+              <Image key={i} source={{ uri: resolveImg(src) }} style={{ width: (width - spacing.xl * 2 - 8) / 2, height: 140, borderRadius: radius.md }} contentFit="cover" />
             ))}
           </View>
         )}
@@ -188,7 +226,7 @@ export default function VendorDetail() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 12, paddingTop: 12 }}>
               {similar.map((s) => (
                 <Pressable key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} style={styles.simCard}>
-                  <Image source={{ uri: s.cover }} style={{ width: "100%", height: 100 }} contentFit="cover" />
+                  <Image source={{ uri: resolveImg(s.cover) }} style={{ width: "100%", height: 100 }} contentFit="cover" />
                   <View style={{ padding: 10 }}>
                     <Text style={styles.simName} numberOfLines={1}>{s.name}</Text>
                     <Rating value={s.rating} size={12} />

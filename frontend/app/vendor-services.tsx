@@ -1,104 +1,146 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Alert, Platform } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api } from "@/src/api";
+import { api, resolveImg } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
+import { PhotoPicker } from "@/src/components/PhotoPicker";
 import { colors, radius, spacing } from "@/src/theme";
 
 const MAX_PHOTOS = 15;
 
+// Quick-start package templates per category — vendors tap one to prefill the form.
+const TEMPLATES: Record<string, { title: string; description: string; price: number }[]> = {
+  venues: [
+    { title: "Banquet Hall — Full Day", description: "AC hall up to 300 guests, stage, bridal room, valet parking, 12 hrs.", price: 150000 },
+    { title: "Lawn Evening Package", description: "Open lawn up to 500 guests, lighting, power backup, 6 hrs.", price: 120000 },
+  ],
+  catering: [
+    { title: "Classic Veg Thali (per plate)", description: "2 starters, 4 mains, 2 desserts, live chaat counter.", price: 650 },
+    { title: "Hyderabadi Royal Buffet (per plate)", description: "Dum biryani, haleem, kebabs, double ka meetha, 4 live counters.", price: 1100 },
+  ],
+  photography: [
+    { title: "Wedding Day Candid", description: "2 photographers, 8 hrs, 400 edited photos, online gallery.", price: 60000 },
+    { title: "Photo + Film Premium", description: "Candid + traditional, cinematic 5-min film, drone, album.", price: 140000 },
+  ],
+  decor: [
+    { title: "Mandap & Stage Florals", description: "Fresh flower mandap, stage backdrop, entrance arch.", price: 75000 },
+    { title: "Sangeet Night Lighting", description: "Fairy lights, LED dance floor, themed props.", price: 45000 },
+  ],
+  music: [
+    { title: "DJ Night (5 hrs)", description: "Pro DJ, 2kW sound, basic lights, MC for games.", price: 30000 },
+    { title: "DJ + Live Dhol", description: "DJ set plus 2 dhol players for baraat & sangeet.", price: 48000 },
+  ],
+  planning: [
+    { title: "Day-of Coordination", description: "Coordinator + 2 assistants, vendor management on the day.", price: 40000 },
+    { title: "Full Wedding Planning", description: "End-to-end planning, budgets, vendor sourcing, 3 events.", price: 250000 },
+  ],
+};
+
 export default function VendorServices() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<any[]>([]);
+  const [category, setCategory] = useState<string>("venues");
+  const [editId, setEditId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [price, setPrice] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
-  const [photoInput, setPhotoInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
 
   const load = async () => setItems(await api.get("/vendor/services"));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.get("/vendor/me").then((v) => v?.category && setCategory(v.category)).catch(() => {});
+  }, []);
 
-  const addPhoto = () => {
-    if (!photoInput.trim() || photos.length >= MAX_PHOTOS) return;
-    setPhotos([...photos, photoInput.trim()]);
-    setPhotoInput("");
+  const reset = () => { setEditId(null); setTitle(""); setDesc(""); setPrice(""); setPhotos([]); };
+  const flash = (t: string, ok = true) => { setMsg({ t, ok }); setTimeout(() => setMsg(null), 2800); };
+
+  const startEdit = (s: any) => {
+    setEditId(s.id); setTitle(s.title); setDesc(s.description || ""); setPrice(String(s.price)); setPhotos(s.photos || []);
   };
-  const rmPhoto = (i: number) => setPhotos(photos.filter((_, idx) => idx !== i));
 
-  const add = async () => {
-    if (!title || !price) { setMsg("Title and price required"); return; }
-    setLoading(true); setMsg(null);
+  const save = async () => {
+    const p = parseInt(price, 10);
+    if (title.trim().length < 2 || !p || p <= 0) { flash("Title and a valid price are required", false); return; }
+    setLoading(true);
     try {
-      await api.post("/vendor/services", { title, description: desc, price: parseInt(price, 10), photos });
-      setTitle(""); setDesc(""); setPrice(""); setPhotos([]);
-      setMsg(`Service added with ${photos.length} photo(s)`);
-      load();
-      setTimeout(() => setMsg(null), 2500);
-    } catch (e: any) { setMsg(e.message); }
+      const body = { title: title.trim(), description: desc.trim(), price: p, photos };
+      if (editId) await api.patch(`/vendor/services/${editId}`, body);
+      else await api.post("/vendor/services", body);
+      flash(editId ? "Package updated ✓" : `Package added with ${photos.length} photo(s) ✓`);
+      reset(); load();
+    } catch (e: any) { flash(e.message, false); }
     finally { setLoading(false); }
   };
-  const del = async (id: string) => { await api.del(`/vendor/services/${id}`); load(); };
+
+  const del = (id: string) => {
+    const go = async () => { await api.del(`/vendor/services/${id}`); if (editId === id) reset(); load(); };
+    if (Platform.OS === "web") { go(); return; }
+    Alert.alert("Delete package?", "Customers will no longer see it.", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: go }]);
+  };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
-        <Text style={styles.title}>My Services</Text>
+        <Text style={styles.title}>Packages & Services</Text>
       </View>
+
+      {!editId && (TEMPLATES[category] || []).length > 0 && (
+        <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}>
+          <Text style={styles.lbl}>Quick start templates</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8 }}>
+            {TEMPLATES[category].map((t) => (
+              <Pressable key={t.title} style={styles.tpl} onPress={() => { setTitle(t.title); setDesc(t.description); setPrice(String(t.price)); }} testID={`tpl-${t.title}`}>
+                <Ionicons name="sparkles" size={14} color={colors.brand} />
+                <Text style={{ color: colors.text, fontSize: 12, fontWeight: "500" }} numberOfLines={1}>{t.title}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       <View style={styles.form}>
-        <Text style={styles.lbl}>Service / Package Title</Text>
+        {editId && (
+          <View style={styles.editBanner}>
+            <Ionicons name="create" size={16} color={colors.brand} />
+            <Text style={{ color: colors.brand, flex: 1, fontWeight: "600" }}>Editing package</Text>
+            <Pressable onPress={reset}><Text style={{ color: colors.textMuted }}>Cancel</Text></Pressable>
+          </View>
+        )}
+        <Text style={styles.lbl}>Package Title</Text>
         <TextInput value={title} onChangeText={setTitle} placeholder="e.g. Premium Wedding Photography Package"
           placeholderTextColor={colors.textMuted} style={styles.input} testID="svc-title" />
-        <Text style={styles.lbl}>Description / What's included</Text>
+        <Text style={styles.lbl}>What{"'"}s included</Text>
         <TextInput value={desc} onChangeText={setDesc}
           placeholder="2 photographers, 8 hrs, 300 edited photos, 2-min film, drone, same-day reels..."
           placeholderTextColor={colors.textMuted}
           style={[styles.input, { height: 90, textAlignVertical: "top" }]} multiline testID="svc-desc" />
         <Text style={styles.lbl}>Price (INR)</Text>
-        <TextInput value={price} onChangeText={setPrice} placeholder="75000"
+        <TextInput value={price} onChangeText={(t) => setPrice(t.replace(/[^0-9]/g, ""))} placeholder="75000"
           placeholderTextColor={colors.textMuted} style={styles.input} keyboardType="number-pad" testID="svc-price" />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: spacing.lg, marginBottom: 6 }}>
-          <Text style={styles.lbl}>Photos ({photos.length}/{MAX_PHOTOS})</Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {photos.map((p, i) => (
-            <View key={i} style={{ position: "relative" }}>
-              <Image source={{ uri: p }} style={styles.thumb} contentFit="cover" />
-              <Pressable onPress={() => rmPhoto(i)} style={styles.thumbRm} testID={`rm-photo-${i}`}>
-                <Ionicons name="close" size={12} color={colors.text} />
-              </Pressable>
-            </View>
-          ))}
-          {photos.length === 0 && <Text style={{ color: colors.textMuted, fontSize: 12, paddingVertical: 8 }}>Add up to {MAX_PHOTOS} photos of your work</Text>}
-        </ScrollView>
-        {photos.length < MAX_PHOTOS && (
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-            <TextInput value={photoInput} onChangeText={setPhotoInput} placeholder="Paste image URL"
-              placeholderTextColor={colors.textMuted} style={[styles.input, { flex: 1, marginTop: 0 }]} testID="photo-input" />
-            <Pressable onPress={addPhoto} style={styles.addBtn} testID="photo-add">
-              <Ionicons name="add" size={20} color={colors.onBrand} />
-            </Pressable>
-          </View>
-        )}
-        {msg && <Text style={{ color: msg.includes("required") ? colors.error : colors.success, marginTop: 8 }}>{msg}</Text>}
-        <GoldButton testID="svc-add" title="Add Service" onPress={add} loading={loading} style={{ marginTop: spacing.md }} />
+        <Text style={[styles.lbl, { marginBottom: 8 }]}>Photos ({photos.length}/{MAX_PHOTOS})</Text>
+        <PhotoPicker value={photos} onChange={setPhotos} max={MAX_PHOTOS} testID="svc-photos" hint="Show real work from this package — customers book what they can see." />
+        {msg && <Text style={{ color: msg.ok ? colors.success : colors.error, marginTop: 8 }}>{msg.t}</Text>}
+        <GoldButton testID="svc-add" title={editId ? "Save Package" : "Add Package"} onPress={save} loading={loading} style={{ marginTop: spacing.md }} />
       </View>
+
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.sm }}>
-        <Text style={[styles.lbl, { marginTop: spacing.xl }]}>Existing Services ({items.length})</Text>
+        <Text style={[styles.lbl, { marginTop: spacing.xl }]}>Your Packages ({items.length})</Text>
         {items.map(s => (
-          <View key={s.id} style={styles.item}>
-            {s.photos?.[0] ? <Image source={{ uri: s.photos[0] }} style={{ width: 60, height: 60, borderRadius: radius.sm }} contentFit="cover" /> : null}
+          <Pressable key={s.id} style={[styles.item, editId === s.id && { borderColor: colors.brand }]} onPress={() => startEdit(s)} testID={`svc-${s.id}`}>
+            {s.photos?.[0] ? <Image source={{ uri: resolveImg(s.photos[0]) }} style={{ width: 60, height: 60, borderRadius: radius.sm }} contentFit="cover" />
+              : <View style={[styles.noPic]}><Ionicons name="image-outline" size={20} color={colors.textMuted} /></View>}
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.text, fontWeight: "500" }} numberOfLines={1}>{s.title}</Text>
               <Text style={{ color: colors.textMuted, fontSize: 11 }} numberOfLines={1}>{s.description}</Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 13 }}>₹{s.price.toLocaleString("en-IN")}</Text>
+                <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 13 }}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
                 {s.photos?.length > 0 && (
                   <View style={styles.photoBadge}>
                     <Ionicons name="images" size={10} color={colors.brand} />
@@ -107,12 +149,11 @@ export default function VendorServices() {
                 )}
               </View>
             </View>
-            <Pressable testID={`del-${s.id}`} onPress={() => del(s.id)}>
-              <Ionicons name="trash" size={18} color={colors.error} />
-            </Pressable>
-          </View>
+            <Pressable testID={`edit-${s.id}`} onPress={() => startEdit(s)} hitSlop={8}><Ionicons name="create-outline" size={18} color={colors.brand} /></Pressable>
+            <Pressable testID={`del-${s.id}`} onPress={() => del(s.id)} hitSlop={8}><Ionicons name="trash" size={18} color={colors.error} /></Pressable>
+          </Pressable>
         ))}
-        {items.length === 0 && <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 8 }}>No services yet — add your first package above</Text>}
+        {items.length === 0 && <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 8 }}>No packages yet — add at least one to go live on Thara</Text>}
       </View>
     </ScrollView>
   );
@@ -123,9 +164,9 @@ const styles = StyleSheet.create({
   form: { padding: spacing.xl, gap: 4 },
   lbl: { color: colors.textMuted, fontSize: 11, marginTop: spacing.md, letterSpacing: 1, textTransform: "uppercase" },
   input: { backgroundColor: colors.surface2, borderRadius: radius.md, padding: 12, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 14, marginTop: 4 },
-  thumb: { width: 80, height: 80, borderRadius: radius.md },
-  thumbRm: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center" },
-  addBtn: { backgroundColor: colors.brand, width: 48, height: 48, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
+  tpl: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand + "66", backgroundColor: colors.surface2, maxWidth: 240 },
+  editBanner: { flexDirection: "row", alignItems: "center", gap: 8, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
   item: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  noPic: { width: 60, height: 60, borderRadius: radius.sm, backgroundColor: colors.surface3, alignItems: "center", justifyContent: "center" },
   photoBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
 });

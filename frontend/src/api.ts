@@ -48,3 +48,44 @@ export const api = {
   patch: (p: string, b?: any, opts?: any) => req("PATCH", p, b, opts),
   del: (p: string, opts?: any) => req("DELETE", p, undefined, opts),
 };
+
+/** Root of the backend (no /api suffix). */
+export const BACKEND_ROOT = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
+
+/** Resolve relative upload paths (e.g. "/api/media/x.jpg") so <Image> can load them. */
+export function resolveImg(u?: string | null): string {
+  if (!u) return "";
+  if (/^(https?:|data:|blob:|file:)/i.test(u)) return u;
+  return `${BACKEND_ROOT}${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
+export type LocalImage = { uri: string; mimeType?: string | null; fileName?: string | null };
+
+/** Upload one picked image to POST /api/uploads. Reports 0..1 progress. Returns the public URL. */
+export async function uploadImage(img: LocalImage, onProgress?: (p: number) => void): Promise<string> {
+  const token = await loadToken();
+  const type = img.mimeType || (img.uri.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+  const name = img.fileName || `photo.${type.split("/")[1] === "jpeg" ? "jpg" : type.split("/")[1]}`;
+  const form = new FormData();
+  if (img.uri.startsWith("blob:") || img.uri.startsWith("data:")) {
+    // Web: picker gives blob/data URIs — convert to a real Blob.
+    const blob = await (await fetch(img.uri)).blob();
+    form.append("file", blob, name);
+  } else {
+    form.append("file", { uri: img.uri, name, type } as any);
+  }
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}/uploads`);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+    xhr.onload = () => {
+      let data: any = null;
+      try { data = JSON.parse(xhr.responseText); } catch { /* ignore */ }
+      if (xhr.status >= 200 && xhr.status < 300 && data?.url) { onProgress?.(1); resolve(data.url); }
+      else reject(new Error(data?.detail || `Upload failed (HTTP ${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error("Network error while uploading"));
+    xhr.send(form);
+  });
+}
