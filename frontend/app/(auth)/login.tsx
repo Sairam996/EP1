@@ -65,7 +65,13 @@ export default function Login() {
     const dark = c.mode === "dark";
     return {
       root: { flex: 1, backgroundColor: c.surface },
-      content: { flexGrow: 1, paddingHorizontal: spacing.xl },
+      content: {
+        flexGrow: 1,
+        paddingHorizontal: spacing.xl,
+        width: "100%" as const,
+        maxWidth: 440,
+        alignSelf: "center" as const,
+      },
       brandWrap: { alignItems: "center", marginBottom: spacing.md },
       tharaName: {
         color: c.text,
@@ -354,7 +360,8 @@ export default function Login() {
             {!playIntro ? (
               <TharaLogo variant="wordmark" width={210} />
             ) : (
-              <Text style={styles.tharaName}>THARA</Text>
+              // LaunchIntro already renders the rising THARA title; keep one brand mark.
+              <View style={{ height: 44 }} />
             )}
           </View>
 

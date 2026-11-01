@@ -1,3 +1,5 @@
+
+> **Thara is an Expo iOS + Android mobile app, not a website.** See [MOBILE.md](./MOBILE.md) — all future work must target and work on both iOS and Android.
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
