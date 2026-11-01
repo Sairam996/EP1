@@ -130,8 +130,23 @@ class RegisterIn(BaseModel):
     city: Optional[str] = "Hyderabad"
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     password: str
+
+class OtpSendIn(BaseModel):
+    phone: str = Field(min_length=8, max_length=20)
+
+class OtpVerifyIn(BaseModel):
+    phone: str = Field(min_length=8, max_length=20)
+    otp: str = Field(min_length=4, max_length=8)
+
+class CompleteProfileIn(BaseModel):
+    email: Optional[EmailStr] = None
+    name: str = Field(min_length=2, max_length=80)
+    city: Optional[str] = "Hyderabad"
+    role: Role = "customer"
+    avatar: Optional[str] = None
 
 class UserOut(BaseModel):
     id: str
@@ -142,6 +157,7 @@ class UserOut(BaseModel):
     city: Optional[str] = None
     vendor_id: Optional[str] = None
     avatar: Optional[str] = None
+    profile_complete: Optional[bool] = None
 
 class AuthOut(BaseModel):
     token: str
@@ -330,11 +346,133 @@ async def api_register_push(body: RegisterPushIn, u: dict = Depends(get_current_
     return {"status": "registered"}
 
 # --- Auth ---
+# In-memory OTP store (dev/mock SMS). Production would use Twilio/MSG91.
+_otp_store: dict = {}
+
+def _norm_phone(phone: str) -> str:
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if not digits:
+        return phone.strip()
+    if len(digits) == 10:
+        return "+91" + digits
+    if not phone.strip().startswith("+"):
+        return "+" + digits
+    return "+" + digits
+
+@api.post("/auth/otp/send")
+async def otp_send(body: OtpSendIn, request: Request):
+    rate_limit(f"otp-send:{_ip(request)}", 5)
+    phone = _norm_phone(body.phone)
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    _otp_store[phone] = {
+        "code": code,
+        "expires": time.monotonic() + 300,
+        "attempts": 0,
+    }
+    # Mock SMS — log OTP; no Twilio wired yet.
+    logger.info(f"[OTP mock] phone={phone} code={code}")
+    out = {"status": "sent", "phone": phone, "expires_in": 300}
+    # Surface OTP in non-production so Expo can be tested without SMS.
+    if os.environ.get("PAYMENT_MODE", "mock") == "mock" or os.environ.get("ENABLE_DEMO_SEED", "false").lower() == "true":
+        out["dev_otp"] = code
+    return out
+
+@api.post("/auth/otp/verify", response_model=AuthOut)
+async def otp_verify(body: OtpVerifyIn, request: Request):
+    rate_limit(f"otp-verify:{_ip(request)}", 10)
+    phone = _norm_phone(body.phone)
+    entry = _otp_store.get(phone)
+    if not entry or time.monotonic() > entry["expires"]:
+        _otp_store.pop(phone, None)
+        raise HTTPException(400, "OTP expired. Request a new code.")
+    entry["attempts"] += 1
+    if entry["attempts"] > 5:
+        _otp_store.pop(phone, None)
+        raise HTTPException(429, "Too many OTP attempts")
+    if body.otp.strip() != entry["code"]:
+        raise HTTPException(401, "Invalid OTP")
+    _otp_store.pop(phone, None)
+
+    # Find existing user by phone variants
+    variants = {phone, phone.lstrip("+"), phone[-10:] if len(phone) >= 10 else phone}
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if digits:
+        variants.add(digits)
+        variants.add("+" + digits)
+        if len(digits) == 10:
+            variants.add("+91" + digits)
+    u = await db.users.find_one({"phone": {"$in": list(variants)}})
+    if not u:
+        uid = str(uuid.uuid4())
+        doc = {
+            "id": uid,
+            "name": "",
+            "email": f"{digits}@phone.thara.app",
+            "phone": phone,
+            "password_hash": hash_pw(secrets.token_urlsafe(16)),
+            "role": "customer",
+            "city": "Hyderabad",
+            "referral_code": gen_referral_code(),
+            "points": 0,
+            "profile_complete": False,
+            "avatar": "https://ui-avatars.com/api/?name=Thara&background=D4AF37&color=0B0C10",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.users.insert_one(doc)
+        u = doc
+    token = make_token(u["id"], u.get("role", "customer"))
+    return {"token": token, "user": {
+        "id": u["id"], "name": u.get("name") or "", "email": u["email"], "phone": u["phone"],
+        "role": u.get("role", "customer"), "city": u.get("city"), "vendor_id": u.get("vendor_id"),
+        "avatar": u.get("avatar"),
+        "profile_complete": bool(u.get("profile_complete")) or bool(u.get("name")),
+    }}
+
+@api.post("/auth/complete-profile", response_model=UserOut)
+async def complete_profile(body: CompleteProfileIn, u: dict = Depends(get_current_user)):
+    updates = {
+        "name": body.name.strip(),
+        "city": body.city or "Hyderabad",
+        "profile_complete": True,
+        "avatar": body.avatar or f"https://ui-avatars.com/api/?name={body.name.strip().replace(' ','+')}&background=D4AF37&color=0B0C10",
+    }
+    if body.email:
+        existing = await db.users.find_one({"email": body.email.lower(), "id": {"$ne": u["id"]}})
+        if existing:
+            raise HTTPException(400, "Email already registered")
+        updates["email"] = body.email.lower()
+    # Role upgrade to vendor if requested and not already
+    if body.role == "vendor" and u.get("role") != "vendor":
+        vid = str(uuid.uuid4())
+        updates["role"] = "vendor"
+        updates["vendor_id"] = vid
+        clat, clng = CITY_COORDS.get(body.city or "Hyderabad", (17.3850, 78.4867))
+        await db.vendors.insert_one({
+            "id": vid, "owner_id": u["id"], "name": body.name.strip() + " Services",
+            "category": "venues", "city": body.city or "Hyderabad",
+            "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
+            "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
+            "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
+            "rating": 0.0, "reviews_count": 0, "verified": False,
+            "facilities": [], "event_types": ["wedding"], "address": body.city or "",
+            "phone": u.get("phone", ""), "lat": clat, "lng": clng,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    await db.users.update_one({"id": u["id"]}, {"$set": updates})
+    fresh = await db.users.find_one({"id": u["id"]})
+    return {
+        "id": fresh["id"], "name": fresh["name"], "email": fresh["email"], "phone": fresh["phone"],
+        "role": fresh["role"], "city": fresh.get("city"), "vendor_id": fresh.get("vendor_id"),
+        "avatar": fresh.get("avatar"),
+    }
+
 @api.post("/auth/register", response_model=AuthOut)
 async def register(body: RegisterIn, request: Request):
     rate_limit(f"register:{_ip(request)}", 5)
     if await db.users.find_one({"email": body.email.lower()}):
         raise HTTPException(400, "Email already registered")
+    if body.phone and await db.users.find_one({"phone": body.phone.strip()}):
+        raise HTTPException(400, "Phone already registered")
     uid = str(uuid.uuid4())
     doc = {
         "id": uid, "name": body.name, "email": body.email.lower(), "phone": body.phone,
@@ -372,9 +510,29 @@ async def register(body: RegisterIn, request: Request):
 @api.post("/auth/login", response_model=AuthOut)
 async def login(body: LoginIn, request: Request):
     rate_limit(f"login:{_ip(request)}", 10)
-    u = await db.users.find_one({"email": body.email.lower()})
+    email = (body.email or "").strip().lower() if body.email else ""
+    phone = (body.phone or "").strip() if body.phone else ""
+    if not email and not phone:
+        raise HTTPException(400, "Email or phone is required")
+    u = None
+    if email:
+        u = await db.users.find_one({"email": email})
+    if not u and phone:
+        # Match exact phone or common +91 / 0-prefix variants
+        variants = {phone}
+        digits = "".join(ch for ch in phone if ch.isdigit())
+        if digits:
+            variants.add(digits)
+            variants.add("+" + digits)
+            if digits.startswith("91") and len(digits) >= 12:
+                variants.add("+" + digits)
+                variants.add(digits[-10:])
+            elif len(digits) == 10:
+                variants.add("+91" + digits)
+                variants.add("91" + digits)
+        u = await db.users.find_one({"phone": {"$in": list(variants)}})
     if not u or not verify_pw(body.password, u["password_hash"]):
-        raise HTTPException(401, "Invalid email or password")
+        raise HTTPException(401, "Invalid phone/email or password")
     try:
         subj, html, preview = tpl_login_alert(u["name"])
         await send_email(u["email"], subj, html, preview)

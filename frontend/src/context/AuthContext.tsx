@@ -6,13 +6,19 @@ import { api, setToken, loadToken } from "../api";
 export type User = {
   id: string; name: string; email: string; phone: string;
   role: "customer" | "vendor"; city?: string; vendor_id?: string; avatar?: string;
+  profile_complete?: boolean;
 };
 
 type AuthCtx = {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<User>;
+  signIn: (identifier: { email?: string; phone?: string }, password: string) => Promise<User>;
   signUp: (data: { name: string; email: string; phone: string; password: string; role: "customer" | "vendor"; city?: string }) => Promise<User>;
+  sendOtp: (phone: string) => Promise<{ phone: string; expires_in: number; dev_otp?: string }>;
+  verifyOtp: (phone: string, otp: string) => Promise<User>;
+  completeProfile: (data: {
+    name: string; email?: string; city?: string; role?: "customer" | "vendor"; avatar?: string;
+  }) => Promise<User>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -50,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) { console.warn("push register failed", e); }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const r = await api.post("/auth/login", { email, password }, { auth: false });
+  const signIn = async (identifier: { email?: string; phone?: string }, password: string) => {
+    const r = await api.post("/auth/login", { ...identifier, password }, { auth: false });
     await setToken(r.token);
     setUser(r.user);
     registerPush(r.user.id);
@@ -64,6 +70,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     registerPush(r.user.id);
     return r.user;
   };
+  const sendOtp = async (phone: string) => {
+    return api.post("/auth/otp/send", { phone }, { auth: false });
+  };
+  const verifyOtp = async (phone: string, otp: string) => {
+    const r = await api.post("/auth/otp/verify", { phone, otp }, { auth: false });
+    await setToken(r.token);
+    setUser(r.user);
+    registerPush(r.user.id);
+    return r.user as User;
+  };
+  const completeProfile = async (data: {
+    name: string; email?: string; city?: string; role?: "customer" | "vendor"; avatar?: string;
+  }) => {
+    const u = await api.post("/auth/complete-profile", data);
+    setUser(u);
+    return u as User;
+  };
   const signOut = async () => {
     await setToken(null);
     setUser(null);
@@ -72,7 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { const u = await api.get("/auth/me"); setUser(u); } catch {}
   };
 
-  return <Ctx.Provider value={{ user, loading, signIn, signUp, signOut, refresh }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{
+      user, loading, signIn, signUp, sendOtp, verifyOtp, completeProfile, signOut, refresh,
+    }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth() {

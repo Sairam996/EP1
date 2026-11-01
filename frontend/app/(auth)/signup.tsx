@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, TextInput, KeyboardAvoidingView, Platform, ScrollView, Pressable } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { GoldButton, Body, Pill } from "@/src/components/UI";
@@ -13,7 +13,8 @@ const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 export default function Signup() {
   const { signUp } = useAuth();
   const { colors } = useTheme();
-  const [role, setRole] = useState<"customer" | "vendor">("customer");
+  const params = useLocalSearchParams<{ role?: string }>();
+  const [role, setRole] = useState<"customer" | "vendor">(params.role === "vendor" ? "vendor" : "customer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
