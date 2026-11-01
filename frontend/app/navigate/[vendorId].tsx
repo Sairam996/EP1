@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 import { buildNavMapHtml } from "@/src/components/NavMapHtml";
 import { NavMapHost, type NavMapHostHandle } from "@/src/components/NavMapHost";
 
@@ -299,7 +299,7 @@ export default function NavigateScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   loader: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   mapWrap: { flex: 1, backgroundColor: colors.surface2 },
@@ -375,4 +375,4 @@ const styles = StyleSheet.create({
   actionSecondaryText: { color: colors.text, fontWeight: "600" },
   actionPrimary: { backgroundColor: colors.brand },
   actionPrimaryText: { color: colors.onBrand, fontWeight: "700" },
-});
+}));

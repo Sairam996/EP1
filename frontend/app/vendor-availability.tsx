@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -137,7 +137,7 @@ function Legend({ color, label, dot }: { color: string; label: string; dot?: boo
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   lbl: { color: colors.textMuted, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", marginTop: spacing.md },
@@ -147,4 +147,4 @@ const styles = StyleSheet.create({
   stepBtn: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
   stepVal: { color: colors.text, fontSize: 20, fontWeight: "600", minWidth: 28, textAlign: "center" },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.error + "66" },
-});
+}));

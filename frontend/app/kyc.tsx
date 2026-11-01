@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 export default function Kyc() {
   const insets = useSafeAreaInsets();
@@ -62,10 +62,10 @@ export default function Kyc() {
     </ScrollView>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md, letterSpacing: 1, textTransform: "uppercase" },
   input: { backgroundColor: colors.surface2, borderRadius: radius.md, padding: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
   okCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-});
+}));

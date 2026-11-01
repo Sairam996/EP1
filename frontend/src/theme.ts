@@ -112,3 +112,25 @@ export function useThemedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet
 export function useColors(): Palette {
   return useTheme().colors;
 }
+
+// -----------------------------------------------------------------------------
+// themedStyles — drop-in replacement for module-level `StyleSheet.create` in
+// screens that still import the legacy `colors` object. Styles are resolved
+// lazily per active palette so text never bakes in the dark palette at import
+// time (which produced light-on-cream / dark-on-dark text in light mode).
+// -----------------------------------------------------------------------------
+export function themedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+  factory: (c: Palette) => T
+): T {
+  const cache: Record<string, T> = {};
+  const current = (): T => {
+    const key = colors.mode + colors.text + colors.surface;
+    return (cache[key] ||= StyleSheet.create(factory(colors)) as T);
+  };
+  return new Proxy({} as T, {
+    get: (_t, prop) => (current() as any)[prop],
+    has: (_t, prop) => prop in (current() as any),
+    ownKeys: () => Reflect.ownKeys(current() as any),
+    getOwnPropertyDescriptor: (_t, prop) => ({ ...Object.getOwnPropertyDescriptor(current() as any, prop), configurable: true }),
+  });
+}

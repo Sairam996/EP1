@@ -110,10 +110,10 @@ export default function VendorDetail() {
           </View>
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <Rating value={v.rating} size={14} />
-            <Text style={styles.muted}>({v.reviews_count} reviews)</Text>
-            <Text style={styles.muted}>•</Text>
-            <Text style={styles.muted}>{v.distance_km} km</Text>
+            {v.reviews_count > 0 ? <><Rating value={v.rating} size={14} />
+            <Text style={styles.muted}>({v.reviews_count} reviews)</Text></> : <Text style={styles.muted}>New on Thara</Text>}
+            {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.muted}>•</Text>
+            <Text style={styles.muted}>{v.distance_km} km</Text></>}
           </View>
           <Text style={[styles.muted, { marginTop: 4 }]}>{v.city} • {v.category}</Text>
         </View>
@@ -151,7 +151,7 @@ export default function VendorDetail() {
                   <Ionicons name="location" size={22} color={colors.brand} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.locName} numberOfLines={2}>{v.address || v.city}</Text>
-                    <Text style={styles.locDist}>{v.distance_km} km away</Text>
+                    {v.distance_km != null && v.distance_km > 0 && <Text style={styles.locDist}>{v.distance_km} km away</Text>}
                   </View>
                   <View style={{ gap: 6, alignItems: "flex-end" }}>
                     <Pressable testID="in-app-nav" onPress={() => router.push(`/navigate/${v.id}` as any)} style={styles.dirBtn}>
@@ -229,7 +229,7 @@ export default function VendorDetail() {
                   <Image source={{ uri: resolveImg(s.cover) }} style={{ width: "100%", height: 100 }} contentFit="cover" />
                   <View style={{ padding: 10 }}>
                     <Text style={styles.simName} numberOfLines={1}>{s.name}</Text>
-                    <Rating value={s.rating} size={12} />
+                    {s.reviews_count > 0 && <Rating value={s.rating} size={12} />}
                   </View>
                 </Pressable>
               ))}

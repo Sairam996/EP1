@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/context/AuthContext";
 import { useChatWebSocket } from "@/src/hooks/use-chat-ws";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 export default function ChatThread() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -93,7 +93,7 @@ export default function ChatThread() {
     </KeyboardAvoidingView>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   statusT: { color: colors.textMuted, fontSize: 11 },
@@ -106,4 +106,4 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: "row", padding: spacing.lg, gap: 8, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   input: { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12, color: colors.text, borderWidth: 1, borderColor: colors.border },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-});
+}));

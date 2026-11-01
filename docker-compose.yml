@@ -1,0 +1,16 @@
+# Local MongoDB for Thara — bound to localhost only, with auth.
+# Usage: cp backend/.env.example backend/.env (edit values), then:
+#   MONGO_ROOT_USER=thara MONGO_ROOT_PASSWORD='<strong-password>' docker compose up -d mongo
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"   # never 0.0.0.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?set MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+volumes:
+  mongo-data:

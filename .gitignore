@@ -90,3 +90,5 @@ credentials.json
 # User uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+!.env.example
+!backend/.env.example

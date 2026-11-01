@@ -90,7 +90,17 @@ export default function Home() {
         api.get(`/vendors?city=${city}${category ? `&category=${category}` : ""}&trending=true&limit=20`, { auth: false }),
         api.get("/combos", { auth: false }),
       ]);
-      setCategories(c); setEventTypes(e); setCities(ci); setVendors(v); setCombos(cb);
+      setCategories(c); setEventTypes(e); setCities(ci); // Dedupe trending by vendor id and avoid repeating the same cover image.
+      const seenIds = new Set<string>(); const seenCovers = new Set<string>();
+      const uniq: any[] = []; const dupCover: any[] = [];
+      for (const x of v || []) {
+        if (seenIds.has(x.id)) continue; seenIds.add(x.id);
+        const alt = (x.gallery || []).find((g: string) => g && !seenCovers.has(g));
+        if (x.cover && !seenCovers.has(x.cover)) { seenCovers.add(x.cover); uniq.push(x); }
+        else if (alt) { seenCovers.add(alt); uniq.push({ ...x, cover: alt }); }
+        else dupCover.push(x);
+      }
+      setVendors([...uniq, ...dupCover]); setCombos(cb);
     } catch (err) { console.warn(err); }
     finally { setLoading(false); setRefreshing(false); }
   }, [city, category]);
@@ -183,9 +193,9 @@ export default function Home() {
                 <View style={styles.vMeta}>
                   <Text style={styles.vName} numberOfLines={1}>{v.name}</Text>
                   <View style={styles.vRow}>
-                    <Rating value={v.rating} />
-                    <Text style={styles.vDot}>•</Text>
-                    <Text style={styles.vMuted}>{v.distance_km} km</Text>
+                    {v.reviews_count > 0 ? <Rating value={v.rating} /> : <Text style={styles.vMuted}>New</Text>}
+                    {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.vDot}>•</Text>
+                    <Text style={styles.vMuted}>{v.distance_km} km</Text></>}
                   </View>
                   <Text style={styles.vPrice}>₹{v.starting_price.toLocaleString("en-IN")}+</Text>
                 </View>

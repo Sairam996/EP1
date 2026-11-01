@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, resolveImg } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 const MAX_PHOTOS = 15;
 
@@ -158,7 +158,7 @@ export default function VendorServices() {
     </ScrollView>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   form: { padding: spacing.xl, gap: 4 },
@@ -169,4 +169,4 @@ const styles = StyleSheet.create({
   item: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   noPic: { width: 60, height: 60, borderRadius: radius.sm, backgroundColor: colors.surface3, alignItems: "center", justifyContent: "center" },
   photoBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
-});
+}));

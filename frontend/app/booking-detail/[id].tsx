@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Rating } from "@/src/components/UI";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -72,7 +72,7 @@ function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
     <Text style={{ color: colors.textMuted }}>{k}</Text><Text style={{ color: bold ? colors.brand : colors.text, fontWeight: bold ? "600" : "500" }}>{v}</Text>
   </View>;
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   cover: { width: "100%", height: 200, marginTop: spacing.md },
@@ -80,4 +80,4 @@ const styles = StyleSheet.create({
   card: { marginTop: spacing.md, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
   chatBtn: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
   input: { backgroundColor: colors.surface3, borderRadius: radius.md, padding: 12, color: colors.text, borderWidth: 1, borderColor: colors.border, marginTop: spacing.md, minHeight: 80, textAlignVertical: "top" },
-});
+}));

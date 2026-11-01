@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Pill } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 const CATS = ["venues", "catering", "photography", "decor", "music", "planning"];
 const FACILITY_LIBRARY = ["AC Hall", "Valet", "Bridal Suite", "Stage", "Outdoor", "Garden",
@@ -155,11 +155,11 @@ export default function VendorProfileEdit() {
     </KeyboardAvoidingView>
   );
 }
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
   title: { color: colors.text, fontSize: 18, fontWeight: "500" },
   lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
   input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
   facWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   facChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
-});
+}));

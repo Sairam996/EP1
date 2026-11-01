@@ -1,16 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
+// Token storage: Keychain/Keystore via expo-secure-store on native; AsyncStorage only on web.
+const TOKEN_KEY = "ep_token";
+const tokenStore = {
+  get: async () => Platform.OS === "web" ? AsyncStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY),
+  set: async (t: string) => Platform.OS === "web" ? AsyncStorage.setItem(TOKEN_KEY, t) : SecureStore.setItemAsync(TOKEN_KEY, t),
+  del: async () => {
+    if (Platform.OS !== "web") { await SecureStore.deleteItemAsync(TOKEN_KEY); }
+    await AsyncStorage.removeItem(TOKEN_KEY); // also clear any legacy copy
+  },
+};
 
 const BASE = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") + "/api";
 
 let memToken: string | null = null;
 export async function setToken(t: string | null) {
   memToken = t;
-  if (t) await AsyncStorage.setItem("ep_token", t);
-  else await AsyncStorage.removeItem("ep_token");
+  if (t) await tokenStore.set(t);
+  else await tokenStore.del();
 }
 export async function loadToken(): Promise<string | null> {
   if (memToken) return memToken;
-  memToken = await AsyncStorage.getItem("ep_token");
+  memToken = await tokenStore.get();
+  if (!memToken && Platform.OS !== "web") {
+    // One-time migration from the old AsyncStorage location.
+    const legacy = await AsyncStorage.getItem(TOKEN_KEY);
+    if (legacy) { await tokenStore.set(legacy); await AsyncStorage.removeItem(TOKEN_KEY); memToken = legacy; }
+  }
   return memToken;
 }
 
