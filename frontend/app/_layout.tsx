@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { LogBox, StatusBar, View, Platform } from "react-native";
+import { StatusBar, View, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import { router as expoRouter } from "expo-router";
@@ -10,8 +10,10 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-LogBox.ignoreAllLogs(true);
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Expo Router renders this on any uncaught render error instead of crashing.
+export { ErrorBoundary } from "expo-router";
 
 // Foreground handler — MODULE SCOPE
 if (Platform.OS !== "web") {
@@ -23,7 +25,7 @@ if (Platform.OS !== "web") {
 if (Platform.OS === "android") {
   Notifications.setNotificationChannelAsync("default", {
     name: "Default", importance: Notifications.AndroidImportance.MAX, sound: "default",
-  });
+  }).catch(() => {});
 }
 
 function ThemedStack() {
@@ -31,14 +33,14 @@ function ThemedStack() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }} key={effectiveMode}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.surface} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface }, animation: "fade" }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface }, animation: "slide_from_right", animationDuration: 260, gestureEnabled: true }} />
     </View>
   );
 }
 
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
-  useEffect(() => { if (loaded || error) SplashScreen.hideAsync(); }, [loaded, error]);
+  useEffect(() => { if (loaded || error) SplashScreen.hideAsync().catch(() => {}); }, [loaded, error]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -53,7 +55,7 @@ export default function RootLayout() {
       const data = response.notification.request.content.data || {};
       const url = (data as any).deeplink || (data as any).action_url;
       if (url) String(url).startsWith("http") ? Linking.openURL(String(url)) : expoRouter.push(String(url) as any);
-    });
+    }).catch(() => {});
     return () => { tapSub.remove(); };
   }, []);
 

@@ -8,6 +8,7 @@ import { api, resolveImg } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
 import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { EmptyState } from "@/src/components/Polish";
 
 const MAX_PHOTOS = 15;
 
@@ -153,7 +154,7 @@ export default function VendorServices() {
             <Pressable testID={`del-${s.id}`} onPress={() => del(s.id)} hitSlop={8}><Ionicons name="trash" size={18} color={colors.error} /></Pressable>
           </Pressable>
         ))}
-        {items.length === 0 && <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 8 }}>No packages yet — add at least one to go live on Thara</Text>}
+        {items.length === 0 && <EmptyState compact icon="pricetags-outline" title="No packages yet" message="Add at least one to go live on Thara." />}
       </View>
     </ScrollView>
   );

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { EmptyState } from "@/src/components/Polish";
 
 const LABELS: any = {
   earn: "Booking earnings",
@@ -124,11 +125,11 @@ export default function Points() {
       </View>
 
       <Text style={styles.section}>History</Text>
-      <FlatList
+      <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
         data={data.history}
         keyExtractor={(it) => it.id}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 8, paddingBottom: 60 }}
-        ListEmptyComponent={<Text style={styles.empty}>No activity yet. Book or invite a friend to earn points!</Text>}
+        ListEmptyComponent={<EmptyState compact icon="gift-outline" title="No activity yet" message="Book or invite a friend to earn points." />}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>

@@ -460,7 +460,7 @@ export default function Login() {
                       onPress={() => onVerifyOtp()}
                       loading={loading}
                     />
-                    <Pressable onPress={onSendOtp} disabled={loading}>
+                    <Pressable onPress={onSendOtp} disabled={loading} hitSlop={12} accessibilityRole="button">
                       <Text style={styles.resend}>Resend code</Text>
                     </Pressable>
                     <GhostButton

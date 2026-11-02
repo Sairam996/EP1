@@ -1,9 +1,12 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/src/context/ThemeContext";
+import { StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CustomerLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Tabs screenOptions={{
       headerShown: false,
@@ -11,13 +14,15 @@ export default function CustomerLayout() {
       tabBarInactiveTintColor: colors.textMuted,
       tabBarStyle: {
         backgroundColor: colors.surface,
-        borderTopColor: colors.borderStrong,
-        borderTopWidth: 1,
-        height: 64,
-        paddingBottom: 8,
-        paddingTop: 8,
+        borderTopColor: colors.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        height: 56 + Math.max(insets.bottom, 8),
+        paddingBottom: Math.max(insets.bottom, 8),
+        paddingTop: 6,
+        elevation: 0,
       },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
+      tabBarLabelStyle: { fontSize: 11, fontWeight: "600", letterSpacing: 0.2 },
+      tabBarHideOnKeyboard: true,
     }}>
       <Tabs.Screen name="home" options={{ title: "Discover", tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" size={size} color={color} /> }} />
       <Tabs.Screen name="bookings" options={{ title: "Bookings", tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />

@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { EmptyState } from "@/src/components/Polish";
 
 const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
 
@@ -30,12 +31,12 @@ export default function VendorBookings() {
     <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + 8 }}>
       <Text style={styles.h}>Bookings Inbox</Text>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
-        <FlatList
+        <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
           data={items}
           keyExtractor={(b) => b.id}
           contentContainerStyle={{ padding: spacing.xl, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
-          ListEmptyComponent={<Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 40 }}>No bookings yet</Text>}
+          ListEmptyComponent={<EmptyState icon="calendar-outline" title="No bookings yet" message="New requests from customers will appear here." />}
           renderItem={({ item }) => (
             <View style={styles.card} testID={`vb-${item.id}`}>
               <View style={{ flexDirection: "row", gap: 12 }}>
@@ -49,7 +50,7 @@ export default function VendorBookings() {
                   <Text style={[styles.tagT, { color: STATUS_COLORS[item.status] }]}>{item.status.toUpperCase()}</Text>
                 </View>
               </View>
-              {item.notes ? <Text style={styles.notes}>"{item.notes}"</Text> : null}
+              {item.notes ? <Text style={styles.notes}>&quot;{item.notes}&quot;</Text> : null}
               <View style={{ flexDirection: "row", gap: 8, marginTop: spacing.sm }}>
                 {item.status === "pending" && (
                   <>

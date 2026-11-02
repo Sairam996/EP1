@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, resolveImg } from "@/src/api";
 import { GoldButton, Rating } from "@/src/components/UI";
+import { EmptyState, PressableScale, SoftChip, SectionTitle } from "@/src/components/Polish";
 import { useUserLocation, openInMaps } from "@/src/hooks/use-location";
 import { useTheme } from "@/src/context/ThemeContext";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
@@ -24,6 +25,8 @@ export default function VendorDetail() {
   const [services, setServices] = useState<any[]>([]);
   const [tab, setTab] = useState<"about" | "packages" | "reviews" | "gallery">("about");
   const [favorited, setFavorited] = useState(false);
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [loadErr, setLoadErr] = useState(false);
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
@@ -71,36 +74,60 @@ export default function VendorDetail() {
 
   useEffect(() => {
     const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
-    (async () => {
-      const [vd, r, s] = await Promise.all([
-        api.get(`/vendors/${id}${q}`, { auth: false }),
-        api.get(`/vendors/${id}/reviews`, { auth: false }),
-        api.get(`/vendors/${id}/similar`, { auth: false }),
-      ]);
-      setV(vd); setReviews(r); setSimilar(s);
-      api.get(`/vendors/${id}/services`, { auth: false }).then(setServices).catch(() => setServices([]));
-    })();
+    // Load independently so a reviews/similar failure cannot blank the whole page.
+    api.get(`/vendors/${id}${q}`, { auth: false })
+      .then((vd) => { setV(vd); setLoadErr(false); })
+      .catch(() => setLoadErr(true));
+    api.get(`/vendors/${id}/reviews`, { auth: false })
+      .then((r) => setReviews(r || []))
+      .catch(() => setReviews([]));
+    api.get(`/vendors/${id}/similar`, { auth: false })
+      .then((s) => setSimilar(s || []))
+      .catch(() => setSimilar([]));
+    api.get(`/vendors/${id}/services`, { auth: false }).then((x) => setServices(x || [])).catch(() => setServices([]));
   }, [id, coords]);
 
   const toggleFav = async () => {
     try { const r = await api.post(`/favorites/${id}`); setFavorited(r.favorited); } catch { /* ignore */ }
   };
 
+  if (loadErr && !v) return <View style={styles.loader}><EmptyState icon="cloud-offline-outline" title="Couldn't load this vendor" message="Check your connection and try again." ctaTitle="Go back" ghost onCta={() => router.back()} /></View>;
   if (!v) return <View style={styles.loader}><ActivityIndicator color={colors.brand} /></View>;
+
+  const gallery: string[] = v.gallery || [];
+  const facilities: string[] = v.facilities || [];
+  const team: any[] = Array.isArray(v.team) ? v.team : Array.isArray(v.team_members) ? v.team_members : [];
+  const avg = reviews.length ? reviews.reduce((a, x) => a + (Number(x.rating) || 0), 0) / reviews.length : Number(v.rating) || 0;
+  const dist = [5, 4, 3, 2, 1].map((n) => reviews.filter((x) => Math.round(Number(x.rating)) === n).length);
+  const startPrice = Number(v.starting_price || 0);
 
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-          {v.gallery.map((src: string, i: number) => (
-            <Image key={i} source={{ uri: resolveImg(src) }} style={{ width, height: 340 }} contentFit="cover" />
-          ))}
-        </ScrollView>
+        {gallery.length > 0 ? (
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => setHeroIdx(Math.round(e.nativeEvent.contentOffset.x / width))}>
+            {gallery.map((src: string, i: number) => (
+              <Image key={i} source={{ uri: resolveImg(src) }} style={{ width, height: 340 }} contentFit="cover" transition={250} />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={{ width, height: 340, backgroundColor: colors.surface3, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="images-outline" size={44} color={colors.brand} />
+          </View>
+        )}
+        {gallery.length > 0 && (
+          <PressableScale testID="show-all-photos" onPress={() => setTab("gallery")} accessibilityLabel="Show all photos"
+            style={{ position: "absolute", top: 196, right: 16, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 2 }}>
+            <Ionicons name="grid-outline" size={13} color="#F5F0E6" />
+            <Text style={{ color: "#F5F0E6", fontSize: 12, fontWeight: "600" }}>{heroIdx + 1}/{gallery.length} · All photos</Text>
+          </PressableScale>
+        )}
         <LinearGradient colors={["transparent", "rgba(0,0,0,0.95)"]} style={styles.heroScrim} />
-        <Pressable onPress={() => router.back()} style={[styles.iconCircle, { top: insets.top + 8, left: 16 }]}>
+        <Pressable onPress={() => router.back()} hitSlop={8} accessibilityLabel="Back" style={[styles.iconCircle, { top: insets.top + 8, left: 16 }]}>
           <Ionicons name="arrow-back" size={20} color="#F5F0E6" />
         </Pressable>
-        <Pressable testID="fav-btn" onPress={toggleFav} style={[styles.iconCircle, { top: insets.top + 8, right: 16 }]}>
+        <Pressable testID="fav-btn" onPress={toggleFav} hitSlop={8} style={[styles.iconCircle, { top: insets.top + 8, right: 16 }]}>
           <Ionicons name={favorited ? "heart" : "heart-outline"} size={20} color={favorited ? colors.error : "#F3F4F6"} />
         </Pressable>
         <View style={styles.heroText}>
@@ -128,11 +155,58 @@ export default function VendorDetail() {
 
         {tab === "about" && (
           <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            <Text style={styles.body}>{v.description}</Text>
+            {services[0] ? (
+              <View style={{ marginTop: spacing.sm }}>
+                <Text style={styles.pkgTitle}>{services[0].title}</Text>
+                {services[0].description ? <Text style={styles.reviewText} numberOfLines={3}>{services[0].description}</Text> : null}
+              </View>
+            ) : null}
+            {v.description ? <Text style={styles.body}>{v.description}</Text> : <SoftChip icon="document-text-outline" label="Description not listed yet" />}
+
             <View>
-              <Text style={styles.h3}>Facilities</Text>
+              <SectionTitle icon="star" title="Ratings" right={reviews.length ? <Pressable onPress={() => setTab("reviews")}><Text style={{ color: colors.brand, fontSize: 12 }}>See all</Text></Pressable> : undefined} />
+              {reviews.length > 0 || v.reviews_count > 0 ? (
+                <View style={[styles.review, { flexDirection: "row", gap: spacing.lg, alignItems: "center" }]}>
+                  <View style={{ alignItems: "center" }}>
+                    <Text style={{ color: colors.text, fontSize: 32, fontWeight: "700" }}>{avg.toFixed(1)}</Text>
+                    <Rating value={avg} size={12} />
+                    <Text style={styles.empty}>{v.reviews_count || reviews.length} reviews</Text>
+                  </View>
+                  {reviews.length > 0 && <View style={{ flex: 1, gap: 4 }}>
+                    {dist.map((n, i) => (
+                      <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={[styles.empty, { width: 10, fontSize: 11 }]}>{5 - i}</Text>
+                        <View style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.surface3 }}>
+                          <View style={{ width: `${(n / reviews.length) * 100}%`, height: 5, borderRadius: 3, backgroundColor: colors.brand }} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>}
+                </View>
+              ) : <SoftChip icon="sparkles-outline" label="New on Thara — no ratings yet" />}
+            </View>
+
+            <View>
+              <SectionTitle icon="people" title="Team" />
+              {team.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                  {team.map((m: any, i: number) => (
+                    <View key={m.id ?? i} style={{ width: 92, alignItems: "center", gap: 4 }}>
+                      {m.photo || m.avatar ? <Image source={{ uri: resolveImg(m.photo || m.avatar) }} style={{ width: 64, height: 64, borderRadius: 32 }} contentFit="cover" />
+                        : <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTint, alignItems: "center", justifyContent: "center" }}><Ionicons name="person" size={26} color={colors.brand} /></View>}
+                      <Text style={styles.simName} numberOfLines={1}>{m.name ?? "Team member"}</Text>
+                      {m.role ? <Text style={[styles.empty, { fontSize: 11 }]} numberOfLines={1}>{m.role}</Text> : null}
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : <SoftChip icon="people-outline" label="Team not listed yet" />}
+            </View>
+
+            <View>
+              <SectionTitle icon="checkmark-done" title="Facilities" />
+              {facilities.length === 0 ? <SoftChip icon="list-outline" label="Facilities not listed yet" /> : null}
               <View style={styles.facWrap}>
-                {v.facilities.map((f: string) => (
+                {facilities.map((f: string) => (
                   <View key={f} style={styles.fac}>
                     <Ionicons name="checkmark-circle" size={14} color={colors.brand} />
                     <Text style={styles.facText}>{f}</Text>
@@ -142,7 +216,8 @@ export default function VendorDetail() {
             </View>
             <View>
               <Text style={styles.h3}>Starting at</Text>
-              <Text style={styles.priceBig}>₹{v.starting_price.toLocaleString("en-IN")}</Text>
+              <Text style={styles.priceBig}>₹{startPrice.toLocaleString("en-IN")}</Text>
+              <Text style={styles.empty}>Pick an available date on the next step.</Text>
             </View>
             {v.lat != null && v.lng != null && (
               <View>
@@ -171,7 +246,7 @@ export default function VendorDetail() {
 
         {tab === "packages" && (
           <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
-            {services.length === 0 ? <Text style={styles.empty}>Packages coming soon — book to get a custom quote.</Text> :
+            {services.length === 0 ? <EmptyState compact icon="pricetags-outline" title="Packages coming soon" message="Book now to get a custom quote." /> :
               services.map((s) => (
                 <View key={s.id} style={styles.pkgCard} testID={`pkg-${s.id}`}>
                   {s.photos?.length > 0 && (
@@ -188,10 +263,10 @@ export default function VendorDetail() {
                     </View>
                     <Text style={styles.pkgPrice}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
                   </View>
-                  <Pressable onPress={() => router.push(`/booking-form/${v.id}?serviceId=${s.id}` as any)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
+                  <PressableScale onPress={() => router.push(`/booking-form/${v.id}?serviceId=${s.id}` as any)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
                     <Text style={styles.pkgBtnT}>Select & Book</Text>
                     <Ionicons name="arrow-forward" size={14} color={colors.onBrand} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ))}
           </View>
@@ -199,7 +274,7 @@ export default function VendorDetail() {
 
         {tab === "reviews" && (
           <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
-            {reviews.length === 0 ? <Text style={styles.empty}>No reviews yet.</Text> :
+            {reviews.length === 0 ? <EmptyState compact icon="chatbubbles-outline" title="No reviews yet" message="Be among the first to celebrate with this vendor." /> :
               reviews.map((r) => (
                 <View key={r.id} style={styles.review}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -214,8 +289,9 @@ export default function VendorDetail() {
 
         {tab === "gallery" && (
           <View style={{ paddingHorizontal: spacing.xl, flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.lg }}>
-            {v.gallery.map((src: string, i: number) => (
-              <Image key={i} source={{ uri: resolveImg(src) }} style={{ width: (width - spacing.xl * 2 - 8) / 2, height: 140, borderRadius: radius.md }} contentFit="cover" />
+            {gallery.length === 0 && <View style={{ flex: 1 }}><EmptyState compact icon="images-outline" title="Photos coming soon" /></View>}
+            {gallery.map((src: string, i: number) => (
+              <Image key={i} transition={200} source={{ uri: resolveImg(src) }} style={{ width: (width - spacing.xl * 2 - 8) / 2, height: 140, borderRadius: radius.md }} contentFit="cover" />
             ))}
           </View>
         )}
@@ -225,13 +301,13 @@ export default function VendorDetail() {
             <Text style={[styles.h3, { paddingHorizontal: spacing.xl }]}>Similar vendors</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 12, paddingTop: 12 }}>
               {similar.map((s) => (
-                <Pressable key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} style={styles.simCard}>
+                <PressableScale key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} style={styles.simCard}>
                   <Image source={{ uri: resolveImg(s.cover) }} style={{ width: "100%", height: 100 }} contentFit="cover" />
                   <View style={{ padding: 10 }}>
                     <Text style={styles.simName} numberOfLines={1}>{s.name}</Text>
                     {s.reviews_count > 0 && <Rating value={s.rating} size={12} />}
                   </View>
-                </Pressable>
+                </PressableScale>
               ))}
             </ScrollView>
           </View>
@@ -241,7 +317,7 @@ export default function VendorDetail() {
       <View style={[styles.cta, { paddingBottom: insets.bottom + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.ctaLabel}>Starting</Text>
-          <Text style={styles.ctaPrice}>₹{v.starting_price.toLocaleString("en-IN")}</Text>
+          <Text style={styles.ctaPrice}>₹{startPrice.toLocaleString("en-IN")}</Text>
         </View>
         <GoldButton testID="book-now-btn" title="Book Now" onPress={() => router.push(`/booking-form/${v.id}`)} style={{ minWidth: 160 }} />
       </View>

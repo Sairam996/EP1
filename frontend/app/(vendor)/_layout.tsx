@@ -1,14 +1,27 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "@/src/theme";
+import { StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/src/context/ThemeContext";
 export default function VendorLayout() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Tabs screenOptions={{
       headerShown: false,
       tabBarActiveTintColor: colors.brand,
       tabBarInactiveTintColor: colors.textMuted,
-      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.borderStrong, borderTopWidth: 1, height: 64, paddingBottom: 8, paddingTop: 8 },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
+      tabBarStyle: {
+        backgroundColor: colors.surface,
+        borderTopColor: colors.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        height: 56 + Math.max(insets.bottom, 8),
+        paddingBottom: Math.max(insets.bottom, 8),
+        paddingTop: 6,
+        elevation: 0,
+      },
+      tabBarLabelStyle: { fontSize: 11, fontWeight: "600", letterSpacing: 0.2 },
+      tabBarHideOnKeyboard: true,
     }}>
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard", tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
       <Tabs.Screen name="bookings" options={{ title: "Inquiries", tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />

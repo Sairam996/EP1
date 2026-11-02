@@ -95,8 +95,23 @@ export function _mutateColors(next: Palette) {
 }
 
 export const spacing = { xs: 4, sm: 6, md: 10, lg: 14, xl: 18, xxl: 24, xxxl: 36 };
-export const radius = { sm: 6, md: 10, lg: 16, pill: 999 };
+export const radius = { sm: 6, md: 12, lg: 18, pill: 999 };
 export const fonts = { display: "CormorantGaramond_500Medium", text: "System" };
+
+// Shared interaction / layout tokens — prefer these over one-off values.
+export const touch = { minTarget: 44, hitSlop: { top: 8, bottom: 8, left: 8, right: 8 } };
+export const press = { opacity: 0.85, scale: 0.98, disabledOpacity: 0.5 };
+export const type = {
+  display: { fontSize: 28, lineHeight: 34, fontWeight: "600" as const, letterSpacing: 0.2 },
+  h1: { fontSize: 22, lineHeight: 28, fontWeight: "600" as const, letterSpacing: 0.2 },
+  h2: { fontSize: 17, lineHeight: 23, fontWeight: "600" as const },
+  body: { fontSize: 14, lineHeight: 20 },
+  caption: { fontSize: 12, lineHeight: 16 },
+};
+export const elevation = {
+  card: { shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  raised: { shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+};
 
 // -----------------------------------------------------------------------------
 // Reactive styles helper — preferred for all new / refactored screens.

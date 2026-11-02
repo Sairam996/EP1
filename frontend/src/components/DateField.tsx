@@ -40,17 +40,17 @@ export function DateField({ value, onChange, label, placeholder = "Pick a date",
   return (
     <>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <Pressable testID={testID} onPress={() => setOpen(true)} style={[styles.field, value && { borderColor: colors.brand }]}>
+      <Pressable testID={testID} onPress={() => setOpen(true)} accessibilityRole="button" style={({ pressed }) => [styles.field, pressed && { opacity: 0.85 }, value && { borderColor: colors.brand }]}>
         <Ionicons name="calendar-outline" size={18} color={value ? colors.brand : colors.textMuted} />
         <Text style={[styles.fieldText, !value && { color: colors.textMuted }]}>{display || placeholder}</Text>
         {value ? <Ionicons name="checkmark-circle" size={16} color={colors.success} /> : <Ionicons name="chevron-down" size={16} color={colors.textMuted} />}
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>Select Event Date</Text>
-              <Pressable onPress={() => setOpen(false)}><Ionicons name="close" size={22} color={colors.textMuted} /></Pressable>
+              <Pressable onPress={() => setOpen(false)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={22} color={colors.textMuted} /></Pressable>
             </View>
             <Calendar
               theme={calTheme as any}

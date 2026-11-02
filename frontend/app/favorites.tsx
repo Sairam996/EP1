@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { Rating } from "@/src/components/UI";
 import { useTheme } from "@/src/context/ThemeContext";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { EmptyState } from "@/src/components/Polish";
 
 export default function Favorites() {
   const insets = useSafeAreaInsets();
@@ -32,10 +33,10 @@ export default function Favorites() {
         <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
         <Text style={styles.title}>Favorites</Text>
       </View>
-      <FlatList
+      <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
         data={items} keyExtractor={(i) => i.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
-        ListEmptyComponent={<Text style={styles.empty}>No favorites yet — tap the heart on any vendor</Text>}
+        ListEmptyComponent={<EmptyState icon="heart-outline" title="No favorites yet" message="Tap the heart on any vendor to save it here." ctaTitle="Explore vendors" ghost onCta={() => router.push("/search" as any)} />}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push(`/vendor/${item.id}`)} style={styles.card}>
             <Image source={{ uri: item.cover }} style={styles.img} contentFit="cover" />

@@ -37,7 +37,7 @@ export default function ChatList() {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <Text style={styles.h}>Messages</Text>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
-        <FlatList
+        <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
           data={items}
           keyExtractor={(it) => it.booking_id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}

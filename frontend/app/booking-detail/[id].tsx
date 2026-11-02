@@ -43,7 +43,7 @@ export default function BookingDetail() {
           <Row k="Event" v={b.event_type} /><Row k="Date" v={b.event_date} />
           <Row k="Guests" v={String(b.guests)} /><Row k="Amount" v={`₹${b.amount.toLocaleString("en-IN")}`} bold />
           <Row k="Payment" v={b.payment_status} />
-          {b.notes ? <Text style={{ color: colors.textSubtle, marginTop: 8, fontStyle: "italic" }}>"{b.notes}"</Text> : null}
+          {b.notes ? <Text style={{ color: colors.textSubtle, marginTop: 8, fontStyle: "italic" }}>&quot;{b.notes}&quot;</Text> : null}
         </View>
         <Pressable onPress={() => router.push(`/chat/${b.id}`)} style={styles.chatBtn}>
           <Ionicons name="chatbubbles" size={18} color={colors.brand} />

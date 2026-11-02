@@ -6,6 +6,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { GoldButton, Body, Pill } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
 
 const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
@@ -13,6 +14,7 @@ const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 export default function Signup() {
   const { signUp } = useAuth();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ role?: string }>();
   const [role, setRole] = useState<"customer" | "vendor">(params.role === "vendor" ? "vendor" : "customer");
   const [name, setName] = useState("");
@@ -54,8 +56,9 @@ export default function Signup() {
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingTop: 70 }} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xxxl }} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back"
+          style={({ pressed }) => ({ width: 44, height: 44, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 

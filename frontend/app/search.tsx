@@ -8,6 +8,7 @@ import { api } from "@/src/api";
 import { Rating, Pill } from "@/src/components/UI";
 import { useTheme } from "@/src/context/ThemeContext";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { EmptyState } from "@/src/components/Polish";
 
 export default function Search() {
   const insets = useSafeAreaInsets();
@@ -61,11 +62,11 @@ export default function Search() {
         {cats.map((c) => <Pill key={c.id} label={c.name} active={cat === c.id} onPress={() => setCat(c.id)} testID={`s-cat-${c.id}`} />)}
       </ScrollView>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
-        <FlatList
+        <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
           data={items}
           keyExtractor={(it) => it.id}
           contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
-          ListEmptyComponent={<Text style={styles.empty}>No vendors found</Text>}
+          ListEmptyComponent={<EmptyState icon="search-outline" title="No vendors found" message="Try another category, city or keyword." />}
           renderItem={({ item }) => (
             <Pressable testID={`result-${item.id}`} onPress={() => router.push(`/vendor/${item.id}`)} style={styles.card}>
               <Image source={{ uri: item.cover }} style={styles.img} contentFit="cover" />

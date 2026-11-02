@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { colors, radius, spacing, themedStyles, press } from "@/src/theme";
 
 const { width, height } = Dimensions.get("window");
 
@@ -80,7 +80,7 @@ export default function Checkout() {
         {done.tier_up && (
           <View style={[styles.earnedCard, { backgroundColor: "#FFD70022", borderColor: "#FFD700" }]} testID="tier-up-banner">
             <Ionicons name="trophy" size={22} color="#FFD700" />
-            <Text style={{ color: "#FFD700", fontWeight: "700" }}>🎉 You've leveled up to {done.tier}!</Text>
+            <Text style={{ color: "#FFD700", fontWeight: "700" }}>🎉 You&apos;ve leveled up to {done.tier}!</Text>
           </View>
         )}
         {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off)</Text>}
@@ -95,7 +95,7 @@ export default function Checkout() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => ({ opacity: pressed ? press.opacity - 0.25 : 1 })}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
         <Text style={styles.title}>Checkout</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: 120 }}>
@@ -132,7 +132,7 @@ export default function Checkout() {
           <View style={styles.divider} />
           <Row k="Total" v={`₹${total.toLocaleString("en-IN")}`} bold />
           <Text style={{ color: colors.success, fontSize: 11, marginTop: 4 }}>
-            You'll earn ~{Math.round(finalAmt * 0.05)} points on this booking
+            You&apos;ll earn ~{Math.round(finalAmt * 0.05)} points on this booking
           </Text>
         </View>
         <View style={styles.upi}>

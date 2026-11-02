@@ -140,11 +140,11 @@ export function PhotoPicker({ value, onChange, max = 15, single, testID = "photo
             <View key={`${u}-${i}`}>
               <Image source={{ uri: resolveImg(u) }} style={styles.thumb} contentFit="cover" />
               {i === 0 && <View style={styles.first}><Text style={styles.firstT}>FIRST</Text></View>}
-              <Pressable onPress={() => rm(i)} style={styles.rm} testID={`${testID}-rm-${i}`}><Ionicons name="close" size={13} color="#fff" /></Pressable>
+              <Pressable onPress={() => rm(i)} style={styles.rm} hitSlop={10} accessibilityLabel="Remove photo" testID={`${testID}-rm-${i}`}><Ionicons name="close" size={13} color="#fff" /></Pressable>
               {value.length > 1 && (
                 <View style={styles.ctrls}>
-                  <Pressable onPress={() => move(i, -1)} style={[styles.ctrl, i === 0 && { opacity: 0.3 }]} testID={`${testID}-left-${i}`}><Ionicons name="chevron-back" size={13} color="#fff" /></Pressable>
-                  <Pressable onPress={() => move(i, 1)} style={[styles.ctrl, i === value.length - 1 && { opacity: 0.3 }]} testID={`${testID}-right-${i}`}><Ionicons name="chevron-forward" size={13} color="#fff" /></Pressable>
+                  <Pressable onPress={() => move(i, -1)} hitSlop={8} style={[styles.ctrl, i === 0 && { opacity: 0.3 }]} testID={`${testID}-left-${i}`}><Ionicons name="chevron-back" size={13} color="#fff" /></Pressable>
+                  <Pressable onPress={() => move(i, 1)} hitSlop={8} style={[styles.ctrl, i === value.length - 1 && { opacity: 0.3 }]} testID={`${testID}-right-${i}`}><Ionicons name="chevron-forward" size={13} color="#fff" /></Pressable>
                 </View>
               )}
             </View>

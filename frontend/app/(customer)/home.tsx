@@ -7,14 +7,33 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
-import { api } from "@/src/api";
+import { api, resolveImg } from "@/src/api";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
 import { Rating } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
+import { EmptyState } from "@/src/components/Polish";
 
 const { width } = Dimensions.get("window");
+const HERO_W = width - spacing.xl * 2;
+const HERO_GAP = spacing.md;
+const inr = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v.toLocaleString("en-IN") : null; };
 
+// Combos have no detail route: open vendor if linked, else search filtered by the event type the combo is for.
+const openCombo = (cb: any) => {
+  if (cb?.vendor_id) return router.push(`/vendor/${cb.vendor_id}`);
+  const text = `${cb?.name || ""} ${cb?.description || ""}`.toLowerCase();
+  const KEYS: [string, string][] = [["wedding", "wedding"], ["sangeet", "sangeet"], ["haldi", "haldi"], ["mehendi", "mehendi"], ["mehndi", "mehendi"],
+    ["reception", "reception"], ["birthday", "birthday"], ["corporate", "corporate"], ["anniversary", "anniversary"], ["engagement", "engagement"], ["baby shower", "baby_shower"]];
+  const hit = KEYS.find(([k]) => text.includes(k));
+  router.push(hit ? `/search?event_type=${hit[1]}` : "/search");
+};
+const HERO_COPY = [
+  { label: "FEATURED", title: "Luxury Weddings, Curated." },
+  { label: "SANGEET & MEHENDI", title: "Nights Full of Colour & Music." },
+  { label: "NOW IN HYDERABAD", title: "Celebrations, Made Effortless." },
+  { label: "BIRTHDAYS & CORPORATE", title: "Every Milestone, Beautifully Hosted." },
+];
 const HERO_IMAGES = [
   "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
   "https://images.pexels.com/photos/28950121/pexels-photo-28950121.jpeg",
@@ -111,7 +130,7 @@ export default function Home() {
 
   return (
     <View style={styles.root}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 32 }}
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 96 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
         {/* Top bar with brand + city + search */}
         <View style={styles.topBar}>
@@ -146,14 +165,16 @@ export default function Home() {
         </View>
 
         {/* Hero carousel */}
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.lg }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.lg }}
+          snapToInterval={HERO_W + HERO_GAP} snapToAlignment="start" decelerationRate="fast" disableIntervalMomentum
+          contentContainerStyle={{ paddingHorizontal: spacing.xl }}>
           {HERO_IMAGES.map((src, i) => (
-            <View key={i} style={[styles.hero, { width: width - spacing.xl * 2, marginLeft: i === 0 ? spacing.xl : spacing.md }]}>
+            <View key={i} style={[styles.hero, { width: HERO_W, marginLeft: i === 0 ? 0 : HERO_GAP }]}>
               <Image source={{ uri: src }} style={styles.heroImg} contentFit="cover" />
               <LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.heroScrim} />
               <View style={styles.heroText}>
-                <Text style={styles.heroLabel}>FEATURED</Text>
-                <Text style={styles.heroTitle}>Luxury Weddings, Curated.</Text>
+                <Text style={styles.heroLabel}>{HERO_COPY[i % HERO_COPY.length].label}</Text>
+                <Text style={styles.heroTitle}>{HERO_COPY[i % HERO_COPY.length].title}</Text>
               </View>
             </View>
           ))}
@@ -178,16 +199,20 @@ export default function Home() {
 
         <View style={styles.sectionRow}>
           <Text style={styles.section}>Trending in {city}</Text>
-          <Pressable onPress={() => router.push("/search")}>
+          <Pressable onPress={() => router.push("/search")} hitSlop={12}>
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
         </View>
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
+          vendors.length === 0 ? (
+            <View style={{ paddingHorizontal: spacing.xl }}>
+              <EmptyState compact icon="storefront-outline" title={`No vendors yet in ${city}`} message="We're onboarding partners here — check back soon." />
+            </View>
+          ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 14 }}>
-            {vendors.length === 0 && <Text style={styles.empty}>No vendors yet in {city}.</Text>}
             {vendors.map((v) => (
               <Pressable key={v.id} testID={`vendor-card-${v.id}`} onPress={() => router.push(`/vendor/${v.id}`)} style={styles.vCard}>
-                <Image source={{ uri: v.cover }} style={styles.vImg} contentFit="cover" />
+                <Image source={{ uri: resolveImg(v.cover) }} style={styles.vImg} contentFit="cover" />
                 {v.verified && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verifiedText}>Verified</Text></View>}
                 <LinearGradient colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.vScrim} />
                 <View style={styles.vMeta}>
@@ -197,26 +222,29 @@ export default function Home() {
                     {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.vDot}>•</Text>
                     <Text style={styles.vMuted}>{v.distance_km} km</Text></>}
                   </View>
-                  <Text style={styles.vPrice}>₹{v.starting_price.toLocaleString("en-IN")}+</Text>
+                  {Number(v.starting_price) > 0 ? <Text style={styles.vPrice}>₹{inr(v.starting_price)}+</Text> : null}
                 </View>
               </Pressable>
             ))}
           </ScrollView>
+          )
         )}
 
         <Text style={styles.section}>Combo Packages</Text>
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
           {combos.map((cb) => (
-            <Pressable key={cb.id} testID={`combo-${cb.id}`} style={styles.combo}>
-              <Image source={{ uri: cb.cover }} style={styles.comboImg} contentFit="cover" />
+            <Pressable key={cb.id} testID={`combo-${cb.id}`} accessibilityRole="button"
+              onPress={() => openCombo(cb)}
+              style={({ pressed }) => [styles.combo, pressed && { transform: [{ scale: 0.98 }] }]}>
+              <Image source={{ uri: resolveImg(cb.cover) }} style={styles.comboImg} contentFit="cover" />
               <LinearGradient colors={["transparent", "rgba(0,0,0,0.92)"]} style={styles.comboScrim} />
               <View style={styles.comboBox}>
                 <Text style={styles.comboTitle}>{cb.name}</Text>
                 <Text style={styles.comboDesc} numberOfLines={2}>{cb.description}</Text>
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4 }}>
-                  <Text style={styles.comboPrice}>₹{cb.price.toLocaleString("en-IN")}</Text>
-                  <Text style={styles.comboOrig}>₹{cb.original_price.toLocaleString("en-IN")}</Text>
-                  <Text style={styles.comboSave}>Save ₹{cb.savings.toLocaleString("en-IN")}</Text>
+                  {Number(cb.price) > 0 ? <Text style={styles.comboPrice}>₹{inr(cb.price)}</Text> : null}
+                  {Number(cb.original_price) > Number(cb.price) && Number(cb.original_price) > 0 ? <Text style={styles.comboOrig}>₹{inr(cb.original_price)}</Text> : null}
+                  {Number(cb.savings) > 0 ? <Text style={styles.comboSave}>Save ₹{inr(cb.savings)}</Text> : null}
                 </View>
               </View>
             </Pressable>
@@ -224,7 +252,7 @@ export default function Home() {
         </View>
       </ScrollView>
 
-      <Pressable testID="ai-fab" onPress={() => router.push("/ai-chat")} style={[styles.fab, { bottom: 80 }]}>
+      <Pressable testID="ai-fab" onPress={() => router.push("/ai-chat")} style={({ pressed }) => [styles.fab, { bottom: spacing.xl }, pressed && { transform: [{ scale: 0.96 }] }]} accessibilityRole="button">
         <Ionicons name="sparkles" size={22} color={colors.onBrand} />
       </Pressable>
     </View>
