@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 // Token storage: Keychain/Keystore via expo-secure-store on native; AsyncStorage only on web.
 const TOKEN_KEY = "ep_token";
@@ -13,7 +14,24 @@ const tokenStore = {
   },
 };
 
-const BASE = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/$/, "") + "/api";
+
+// In dev on a phone, a localhost backend URL is unreachable. Fall back to the
+// Metro host (Expo tunnel / LAN), which proxies /api/* to the backend (metro.config.js).
+function resolveBackend(): string {
+  const env = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
+  const isLocal = !env || /\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(env);
+  if (__DEV__ && Platform.OS !== "web" && isLocal) {
+    const hostUri = Constants.expoConfig?.hostUri || "";
+    if (hostUri) {
+      const host = hostUri.split("/")[0];
+      const isLan = /^(\d+\.){3}\d+(:\d+)?$/.test(host) || host.startsWith("localhost");
+      return `${isLan ? "http" : "https"}://${host.replace(/:80$/, "")}`;
+    }
+  }
+  return env;
+}
+export const BACKEND_BASE = resolveBackend();
+const BASE = BACKEND_BASE + "/api";
 
 let memToken: string | null = null;
 export async function setToken(t: string | null) {
@@ -38,11 +56,21 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
     const t = await loadToken();
     if (t) headers.Authorization = `Bearer ${t}`;
   }
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    throw new Error(e?.name === "AbortError" ? "Request timed out" : `Network request failed: ${e?.message || e}`);
+  } finally {
+    clearTimeout(timer);
+  }
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("json") ? await res.json() : await res.text();
   if (!res.ok) {

@@ -1,5 +1,5 @@
 /**
- * Cold-start launch: letter-by-letter "THARA", then title rises while
+ * Cold-start launch: Thara wordmark image fades in, then fades out while
  * children (login) slide up from the bottom. Theme-aware gold/black or N3 light.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -8,11 +8,11 @@ import {
   Dimensions,
   Easing,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
+import { TharaLogo } from "./TharaLogo";
 
 const LETTERS = ["T", "H", "A", "R", "A"] as const;
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -25,7 +25,7 @@ type Props = {
 };
 
 export function LaunchIntro({ play, children, testID }: Props) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [done, setDone] = useState(!play);
 
@@ -108,8 +108,6 @@ export function LaunchIntro({ play, children, testID }: Props) {
     });
   }, [play, topRest.targetY, letterOpacities, letterYs, titleY, titleScale, contentY, contentOpacity, scrimOpacity]);
 
-  const letterColor = isDark ? colors.brand : colors.brand2;
-  const glowColor = isDark ? "rgba(212,175,55,0.35)" : "rgba(196,163,90,0.25)";
 
   return (
     <View testID={testID ?? "launch-intro"} style={[styles.root, { backgroundColor: colors.surface }]}>
@@ -135,26 +133,14 @@ export function LaunchIntro({ play, children, testID }: Props) {
           },
         ]}
       >
-        <View style={styles.row}>
-          {LETTERS.map((ch, i) => (
-            <Animated.Text
-              key={`${ch}-${i}`}
-              style={[
-                styles.letter,
-                {
-                  color: letterColor,
-                  textShadowColor: glowColor,
-                  textShadowRadius: 12,
-                  textShadowOffset: { width: 0, height: 0 },
-                  opacity: letterOpacities[i],
-                  transform: [{ translateY: letterYs[i] }],
-                },
-              ]}
-            >
-              {ch}
-            </Animated.Text>
-          ))}
-        </View>
+        <Animated.View
+          style={{
+            opacity: Animated.multiply(letterOpacities[LETTERS.length - 1], scrimOpacity),
+            transform: [{ translateY: letterYs[0] }],
+          }}
+        >
+          <TharaLogo variant="wordmark" width={280} />
+        </Animated.View>
       </Animated.View>
 
       {/* Login / destination content rising from bottom */}

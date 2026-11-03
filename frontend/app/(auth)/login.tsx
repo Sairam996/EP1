@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  Linking,
 } from "react-native";
+import Constants from "expo-constants";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,7 +19,8 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
-import { GoldButton, GhostButton, Pill } from "@/src/components/UI";
+import { GoldButton, Pill } from "@/src/components/UI";
+import { BACKEND_BASE } from "@/src/api";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { LaunchIntro } from "@/src/components/LaunchIntro";
 import { consumeLaunchIntro } from "@/src/launchGate";
@@ -55,6 +58,16 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [playIntro] = useState(() => consumeLaunchIntro());
+  const [resendIn, setResendIn] = useState(0);
+  const [channel, setChannel] = useState<"sms" | "whatsapp">("sms");
+  const otpRef = useRef<any>(null);
+  const verifyingRef = useRef(false);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((v) => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   const fullPhone = useMemo(() => {
     const digits = phoneLocal.replace(/\D/g, "");
@@ -229,6 +242,26 @@ export default function Login() {
       },
       ccRowLabel: { color: c.text, fontSize: 15, flex: 1 },
       ccRowCode: { color: c.brand, fontWeight: "700" as const },
+      heading: { color: c.text, fontSize: 24, fontWeight: "700" as const, marginBottom: spacing.lg },
+      otpHeaderRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, marginBottom: spacing.md },
+      sentLine: { color: c.textMuted, fontSize: 13, marginBottom: spacing.lg },
+      changeLink: { color: c.brand, fontWeight: "700" as const },
+      otpBoxes: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.lg },
+      otpBox: {
+        width: 46, height: 54, borderRadius: radius.md, alignItems: "center" as const, justifyContent: "center" as const,
+        borderWidth: 1, borderColor: c.border,
+        backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+      },
+      otpBoxActive: { borderColor: c.brand, borderWidth: 1.5 },
+      otpDigit: { color: c.text, fontSize: 22, fontWeight: "700" as const },
+      hiddenOtp: { position: "absolute" as const, opacity: 0.01, width: 1, height: 1 },
+      resendRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.lg },
+      pills: { flexDirection: "row" as const, gap: 8 },
+      chPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
+      chPillOn: { borderColor: c.brand, backgroundColor: c.brandTint },
+      chPillText: { color: c.text, fontSize: 12, fontWeight: "600" as const },
+      terms: { color: c.textMuted, fontSize: 11, textAlign: "center" as const, marginTop: spacing.md, lineHeight: 16 },
+      termsLink: { color: c.brand, fontWeight: "600" as const },
       resend: { color: c.brand, fontSize: 13, fontWeight: "600" as const, marginTop: 8, textAlign: "center" as const },
     };
   });
@@ -245,10 +278,21 @@ export default function Login() {
     router.replace(role === "vendor" ? "/(vendor)/dashboard" : "/(customer)/home");
   };
 
+  const digitsOnly = phoneLocal.replace(/\D/g, "");
+  const phoneValid = country.code === "+91" ? digitsOnly.length === 10 : digitsOnly.length >= 8;
+
+  const friendly = (e: any, fallback: string) => {
+    const m = String(e?.message || "");
+    if (/Network request failed|Failed to fetch|aborted|timed out/i.test(m) || !BACKEND_BASE.startsWith("http")) {
+      return `Can't reach the Thara server (${BACKEND_BASE || "not configured"}). Check your internet and try again.`;
+    }
+    return m || fallback;
+  };
+
   const onSendOtp = async () => {
     setErr(null);
-    if (!fullPhone || phoneLocal.replace(/\D/g, "").length < 8) {
-      setErr("Enter a valid phone number");
+    if (!phoneValid) {
+      setErr("Enter a valid 10-digit mobile number");
       return;
     }
     setLoading(true);
@@ -256,9 +300,12 @@ export default function Login() {
       const r = await sendOtp(fullPhone);
       setDevOtpHint(r.dev_otp || null);
       setOtp("");
+      verifyingRef.current = false;
+      setResendIn(30);
       setStep("otp");
+      setTimeout(() => otpRef.current?.focus(), 250);
     } catch (e: any) {
-      setErr(e.message || "Could not send OTP");
+      setErr(friendly(e, "Could not send OTP"));
     } finally {
       setLoading(false);
     }
@@ -267,10 +314,12 @@ export default function Login() {
   const onVerifyOtp = async (code?: string) => {
     const value = (code ?? otp).trim();
     setErr(null);
-    if (value.length < 4) {
-      setErr("Enter the OTP sent to your phone");
+    if (value.length < 6) {
+      setErr("Enter the 6-digit OTP");
       return;
     }
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
     setLoading(true);
     try {
       const u = await verifyOtp(fullPhone, value);
@@ -278,12 +327,14 @@ export default function Login() {
         routeHome(u.role);
         return;
       }
-      setUsername(u.name || "");
+      setUsername(u.name && !u.name.startsWith("+") ? u.name : "");
       setGmail(u.email?.endsWith("@phone.thara.app") ? "" : u.email || "");
       setStep("profile");
     } catch (e: any) {
-      setErr(e.message || "Invalid OTP");
+      setErr(friendly(e, "Invalid OTP"));
+      setOtp("");
     } finally {
+      verifyingRef.current = false;
       setLoading(false);
     }
   };
@@ -292,7 +343,7 @@ export default function Login() {
     const cleaned = text.replace(/\D/g, "").slice(0, 6);
     setOtp(cleaned);
     if (cleaned.length === 6) {
-      void onVerifyOtp(cleaned);
+      void onVerifyOtp(cleaned); // auto-submit (SMS autofill)
     }
   };
 
@@ -319,19 +370,14 @@ export default function Login() {
   };
 
   const onSocial = (provider: "google" | "apple") => {
+    const name = provider === "google" ? "Google" : "Apple";
+    const inExpoGo = Constants.appOwnership === "expo" || (Constants as any).executionEnvironment === "storeClient";
     setErr(
-      `${provider === "google" ? "Google" : "Apple"} sign-in is on the UI — connect OAuth keys to go live.`
+      inExpoGo
+        ? `${name} sign-in isn't available in Expo Go yet — please use phone OTP for now.`
+        : `${name} sign-in is coming soon — please use phone OTP for now.`
     );
   };
-
-  const stepTitle =
-    step === "phone" ? "Welcome" : step === "otp" ? "Enter OTP" : "Set up your profile";
-  const stepSub =
-    step === "phone"
-      ? "Sign in with your phone to get started"
-      : step === "otp"
-        ? `We sent a code to ${fullPhone}`
-        : "Add your Gmail, username, and preferences";
 
   const body = (
     <View style={styles.root}>
@@ -350,25 +396,17 @@ export default function Login() {
             styles.content,
             {
               paddingBottom: Math.max(insets.bottom, 20) + 8,
-              paddingTop: insets.top + (playIntro ? 88 : 36),
+              paddingTop: insets.top + 36,
             },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandWrap}>
-            {!playIntro ? (
-              <TharaLogo variant="wordmark" width={210} />
-            ) : (
-              // LaunchIntro already renders the rising THARA title; keep one brand mark.
-              <View style={{ height: 44 }} />
-            )}
+            <TharaLogo variant="wordmark" width={260} testID="login-wordmark" />
           </View>
 
           <View style={styles.cardWrap}>
-            <Text style={styles.welcome}>{stepTitle}</Text>
-            <Text style={styles.welcomeSub}>{stepSub}</Text>
-
             <BlurView
               intensity={Platform.OS === "ios" ? 40 : 55}
               tint={isDark ? "dark" : "light"}
@@ -377,106 +415,109 @@ export default function Login() {
               <View style={styles.cardInner}>
                 {step === "phone" ? (
                   <>
-                    <Text style={styles.label}>Phone login</Text>
+                    <Text style={styles.heading}>Login or Signup</Text>
                     <View style={styles.phoneRow}>
-                      <Pressable
-                        testID="login-country-code"
-                        onPress={() => setPickerOpen(true)}
-                        style={styles.ccBtn}
-                      >
-                        <Text style={styles.ccText}>
-                          {country.flag} {country.code}
-                        </Text>
+                      <Pressable testID="login-country-code" onPress={() => setPickerOpen(true)} style={styles.ccBtn}>
+                        <Text style={styles.ccText}>{country.flag} {country.code}</Text>
                         <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
                       </Pressable>
                       <TextInput
                         testID="login-phone"
                         value={phoneLocal}
-                        onChangeText={setPhoneLocal}
-                        placeholder="Phone number"
+                        onChangeText={(t) => setPhoneLocal(t.replace(/\D/g, "").slice(0, country.code === "+91" ? 10 : 14))}
+                        placeholder="Enter mobile number"
                         placeholderTextColor={colors.textMuted}
                         style={[styles.input, styles.phoneInput]}
-                        keyboardType="phone-pad"
+                        keyboardType="number-pad"
                         textContentType="telephoneNumber"
                         autoComplete="tel"
+                        maxLength={country.code === "+91" ? 10 : 14}
                       />
                     </View>
                     {err ? <Text style={styles.err}>{err}</Text> : null}
                     <GoldButton
                       testID="login-send-otp"
-                      title="Login with phone"
+                      title="Get OTP"
                       onPress={onSendOtp}
                       loading={loading}
+                      disabled={!phoneValid}
                     />
-                    <Text style={styles.dividerHint}>or continue with</Text>
-                    <View style={[styles.socialRow, { marginTop: 10 }]}>
-                      <Pressable
-                        testID="login-google"
-                        onPress={() => onSocial("google")}
-                        style={styles.socialBtn}
-                      >
-                        <Ionicons name="logo-google" size={18} color={colors.text} />
-                        <Text style={styles.socialText}>Google</Text>
-                      </Pressable>
-                      <Pressable
-                        testID="login-apple"
-                        onPress={() => onSocial("apple")}
-                        style={styles.socialBtn}
-                      >
-                        <Ionicons name="logo-apple" size={18} color={colors.text} />
-                        <Text style={styles.socialText}>Apple</Text>
-                      </Pressable>
-                    </View>
+                    <Text style={styles.terms}>
+                      By continuing, you agree to our{" "}
+                      <Text style={styles.termsLink} onPress={() => Linking.openURL("https://thara.app/terms")}>Terms of use</Text>
+                      {" & "}
+                      <Text style={styles.termsLink} onPress={() => Linking.openURL("https://thara.app/privacy")}>Privacy Policy</Text>
+                    </Text>
                   </>
                 ) : null}
 
                 {step === "otp" ? (
                   <>
-                    <Text style={styles.label}>One-time password</Text>
+                    <View style={styles.otpHeaderRow}>
+                      <Pressable
+                        testID="login-otp-back"
+                        hitSlop={12}
+                        onPress={() => { setStep("phone"); setOtp(""); setErr(null); }}
+                      >
+                        <Ionicons name="arrow-back" size={22} color={colors.text} />
+                      </Pressable>
+                      <Text style={[styles.heading, { marginBottom: 0 }]}>OTP Verification</Text>
+                    </View>
+                    <Text style={styles.sentLine}>
+                      OTP sent via {channel === "sms" ? "SMS" : "WhatsApp"} to {country.code} {digitsOnly}{"  "}
+                      <Text style={styles.changeLink} onPress={() => { setStep("phone"); setOtp(""); setErr(null); }}>Change</Text>
+                    </Text>
+                    <Pressable onPress={() => otpRef.current?.focus()} style={styles.otpBoxes} testID="login-otp-boxes">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <View key={i} style={[styles.otpBox, (i === otp.length || (i === 5 && otp.length === 6)) && styles.otpBoxActive]}>
+                          <Text style={styles.otpDigit}>{otp[i] ?? ""}</Text>
+                        </View>
+                      ))}
+                    </Pressable>
                     <TextInput
+                      ref={otpRef}
                       testID="login-otp"
                       value={otp}
                       onChangeText={onOtpChange}
-                      placeholder="••••••"
-                      placeholderTextColor={colors.textMuted}
-                      style={[styles.input, styles.otpInput]}
+                      style={styles.hiddenOtp}
                       keyboardType="number-pad"
                       textContentType="oneTimeCode"
                       autoComplete="sms-otp"
                       importantForAutofill="yes"
                       maxLength={6}
                       autoFocus
+                      caretHidden
                     />
-                    <Text style={styles.hint}>
-                      OTP autofills when your device offers SMS codes.
-                    </Text>
-                    {devOtpHint ? (
-                      <Text style={styles.hint}>Dev code: {devOtpHint}</Text>
-                    ) : null}
+                    <View style={styles.resendRow}>
+                      {resendIn > 0 ? (
+                        <Text style={styles.hint}>Resend OTP in 00:{String(resendIn).padStart(2, "0")}</Text>
+                      ) : (
+                        <Pressable onPress={onSendOtp} disabled={loading} hitSlop={12}>
+                          <Text style={[styles.resend, { marginTop: 0 }]}>Resend OTP</Text>
+                        </Pressable>
+                      )}
+                      <View style={styles.pills}>
+                        {(["sms", "whatsapp"] as const).map((ch) => (
+                          <Pressable key={ch} onPress={() => setChannel(ch)} style={[styles.chPill, channel === ch && styles.chPillOn]}>
+                            <Text style={styles.chPillText}>{ch === "sms" ? "SMS" : "WhatsApp"}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                    {devOtpHint ? <Text style={styles.hint}>Test code: {devOtpHint}</Text> : null}
                     {err ? <Text style={styles.err}>{err}</Text> : null}
                     <GoldButton
                       testID="login-verify-otp"
-                      title="Verify OTP"
+                      title="Submit"
                       onPress={() => onVerifyOtp()}
                       loading={loading}
-                    />
-                    <Pressable onPress={onSendOtp} disabled={loading} hitSlop={12} accessibilityRole="button">
-                      <Text style={styles.resend}>Resend code</Text>
-                    </Pressable>
-                    <GhostButton
-                      title="Change number"
-                      onPress={() => {
-                        setStep("phone");
-                        setOtp("");
-                        setErr(null);
-                      }}
-                      style={{ marginTop: 10 }}
+                      disabled={otp.length < 6}
                     />
                   </>
                 ) : null}
-
                 {step === "profile" ? (
                   <>
+                    <Text style={styles.heading}>Set up your profile</Text>
                     <Text style={styles.label}>Gmail</Text>
                     <TextInput
                       testID="login-gmail"
@@ -540,6 +581,22 @@ export default function Login() {
                       onPress={onCompleteProfile}
                       loading={loading}
                     />
+                  </>
+                ) : null}
+
+                {step !== "profile" ? (
+                  <>
+                    <Text style={[styles.dividerHint, { marginTop: 18 }]}>or continue with</Text>
+                    <View style={[styles.socialRow, { marginTop: 10 }]}>
+                      <Pressable testID="login-google" onPress={() => onSocial("google")} style={styles.socialBtn}>
+                        <Ionicons name="logo-google" size={18} color={colors.text} />
+                        <Text style={styles.socialText}>Google</Text>
+                      </Pressable>
+                      <Pressable testID="login-apple" onPress={() => onSocial("apple")} style={styles.socialBtn}>
+                        <Ionicons name="logo-apple" size={18} color={colors.text} />
+                        <Text style={styles.socialText}>Apple</Text>
+                      </Pressable>
+                    </View>
                   </>
                 ) : null}
               </View>
