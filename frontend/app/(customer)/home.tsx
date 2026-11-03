@@ -59,7 +59,7 @@ export default function Home() {
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.xl, paddingVertical: spacing.sm },
-    brandHeader: { alignItems: "center", paddingTop: spacing.sm, paddingBottom: spacing.md },
+    brandHeader: { alignItems: "center", paddingTop: spacing.lg, paddingBottom: spacing.lg },
     searchBar: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: spacing.xl, marginTop: spacing.md, height: 56, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderStrong },
     searchText: { color: c.textMuted, fontSize: 16, flex: 1 },
     cityPick: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 44, backgroundColor: c.surface2, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
@@ -141,7 +141,7 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
         {/* Brand header — large serif THARA per brand template */}
         <View style={styles.brandHeader}>
-          <TharaLogo variant="full" size={46} testID="home-wordmark" />
+          <TharaLogo variant="wordmark" size={44} testID="home-wordmark" />
         </View>
         <View style={styles.topBar}>
           <Pressable testID="city-selector" onPress={() => setCityOpen((o) => !o)} style={styles.cityPick}>

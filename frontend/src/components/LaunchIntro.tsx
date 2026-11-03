@@ -111,6 +111,9 @@ export function LaunchIntro({ play, children, testID }: Props) {
 
   return (
     <View testID={testID ?? "launch-intro"} style={[styles.root, { backgroundColor: colors.surface }]}>
+      {/* Intro overlay only while animating — never left mounted over the screen */}
+      {play && !done ? (
+      <>
       {/* Soft brand wash behind letters */}
       <Animated.View
         pointerEvents="none"
@@ -142,6 +145,9 @@ export function LaunchIntro({ play, children, testID }: Props) {
           <TharaLogo variant="full" size={50} tagline />
         </Animated.View>
       </Animated.View>
+
+      </>
+      ) : null}
 
       {/* Login / destination content rising from bottom */}
       <Animated.View
