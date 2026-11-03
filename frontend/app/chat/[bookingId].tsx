@@ -81,7 +81,7 @@ export default function ChatThread() {
             </View>
             <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: "italic" }}>{otherTyping} is typing…</Text>
           </View>
-        ) : null}
+        ) : undefined}
       />
       <View style={[styles.inputRow, { paddingBottom: insets.bottom + 8 }]}>
         <TextInput testID="msg-input" value={text} onChangeText={onChangeText} placeholder="Type a message..."

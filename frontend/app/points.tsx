@@ -78,7 +78,7 @@ export default function Points() {
           t.name === "Gold"     ? ["#F8E27E", "#D4AF37", "#8C7022"] :
                                   ["#D8D8D8", "#9A9A9A", "#5A5A5A"]
         } start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tierCard}>
-          <LinearGradient colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)"]} style={StyleSheet.absoluteFillObject} />
+          <LinearGradient colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.55)"]} style={StyleSheet.absoluteFill} />
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <View style={styles.tierIcon}>
               <Ionicons name={t.icon} size={26} color={t.name === "Gold" ? "#3A2D08" : "#1A1A1F"} />

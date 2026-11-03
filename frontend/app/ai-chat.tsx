@@ -74,7 +74,7 @@ export default function AIChat() {
             <ActivityIndicator size="small" color={colors.brand} />
             <Text style={styles.thinkingText}>Thinking…</Text>
           </View>
-        ) : null}
+        ) : undefined}
       />
       <View style={[styles.inputRow, { paddingBottom: insets.bottom + 8 }]}>
         <TextInput testID="ai-input" value={text} onChangeText={setText} placeholder="Ask anything..."

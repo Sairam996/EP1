@@ -32,7 +32,7 @@ function ThemedStack() {
   const { colors, isDark, effectiveMode } = useTheme();
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }} key={effectiveMode}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.surface} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"}/>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface }, animation: "slide_from_right", animationDuration: 260, gestureEnabled: true }} />
     </View>
   );

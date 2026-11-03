@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "thara",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.emergent.proeventsindia.jp8i3g"
@@ -17,7 +16,6 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.emergent.proeventsindia.jp8i3g",
       "softwareKeyboardLayoutMode": "resize",
       "blockedPermissions": [
@@ -45,7 +43,12 @@
           "photosPermission": "Thara needs access to your photos so you can showcase your work to customers.",
           "cameraPermission": "Thara needs camera access so you can capture photos of your venue and work."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -57,11 +60,6 @@
     "androidStatusBar": {
       "backgroundColor": "#000000",
       "barStyle": "light-content"
-    },
-    "splash": {
-      "image": "./assets/images/splash-image.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
     },
     "extra": {
       "router": {},

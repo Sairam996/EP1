@@ -10,7 +10,7 @@
  *    Returns a `StyleSheet` that rebuilds when the theme changes.
  */
 import { useMemo } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type ImageStyle, type TextStyle, type ViewStyle } from "react-native";
 import { useTheme } from "./context/ThemeContext";
 
 export type Palette = {
@@ -114,9 +114,12 @@ export const elevation = {
 };
 
 // -----------------------------------------------------------------------------
+// Reactive styles helper (RN 0.88 dropped StyleSheet.NamedStyles)
+// -----------------------------------------------------------------------------
+type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
 // Reactive styles helper — preferred for all new / refactored screens.
 // -----------------------------------------------------------------------------
-export function useThemedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+export function useThemedStyles<T extends NamedStyles<T> | NamedStyles<any>>(
   factory: (c: Palette) => T
 ): T {
   const { colors: current } = useTheme();
@@ -134,7 +137,7 @@ export function useColors(): Palette {
 // lazily per active palette so text never bakes in the dark palette at import
 // time (which produced light-on-cream / dark-on-dark text in light mode).
 // -----------------------------------------------------------------------------
-export function themedStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+export function themedStyles<T extends NamedStyles<T> | NamedStyles<any>>(
   factory: (c: Palette) => T
 ): T {
   const cache: Record<string, T> = {};

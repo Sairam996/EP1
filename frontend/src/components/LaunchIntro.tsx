@@ -117,7 +117,7 @@ export function LaunchIntro({ play, children, testID }: Props) {
       <Animated.View
         pointerEvents="none"
         style={[
-          StyleSheet.absoluteFillObject,
+          StyleSheet.absoluteFill,
           {
             opacity: scrimOpacity,
             backgroundColor: colors.surface,
@@ -177,7 +177,7 @@ export function LaunchIntro({ play, children, testID }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: "hidden" },
   titleWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,

@@ -304,7 +304,7 @@ const styles = themedStyles((colors) => ({
   loader: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   mapWrap: { flex: 1, backgroundColor: colors.surface2 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
