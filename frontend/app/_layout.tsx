@@ -6,6 +6,7 @@ import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import { router as expoRouter } from "expo-router";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
+import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from "@expo-google-fonts/cormorant-garamond";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -39,7 +40,11 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useIconFonts();
+  const [iconsLoaded, iconsError] = useIconFonts();
+  const [serifLoaded, serifError] = useFonts({ CormorantGaramond_500Medium, CormorantGaramond_600SemiBold });
+  // Never block launch on the serif: if it errors we fall back to system serif.
+  const loaded = iconsLoaded && (serifLoaded || !!serifError);
+  const error = iconsError;
   useEffect(() => { if (loaded || error) SplashScreen.hideAsync().catch(() => {}); }, [loaded, error]);
 
   useEffect(() => {

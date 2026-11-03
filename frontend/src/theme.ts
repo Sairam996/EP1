@@ -45,7 +45,7 @@ export const darkPalette: Palette = {
   text: "#FFF8EB",       // high-contrast warm white (always readable)
   textMuted: "#C4B89A",  // brighter muted for WCAG-ish readability on black
   textSubtle: "#E8DCC4",
-  brand: "#D4AF37",
+  brand: "#D9B25F",       // template metallic gold
   brand2: "#E5C65A",     // lighter gold highlight for glossy accents
   brandTint: "#2E250A",
   onBrand: "#000000",    // black on gold buttons — max contrast
@@ -63,13 +63,13 @@ export const darkPalette: Palette = {
 // N3 light logo palette — pure white, champagne gold mark, charcoal wordmark.
 export const lightPalette: Palette = {
   mode: "light",
-  surface: "#FFFFFF",      // N3 pure white background
+  surface: "#FBF6EC",      // warm ivory background
   surface2: "#FFFFFF",     // glossy white cards
-  surface3: "#F6F1E6",     // soft champagne elevated / inputs
+  surface3: "#F3EADA",     // soft champagne elevated / inputs
   text: "#1C1C1C",         // N3 charcoal THARA
   textMuted: "#5C5344",    // readable taupe on white
   textSubtle: "#2F2A22",
-  brand: "#C4A35A",        // N3 champagne gold
+  brand: "#B08A3E",        // antique gold (template)
   brand2: "#A8893E",       // deeper champagne for pressed/hover
   brandTint: "#F4EBD4",    // soft champagne wash
   onBrand: "#1C1C1C",      // charcoal on gold — clear buttons
@@ -96,7 +96,9 @@ export function _mutateColors(next: Palette) {
 
 export const spacing = { xs: 4, sm: 6, md: 10, lg: 14, xl: 18, xxl: 24, xxxl: 36 };
 export const radius = { sm: 6, md: 12, lg: 18, pill: 999 };
-export const fonts = { display: "CormorantGaramond_500Medium", text: "System" };
+export const fonts = { display: "CormorantGaramond_500Medium", displayBold: "CormorantGaramond_600SemiBold", text: "System" };
+// Metallic gold of the THARA wordmark (brand template) per surface.
+export const brandGold = { dark: "#E2BE6E", light: "#8C6A26" };
 
 // Shared interaction / layout tokens — prefer these over one-off values.
 export const touch = { minTarget: 44, hitSlop: { top: 8, bottom: 8, left: 8, right: 8 } };

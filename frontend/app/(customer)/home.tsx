@@ -8,7 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { api, resolveImg } from "@/src/api";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
+import { SAMPLE_VENDOR } from "@/src/sampleVendor";
 import { Rating } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
@@ -58,10 +59,12 @@ export default function Home() {
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.xl, paddingVertical: spacing.sm },
-    brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    cityPick: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.surface2, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
-    cityText: { color: c.text, fontWeight: "600" },
-    iconBtn: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.border },
+    brandHeader: { alignItems: "center", paddingTop: spacing.sm, paddingBottom: spacing.md },
+    searchBar: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: spacing.xl, marginTop: spacing.md, height: 56, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderStrong },
+    searchText: { color: c.textMuted, fontSize: 16, flex: 1 },
+    cityPick: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 44, backgroundColor: c.surface2, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
+    cityText: { color: c.text, fontWeight: "600", fontSize: 15 },
+    iconBtn: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.border },
     cityDrop: { marginTop: spacing.sm, paddingVertical: 4 },
     cityChip: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
     greet: { color: c.text, fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
@@ -72,7 +75,7 @@ export default function Home() {
     heroText: { position: "absolute", left: 16, bottom: 16, right: 16 },
     heroLabel: { color: c.brand, fontSize: 11, letterSpacing: 2, fontWeight: "600" },
     heroTitle: { color: "#F5F0E6", fontSize: 18, fontWeight: "500", marginTop: 2 },
-    section: { color: c.text, fontSize: 15, fontWeight: "600", marginTop: spacing.xl, marginBottom: spacing.sm, paddingHorizontal: spacing.xl },
+    section: { color: c.text, fontSize: 19, fontFamily: fonts.displayBold, letterSpacing: 0.4, marginTop: spacing.xl, marginBottom: spacing.sm, paddingHorizontal: spacing.xl },
     sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingRight: spacing.xl },
     chipRow: { paddingHorizontal: spacing.xl, gap: 8 },
     vCard: { width: 190, height: 230, borderRadius: radius.lg, overflow: "hidden", backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
@@ -85,6 +88,7 @@ export default function Home() {
     vMuted: { color: "rgba(243,244,246,0.85)", fontSize: 11 },
     vPrice: { color: c.brand, fontSize: 13, fontWeight: "700", marginTop: 3 },
     verifiedBadge: { position: "absolute", top: 8, left: 8, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: c.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+    sampleBadge: { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.65)", borderWidth: 1, borderColor: c.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
     verifiedText: { color: c.onBrand, fontSize: 9, fontWeight: "700" },
     combo: { height: 168, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.border },
     comboImg: { width: "100%", height: "100%", position: "absolute" },
@@ -119,7 +123,10 @@ export default function Home() {
         else if (alt) { seenCovers.add(alt); uniq.push({ ...x, cover: alt }); }
         else dupCover.push(x);
       }
-      setVendors([...uniq, ...dupCover]); setCombos(cb);
+      const list = [...uniq, ...dupCover];
+      // Always include one showcase vendor (Hyderabad) so details can be previewed.
+      if (city === "Hyderabad" && (!category || category === SAMPLE_VENDOR.category)) list.unshift(SAMPLE_VENDOR);
+      setVendors(list); setCombos(cb);
     } catch (err) { console.warn(err); }
     finally { setLoading(false); setRefreshing(false); }
   }, [city, category]);
@@ -132,18 +139,25 @@ export default function Home() {
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 96 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
-        {/* Top bar with brand + city + search */}
+        {/* Brand header — large serif THARA per brand template */}
+        <View style={styles.brandHeader}>
+          <TharaLogo variant="full" size={46} testID="home-wordmark" />
+        </View>
         <View style={styles.topBar}>
           <Pressable testID="city-selector" onPress={() => setCityOpen((o) => !o)} style={styles.cityPick}>
-            <Ionicons name="location" size={16} color={colors.brand} />
+            <Ionicons name="location" size={18} color={colors.brand} />
             <Text style={styles.cityText}>{city}</Text>
-            <Ionicons name={cityOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.textMuted} />
+            <Ionicons name={cityOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
           </Pressable>
-          <TharaLogo variant="wordmark" height={26} />
-          <Pressable testID="search-btn" onPress={() => router.push("/search")} style={styles.iconBtn}>
-            <Ionicons name="search" size={20} color={colors.text} />
+          <Pressable testID="ai-btn" onPress={() => router.push("/ai-chat")} style={styles.iconBtn} accessibilityLabel="AI assistant">
+            <Ionicons name="sparkles-outline" size={20} color={colors.brand} />
           </Pressable>
         </View>
+        <Pressable testID="search-btn" onPress={() => router.push("/search")} accessibilityRole="search"
+          style={({ pressed }) => [styles.searchBar, pressed && { opacity: 0.85 }]}>
+          <Ionicons name="search" size={22} color={colors.brand} />
+          <Text style={styles.searchText}>Search venues, decor, photographers…</Text>
+        </Pressable>
 
         {cityOpen && (
           <View style={styles.cityDrop} testID="city-dropdown">
@@ -213,6 +227,7 @@ export default function Home() {
             {vendors.map((v) => (
               <Pressable key={v.id} testID={`vendor-card-${v.id}`} onPress={() => router.push(`/vendor/${v.id}`)} style={styles.vCard}>
                 <Image source={{ uri: resolveImg(v.cover) }} style={styles.vImg} contentFit="cover" />
+                {(v as any).is_sample ? <View style={styles.sampleBadge}><Text style={[styles.verifiedText, { color: colors.brand }]}>SAMPLE</Text></View> : null}
                 {v.verified && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verifiedText}>Verified</Text></View>}
                 <LinearGradient colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.vScrim} />
                 <View style={styles.vMeta}>

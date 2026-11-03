@@ -10,10 +10,10 @@ import {
   Modal,
   FlatList,
   Linking,
+  StyleSheet,
 } from "react-native";
 import Constants from "expo-constants";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +23,7 @@ import { GoldButton, Pill } from "@/src/components/UI";
 import { BACKEND_BASE } from "@/src/api";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { LaunchIntro } from "@/src/components/LaunchIntro";
+import { BokehBackground } from "@/src/components/BokehBackground";
 import { consumeLaunchIntro } from "@/src/launchGate";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 
@@ -115,7 +116,10 @@ export default function Login() {
       },
       cardInner: {
         padding: 22,
-        backgroundColor: dark ? "rgba(12,12,12,0.55)" : "rgba(255,255,255,0.55)",
+        backgroundColor: dark ? "rgba(8,8,8,0.62)" : "rgba(255,252,245,0.70)",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: dark ? "rgba(226,190,110,0.35)" : "rgba(140,106,38,0.25)",
+        borderRadius: 24,
       },
       label: {
         color: c.textMuted,
@@ -129,23 +133,28 @@ export default function Login() {
         backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
         borderRadius: radius.md,
         paddingHorizontal: 14,
-        paddingVertical: 12,
+        paddingVertical: 0,
+        height: 60,
         color: c.text,
-        borderWidth: 0,
-        fontSize: 14,
-        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: dark ? "rgba(226,190,110,0.28)" : "rgba(140,106,38,0.22)",
+        fontSize: 19,
+        letterSpacing: 0.5,
+        marginBottom: 12,
       },
-      phoneRow: { flexDirection: "row" as const, gap: 8, marginBottom: 10 },
+      phoneRow: { flexDirection: "row" as const, gap: 10, marginBottom: 14 },
       ccBtn: {
         flexDirection: "row" as const,
         alignItems: "center" as const,
         gap: 4,
-        paddingHorizontal: 10,
+        paddingHorizontal: 14,
+        height: 60,
         borderRadius: radius.md,
-        borderWidth: 0,
+        borderWidth: 1,
+        borderColor: dark ? "rgba(226,190,110,0.28)" : "rgba(140,106,38,0.22)",
         backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
       },
-      ccText: { color: c.text, fontSize: 14, fontWeight: "600" as const },
+      ccText: { color: c.text, fontSize: 18, fontWeight: "600" as const },
       phoneInput: { flex: 1, marginBottom: 0 },
       otpInput: {
         letterSpacing: 10,
@@ -154,7 +163,7 @@ export default function Login() {
         fontWeight: "600" as const,
       },
       err: { color: c.error, marginBottom: 8, fontSize: 12 },
-      hint: { color: c.textMuted, fontSize: 12, marginBottom: 10 },
+      hint: { color: c.textMuted, fontSize: 14, marginBottom: 10 },
       footer: {
         alignItems: "center" as const,
         paddingTop: spacing.lg,
@@ -242,18 +251,18 @@ export default function Login() {
       },
       ccRowLabel: { color: c.text, fontSize: 15, flex: 1 },
       ccRowCode: { color: c.brand, fontWeight: "700" as const },
-      heading: { color: c.text, fontSize: 24, fontWeight: "700" as const, marginBottom: spacing.lg },
+      heading: { color: c.text, fontSize: 28, fontFamily: fonts.displayBold, letterSpacing: 0.4, marginBottom: spacing.lg },
       otpHeaderRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, marginBottom: spacing.md },
-      sentLine: { color: c.textMuted, fontSize: 13, marginBottom: spacing.lg },
+      sentLine: { color: c.textMuted, fontSize: 15, marginBottom: spacing.lg },
       changeLink: { color: c.brand, fontWeight: "700" as const },
       otpBoxes: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.lg },
       otpBox: {
-        width: 46, height: 54, borderRadius: radius.md, alignItems: "center" as const, justifyContent: "center" as const,
+        width: 50, height: 64, borderRadius: radius.md, alignItems: "center" as const, justifyContent: "center" as const,
         borderWidth: 1, borderColor: c.border,
         backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
       },
-      otpBoxActive: { borderColor: c.brand, borderWidth: 1.5 },
-      otpDigit: { color: c.text, fontSize: 22, fontWeight: "700" as const },
+      otpBoxActive: { borderColor: c.brand, borderWidth: 2 },
+      otpDigit: { color: c.text, fontSize: 28, fontWeight: "700" as const },
       hiddenOtp: { position: "absolute" as const, opacity: 0.01, width: 1, height: 1 },
       resendRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.lg },
       pills: { flexDirection: "row" as const, gap: 8 },
@@ -265,14 +274,6 @@ export default function Login() {
       resend: { color: c.brand, fontSize: 13, fontWeight: "600" as const, marginTop: 8, textAlign: "center" as const },
     };
   });
-
-  const gradientColors = useMemo(
-    () =>
-      isDark
-        ? (["#000000", "#0C0C0C", "#1A1408"] as const)
-        : (["#FFFFFF", "#FBF7EF", "#F4EBD4"] as const),
-    [isDark]
-  );
 
   const routeHome = (role: string) => {
     router.replace(role === "vendor" ? "/(vendor)/dashboard" : "/(customer)/home");
@@ -381,11 +382,7 @@ export default function Login() {
 
   const body = (
     <View style={styles.root}>
-      <LinearGradient
-        colors={[...gradientColors]}
-        locations={[0, 0.45, 1]}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-      />
+      <BokehBackground mode={isDark ? "dark" : "light"} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -403,7 +400,7 @@ export default function Login() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandWrap}>
-            <TharaLogo variant="wordmark" width={260} testID="login-wordmark" />
+            <TharaLogo variant="full" size={54} tagline testID="login-wordmark" />
           </View>
 
           <View style={styles.cardWrap}>
@@ -441,6 +438,7 @@ export default function Login() {
                       onPress={onSendOtp}
                       loading={loading}
                       disabled={!phoneValid}
+                      style={{ minHeight: 58 }}
                     />
                     <Text style={styles.terms}>
                       By continuing, you agree to our{" "}
@@ -512,6 +510,7 @@ export default function Login() {
                       onPress={() => onVerifyOtp()}
                       loading={loading}
                       disabled={otp.length < 6}
+                      style={{ minHeight: 58 }}
                     />
                   </>
                 ) : null}

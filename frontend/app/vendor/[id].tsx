@@ -10,7 +10,10 @@ import { GoldButton, Rating } from "@/src/components/UI";
 import { EmptyState, PressableScale, SoftChip, SectionTitle } from "@/src/components/Polish";
 import { useUserLocation, openInMaps } from "@/src/hooks/use-location";
 import { useTheme } from "@/src/context/ThemeContext";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
+import { Alert } from "react-native";
+import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from "@/src/sampleVendor";
+import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
 
 const { width } = Dimensions.get("window");
 
@@ -34,7 +37,7 @@ export default function VendorDetail() {
     heroScrim: { position: "absolute", top: 200, left: 0, right: 0, height: 200 },
     iconCircle: { position: "absolute", width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
     heroText: { position: "absolute", top: 240, left: 16, right: 16 },
-    name: { color: "#F5F0E6", fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
+    name: { color: "#F5F0E6", fontSize: 28, fontFamily: fonts.displayBold, letterSpacing: 0.4 },
     muted: { color: "rgba(243,244,246,0.8)", fontSize: 11 },
     verBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: c.brand, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, marginBottom: 6 },
     verT: { color: c.onBrand, fontSize: 10, fontWeight: "700" },
@@ -73,6 +76,10 @@ export default function VendorDetail() {
   }));
 
   useEffect(() => {
+    if (id === SAMPLE_VENDOR_ID) {
+      setV(SAMPLE_VENDOR); setReviews(SAMPLE_REVIEWS); setServices(SAMPLE_SERVICES); setSimilar([]); setLoadErr(false);
+      return;
+    }
     const q = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : "";
     // Load independently so a reviews/similar failure cannot blank the whole page.
     api.get(`/vendors/${id}${q}`, { auth: false })
@@ -87,7 +94,11 @@ export default function VendorDetail() {
     api.get(`/vendors/${id}/services`, { auth: false }).then((x) => setServices(x || [])).catch(() => setServices([]));
   }, [id, coords]);
 
+  const isSample = id === SAMPLE_VENDOR_ID;
+  const sampleNote = () => Alert.alert("Sample listing", "This is a preview vendor to show how listings look on Thara. Booking opens with real partners.");
+  const book = (path: string) => (isSample ? sampleNote() : router.push(path as any));
   const toggleFav = async () => {
+    if (isSample) { setFavorited((f) => !f); return; }
     try { const r = await api.post(`/favorites/${id}`); setFavorited(r.favorited); } catch { /* ignore */ }
   };
 
@@ -214,6 +225,7 @@ export default function VendorDetail() {
                 ))}
               </View>
             </View>
+            {Array.isArray(v.blocked_dates) ? <AvailabilityCalendar blocked={v.blocked_dates} /> : null}
             <View>
               <Text style={styles.h3}>Starting at</Text>
               <Text style={styles.priceBig}>₹{startPrice.toLocaleString("en-IN")}</Text>
@@ -229,7 +241,7 @@ export default function VendorDetail() {
                     {v.distance_km != null && v.distance_km > 0 && <Text style={styles.locDist}>{v.distance_km} km away</Text>}
                   </View>
                   <View style={{ gap: 6, alignItems: "flex-end" }}>
-                    <Pressable testID="in-app-nav" onPress={() => router.push(`/navigate/${v.id}` as any)} style={styles.dirBtn}>
+                    <Pressable testID="in-app-nav" onPress={() => (isSample ? openInMaps(v.lat, v.lng, v.name) : router.push(`/navigate/${v.id}` as any))} style={styles.dirBtn}>
                       <Ionicons name="navigate-circle" size={16} color={colors.onBrand} />
                       <Text style={styles.dirText}>Live Nav</Text>
                     </Pressable>
@@ -263,7 +275,7 @@ export default function VendorDetail() {
                     </View>
                     <Text style={styles.pkgPrice}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
                   </View>
-                  <PressableScale onPress={() => router.push(`/booking-form/${v.id}?serviceId=${s.id}` as any)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
+                  <PressableScale onPress={() => book(`/booking-form/${v.id}?serviceId=${s.id}`)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
                     <Text style={styles.pkgBtnT}>Select & Book</Text>
                     <Ionicons name="arrow-forward" size={14} color={colors.onBrand} />
                   </PressableScale>
@@ -319,7 +331,7 @@ export default function VendorDetail() {
           <Text style={styles.ctaLabel}>Starting</Text>
           <Text style={styles.ctaPrice}>₹{startPrice.toLocaleString("en-IN")}</Text>
         </View>
-        <GoldButton testID="book-now-btn" title="Book Now" onPress={() => router.push(`/booking-form/${v.id}`)} style={{ minWidth: 160 }} />
+        <GoldButton testID="book-now-btn" title="Book Now" onPress={() => book(`/booking-form/${v.id}`)} style={{ minWidth: 160 }} />
       </View>
     </View>
   );

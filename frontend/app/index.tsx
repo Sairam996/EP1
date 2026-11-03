@@ -21,7 +21,7 @@ export default function Index() {
     }
     return (
       <View style={[styles.c, { backgroundColor: colors.surface }]} testID="boot-launch">
-        <TharaLogo variant="wordmark" width={220} />
+        <TharaLogo variant="full" size={44} tagline />
         <Text style={[styles.tag, { color: colors.textMuted }]}>Celebrate. Curated.</Text>
         <ActivityIndicator color={colors.brand} style={{ marginTop: 28 }} />
       </View>

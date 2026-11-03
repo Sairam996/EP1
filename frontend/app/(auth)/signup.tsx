@@ -63,7 +63,7 @@ export default function Signup() {
         </Pressable>
 
         <View style={styles.logoWrap}>
-          <TharaLogo variant="wordmark" width={160} />
+          <TharaLogo variant="full" size={34} />
         </View>
 
         <Text style={styles.title}>Create account</Text>

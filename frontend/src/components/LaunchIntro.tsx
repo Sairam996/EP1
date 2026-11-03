@@ -139,7 +139,7 @@ export function LaunchIntro({ play, children, testID }: Props) {
             transform: [{ translateY: letterYs[0] }],
           }}
         >
-          <TharaLogo variant="wordmark" width={280} />
+          <TharaLogo variant="full" size={50} tagline />
         </Animated.View>
       </Animated.View>
 
