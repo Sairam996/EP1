@@ -1,20 +1,32 @@
 import { useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { GoldButton, Rating } from "@/src/components/UI";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { GoldButton } from "@/src/components/UI";
+import { fonts, spacing, useColors, useThemedStyles } from "@/src/theme";
+import { EyebrowLabel, KeyValue, ListRow, Section, StatusText, editorialGold, gutter } from "@/src/components/ui";
 
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const [b, setB] = useState<any>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const s = useThemedStyles((c) => ({
+    root: { flex: 1, backgroundColor: c.surface },
+    cover: { width: "100%", height: 300 },
+    back: { position: "absolute", left: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
+    heroText: { position: "absolute", left: gutter, right: gutter, bottom: 18 },
+    name: { color: "#FFF8EB", fontSize: 32, lineHeight: 36, fontFamily: fonts.displayBold, marginTop: 4 },
+    notes: { color: c.textSubtle, marginTop: spacing.md, fontStyle: "italic", fontFamily: fonts.display, fontSize: 17, lineHeight: 23 },
+    input: { backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, padding: 14, color: c.text, marginTop: spacing.md, minHeight: 96, textAlignVertical: "top", fontSize: 15 },
+  }));
 
   useEffect(() => { api.get(`/bookings/${id}`).then(setB); }, [id]);
 
@@ -25,59 +37,48 @@ export default function BookingDetail() {
     finally { setSubmitting(false); }
   };
 
-  if (!b) return <View style={{ flex: 1, backgroundColor: colors.surface, justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>;
+  if (!b) return <View style={[s.root, { justifyContent: "center" }]}><ActivityIndicator color={colors.brand} /></View>;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
-        <Text style={styles.title}>Booking Details</Text>
+    <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 100 }}>
+      <View>
+        <Image source={{ uri: b.vendor_cover }} style={s.cover} contentFit="cover" />
+        <LinearGradient colors={["rgba(0,0,0,0.45)", "transparent", "rgba(0,0,0,0.85)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
+        <Pressable onPress={() => router.back()} accessibilityLabel="Back" style={[s.back, { top: insets.top + 8 }]}><Ionicons name="arrow-back" size={20} color="#FFF8EB" /></Pressable>
+        <View style={s.heroText}>
+          <Text style={{ color: "#E2BE6E", fontSize: 10.5, fontWeight: "700", letterSpacing: 2.2 }}>BOOKING DETAILS</Text>
+          <Text style={s.name} numberOfLines={2}>{b.vendor_name}</Text>
+          <View style={{ marginTop: 8 }}><StatusText status={b.status} /></View>
+        </View>
       </View>
-      <Image source={{ uri: b.vendor_cover }} style={styles.cover} contentFit="cover" />
-      <View style={{ padding: spacing.xl, gap: 8 }}>
-        <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>{b.vendor_name}</Text>
-        <View style={[styles.tag, { borderColor: colors.brand, backgroundColor: colors.brandTint }]}>
-          <Text style={{ color: colors.brand, fontSize: 11, fontWeight: "700", letterSpacing: 1 }}>{b.status.toUpperCase()}</Text>
-        </View>
-        <View style={styles.card}>
-          <Row k="Event" v={b.event_type} /><Row k="Date" v={b.event_date} />
-          <Row k="Guests" v={String(b.guests)} /><Row k="Amount" v={`₹${b.amount.toLocaleString("en-IN")}`} bold />
-          <Row k="Payment" v={b.payment_status} />
-          {b.notes ? <Text style={{ color: colors.textSubtle, marginTop: 8, fontStyle: "italic" }}>&quot;{b.notes}&quot;</Text> : null}
-        </View>
-        <Pressable onPress={() => router.push(`/chat/${b.id}`)} style={styles.chatBtn}>
-          <Ionicons name="chatbubbles" size={18} color={colors.brand} />
-          <Text style={{ color: colors.brand, fontWeight: "500" }}>Message Vendor</Text>
-        </Pressable>
-        {b.status === "completed" && (
-          <View style={styles.card}>
-            <Text style={{ color: colors.text, fontWeight: "500", fontSize: 16 }}>Leave a Review</Text>
-            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-              {[1,2,3,4,5].map(n => (
-                <Pressable key={n} onPress={() => setRating(n)} testID={`star-${n}`}>
-                  <Ionicons name={n <= rating ? "star" : "star-outline"} size={28} color={colors.brand} />
-                </Pressable>
-              ))}
-            </View>
-            <TextInput value={comment} onChangeText={setComment} placeholder="Share your experience..." placeholderTextColor={colors.textMuted} style={styles.input} multiline testID="review-text" />
-            <GoldButton testID="review-submit" title="Submit Review" onPress={submitReview} loading={submitting} style={{ marginTop: spacing.md }} />
+
+      <Section eyebrow="Your event">
+        <KeyValue label="Event" value={String(b.event_type || "").replace(/_/g, " ")} />
+        <KeyValue label="Date" value={b.event_date} />
+        <KeyValue label="Guests" value={String(b.guests)} />
+        <KeyValue label="Payment" value={<StatusText status={b.payment_status} />} />
+        <KeyValue label="Amount" value={`₹${b.amount.toLocaleString("en-IN")}`} emphasis valueColor={editorialGold(colors)} last />
+        {b.notes ? <Text style={s.notes}>“{b.notes}”</Text> : null}
+      </Section>
+
+      <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
+        <ListRow icon="chatbubbles-outline" title="Message Vendor" subtitle="Chat about your event details" onPress={() => router.push(`/chat/${b.id}`)} last />
+      </View>
+
+      {b.status === "completed" && (
+        <Section eyebrow="Share your experience" title="Leave a Review">
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setRating(n)} testID={`star-${n}`} hitSlop={4}>
+                <Ionicons name={n <= rating ? "star" : "star-outline"} size={30} color={editorialGold(colors)} />
+              </Pressable>
+            ))}
           </View>
-        )}
-      </View>
+          <TextInput value={comment} onChangeText={setComment} placeholder="Share your experience..." placeholderTextColor={colors.textMuted} style={s.input} multiline testID="review-text" />
+          <GoldButton testID="review-submit" title="Submit Review" onPress={submitReview} loading={submitting} style={{ marginTop: spacing.lg }} />
+        </Section>
+      )}
+      <EyebrowLabel muted style={{ textAlign: "center", marginTop: spacing.xxxl, fontSize: 9.5 }}>{`Ref · ${String(b.id).slice(0, 8)}`}</EyebrowLabel>
     </ScrollView>
   );
 }
-function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
-  return <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 }}>
-    <Text style={{ color: colors.textMuted }}>{k}</Text><Text style={{ color: bold ? colors.brand : colors.text, fontWeight: bold ? "600" : "500" }}>{v}</Text>
-  </View>;
-}
-const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
-  cover: { width: "100%", height: 200, marginTop: spacing.md },
-  tag: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.sm, borderWidth: 1 },
-  card: { marginTop: spacing.md, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
-  chatBtn: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
-  input: { backgroundColor: colors.surface3, borderRadius: radius.md, padding: 12, color: colors.text, borderWidth: 1, borderColor: colors.border, marginTop: spacing.md, minHeight: 80, textAlignVertical: "top" },
-}));

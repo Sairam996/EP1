@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react";
-import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { Image } from "expo-image";
 import { useFocusEffect, router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { colors, fonts, spacing, themedStyles } from "@/src/theme";
+import { Divider, EyebrowLabel, StatusText, TextLink, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
 
 const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
@@ -29,12 +29,16 @@ export default function VendorBookings() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + 8 }}>
-      <Text style={styles.h}>Bookings Inbox</Text>
+      <View style={{ paddingHorizontal: gutter, marginTop: spacing.md, marginBottom: spacing.sm, gap: 4 }}>
+        <EyebrowLabel>Partner</EyebrowLabel>
+        <Text style={styles.h}>Bookings Inbox</Text>
+      </View>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
         <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
           data={items}
           keyExtractor={(b) => b.id}
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: 100 }}
+          ItemSeparatorComponent={() => <Divider />}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={<EmptyState icon="calendar-outline" title="No bookings yet" message="New requests from customers will appear here." />}
           renderItem={({ item }) => (
@@ -42,35 +46,24 @@ export default function VendorBookings() {
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <Image source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(item.customer_name)}&background=D4AF37&color=0B0C10` }} style={styles.av} contentFit="cover" />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ color: colors.text, fontWeight: "500" }}>{item.customer_name}</Text>
+                  <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19 }}>{item.customer_name}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.event_type} • {item.event_date}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.guests} guests • ₹{item.amount.toLocaleString("en-IN")}</Text>
                 </View>
-                <View style={[styles.tag, { borderColor: STATUS_COLORS[item.status], backgroundColor: STATUS_COLORS[item.status] + "22" }]}>
-                  <Text style={[styles.tagT, { color: STATUS_COLORS[item.status] }]}>{item.status.toUpperCase()}</Text>
-                </View>
+                <StatusText status={item.status} color={STATUS_COLORS[item.status]} />
               </View>
               {item.notes ? <Text style={styles.notes}>&quot;{item.notes}&quot;</Text> : null}
-              <View style={{ flexDirection: "row", gap: 8, marginTop: spacing.sm }}>
+              <View style={{ flexDirection: "row", gap: 22, marginTop: spacing.sm, paddingLeft: 62 }}>
                 {item.status === "pending" && (
                   <>
-                    <Pressable testID={`accept-${item.id}`} onPress={() => updateStatus(item.id, "confirmed")} style={[styles.btn, { backgroundColor: colors.brand }]}>
-                      <Text style={{ color: colors.onBrand, fontWeight: "600", fontSize: 13 }}>Accept</Text>
-                    </Pressable>
-                    <Pressable testID={`reject-${item.id}`} onPress={() => updateStatus(item.id, "rejected")} style={[styles.btn, styles.ghBtn]}>
-                      <Text style={{ color: colors.error, fontWeight: "500", fontSize: 13 }}>Reject</Text>
-                    </Pressable>
+                    <TextLink testID={`accept-${item.id}`} title="Accept" icon="checkmark" onPress={() => updateStatus(item.id, "confirmed")} />
+                    <TextLink testID={`reject-${item.id}`} title="Reject" color={colors.error} onPress={() => updateStatus(item.id, "rejected")} />
                   </>
                 )}
                 {item.status === "confirmed" && (
-                  <Pressable testID={`complete-${item.id}`} onPress={() => updateStatus(item.id, "completed")} style={[styles.btn, { backgroundColor: colors.info }]}>
-                    <Text style={{ color: "#FFF", fontWeight: "600", fontSize: 13 }}>Mark Completed</Text>
-                  </Pressable>
+                  <TextLink testID={`complete-${item.id}`} title="Mark Completed" icon="checkmark-done" onPress={() => updateStatus(item.id, "completed")} />
                 )}
-                <Pressable testID={`chat-${item.id}`} onPress={() => router.push(`/chat/${item.id}`)} style={[styles.btn, styles.ghBtn]}>
-                  <Ionicons name="chatbubble" size={14} color={colors.brand} />
-                  <Text style={{ color: colors.brand, fontWeight: "500", fontSize: 13, marginLeft: 6 }}>Chat</Text>
-                </Pressable>
+                <TextLink testID={`chat-${item.id}`} title="Chat" icon="chatbubble-outline" color={colors.textMuted} onPress={() => router.push(`/chat/${item.id}`)} />
               </View>
             </View>
           )}
@@ -80,12 +73,8 @@ export default function VendorBookings() {
   );
 }
 const styles = themedStyles((colors) => ({
-  h: { color: colors.text, fontSize: 24, fontWeight: "500", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
-  card: { padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
+  h: { color: colors.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold },
+  card: { paddingVertical: spacing.lg },
   av: { width: 50, height: 50, borderRadius: 25 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, borderWidth: 1, alignSelf: "flex-start" },
-  tagT: { fontSize: 10, fontWeight: "700" },
-  notes: { color: colors.textSubtle, fontSize: 13, marginTop: 6, fontStyle: "italic" },
-  btn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.md },
-  ghBtn: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface3 },
+  notes: { color: colors.textSubtle, fontSize: 15, marginTop: 8, fontStyle: "italic", fontFamily: fonts.display, paddingLeft: 62 },
 }));

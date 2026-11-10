@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform, Animated } from "react-native";
+import { View, Text, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform, Animated, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,7 +8,8 @@ import { api, resolveImg } from "@/src/api";
 import { Image } from "expo-image";
 import { GoldButton, GhostButton, Pill } from "@/src/components/UI";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
-import { radius, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
+import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
+import { editorialGold } from "@/src/components/ui";
 
 const EVENT_TYPES = ["wedding", "sangeet", "haldi", "mehendi", "reception", "birthday", "corporate", "engagement"];
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -81,25 +82,26 @@ export default function BookingForm() {
 
   const s = useThemedStyles((p) => ({
     header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
-    title: { color: p.text, fontSize: 18, fontWeight: "600" },
-    sub: { ...type.caption, color: p.textMuted },
-    progTrack: { flexDirection: "row", gap: 6, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: p.border },
-    seg: { flex: 1, height: 4, borderRadius: radius.pill, backgroundColor: p.surface3 },
-    q: { ...type.h1, color: p.text, marginBottom: 4 },
+    title: { color: p.text, fontSize: 19, lineHeight: 23, fontFamily: fonts.displayBold },
+    sub: { ...type.caption, color: p.textMuted, letterSpacing: 1.4, textTransform: "uppercase", fontSize: 10.5 },
+    // Hairline progress: thin gold line fills step by step.
+    progTrack: { flexDirection: "row", gap: 4, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
+    seg: { flex: 1, height: 2, borderRadius: 1, backgroundColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    q: { color: p.text, fontSize: 32, lineHeight: 38, fontFamily: fonts.displayBold, marginBottom: 6, marginTop: spacing.md },
     hint: { ...type.body, color: p.textMuted, marginBottom: spacing.xl },
-    vendorRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: spacing.xl, padding: spacing.md, backgroundColor: p.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: p.border },
-    vAvatar: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: p.surface3 },
-    pkg: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: p.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: p.border },
-    pkgImg: { width: 52, height: 52, borderRadius: radius.sm },
-    input: { backgroundColor: p.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, color: p.text, borderWidth: 1, borderColor: p.border, fontSize: 15 },
-    calWrap: { borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: p.border, backgroundColor: p.surface2, paddingBottom: 6 },
-    stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md, backgroundColor: p.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: p.border },
-    stepBtn: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: p.brandTint, alignItems: "center", justifyContent: "center" },
-    bigNum: { color: p.text, fontSize: 32, fontWeight: "700", minWidth: 100, textAlign: "center" },
-    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderColor: p.divider },
+    vendorRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    vAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: p.surface3 },
+    pkg: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    pkgImg: { width: 64, height: 64, borderRadius: 14 },
+    input: { backgroundColor: p.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, color: p.text, fontSize: 15 },
+    calWrap: { paddingBottom: 6, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    stepBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.5)" : "rgba(140,106,38,0.5)", alignItems: "center", justifyContent: "center" },
+    bigNum: { color: p.text, fontSize: 52, fontFamily: fonts.displayBold, minWidth: 140, textAlign: "center" },
+    row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     rowL: { ...type.caption, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1 },
     rowV: { ...type.body, color: p.text, fontWeight: "500" },
-    footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingTop: 12, backgroundColor: p.surface, borderTopWidth: 1, borderColor: p.border, flexDirection: "row", gap: 10 },
+    footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingTop: 12, backgroundColor: p.surface, borderTopWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)", flexDirection: "row", alignItems: "center", gap: 10 },
   }));
 
   const g = parseInt(guests || "0", 10) || 0;
@@ -127,7 +129,7 @@ export default function BookingForm() {
           <Text style={s.title}>Book {vendor?.name ?? ""}</Text>
           <Text style={s.sub}>Step {stepIdx + 1} of {steps.length}</Text>
         </View>
-        <Text style={{ color: c.brand, fontWeight: "700" }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
+        <Text style={{ color: editorialGold(c), fontFamily: fonts.displayBold, fontSize: 19 }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
       </View>
       <View style={s.progTrack}>
         {steps.map((k, i) => <View key={k} style={[s.seg, i <= stepIdx && { backgroundColor: c.brand }]} />)}
@@ -138,20 +140,20 @@ export default function BookingForm() {
           {step === "package" && (<>
             <Text style={s.q}>Choose a package</Text>
             <Text style={s.hint}>Pick what fits — or skip for a custom quote.</Text>
-            <View style={{ gap: 10 }}>
+            <View>
               {services.map((sv) => {
                 const on = sv.id === serviceId;
                 return (
                   <PressableScale key={sv.id} testID={`pkg-${sv.id}`} onPress={() => setServiceId(on ? null : sv.id)}
-                    style={[s.pkg, on && { borderColor: c.brand, backgroundColor: c.brandTint }]}>
+                    style={s.pkg}>
                     {sv.photos?.[0] ? <Image source={{ uri: resolveImg(sv.photos[0]) }} style={s.pkgImg} contentFit="cover" transition={200} />
                       : <View style={[s.pkgImg, { backgroundColor: c.surface3, alignItems: "center", justifyContent: "center" }]}><Ionicons name="pricetag-outline" size={20} color={c.brand} /></View>}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: c.text, fontWeight: "600" }} numberOfLines={1}>{sv.title}</Text>
+                      <Text style={{ color: on ? editorialGold(c) : c.text, fontFamily: fonts.displayBold, fontSize: 19 }} numberOfLines={1}>{sv.title}</Text>
                       {sv.description ? <Text style={{ color: c.textMuted, fontSize: 12 }} numberOfLines={2}>{sv.description}</Text> : null}
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={{ color: c.brand, fontWeight: "700" }}>₹{Number(sv.price).toLocaleString("en-IN")}</Text>
+                      <Text style={{ color: c.text, fontWeight: "600" }}>₹{Number(sv.price).toLocaleString("en-IN")}</Text>
                       <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={18} color={on ? c.brand : c.textMuted} />
                     </View>
                   </PressableScale>
@@ -163,7 +165,7 @@ export default function BookingForm() {
           {step === "event" && (<>
             <Text style={s.q}>What&apos;s the occasion?</Text>
             <Text style={s.hint}>We&apos;ll tailor the booking to your event.</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 22, rowGap: 6 }}>
               {EVENT_TYPES.map((et) => <Pill key={et} label={cap(et)} active={eventType === et} onPress={() => setEventType(et)} testID={`et-${et}`} />)}
             </View>
           </>)}
@@ -183,7 +185,7 @@ export default function BookingForm() {
                 }}
                 enableSwipeMonths
                 theme={{
-                  calendarBackground: c.surface2, backgroundColor: c.surface2, textSectionTitleColor: c.textMuted,
+                  calendarBackground: "transparent", backgroundColor: "transparent", textSectionTitleColor: c.textMuted,
                   monthTextColor: c.text, arrowColor: c.brand, todayTextColor: c.brand, dayTextColor: c.text,
                   textDisabledColor: c.mode === "dark" ? "#4A453C" : "#C9C2B2", selectedDayBackgroundColor: c.brand,
                   selectedDayTextColor: c.onBrand, textDayFontWeight: "500", textMonthFontWeight: "600",
@@ -201,7 +203,7 @@ export default function BookingForm() {
               <TextInput testID="booking-guests" value={guests} onChangeText={(t) => setGuests(t.replace(/[^0-9]/g, ""))} keyboardType="number-pad" style={s.bigNum} />
               <PressableScale style={s.stepBtn} onPress={() => setG(g + 10)} accessibilityLabel="More guests"><Ionicons name="add" size={22} color={c.brand} /></PressableScale>
             </View>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.lg }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 22, marginTop: spacing.lg, justifyContent: "center" }}>
               {[50, 100, 200, 300, 500].map((n) => <Pill key={n} label={`${n}`} active={g === n} onPress={() => setG(n)} />)}
             </View>
           </>)}
@@ -219,7 +221,7 @@ export default function BookingForm() {
             {vendor && (
               <View style={s.vendorRow}>
                 {vendor.gallery?.[0] ? <Image source={{ uri: resolveImg(vendor.gallery[0]) }} style={s.vAvatar} contentFit="cover" /> : <View style={s.vAvatar} />}
-                <View style={{ flex: 1 }}><Text style={s.rowV}>{vendor.name}</Text><Text style={s.sub}>{vendor.city} • {vendor.category}</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: c.text, fontFamily: fonts.displayBold, fontSize: 21 }}>{vendor.name}</Text><Text style={s.sub}>{vendor.city} • {vendor.category}</Text></View>
                 {vendor.verified ? <Ionicons name="checkmark-circle" size={18} color={c.brand} /> : null}
               </View>
             )}
@@ -231,7 +233,7 @@ export default function BookingForm() {
             <View style={[s.row, { borderBottomWidth: 0 }]}>
               <Ionicons name="wallet-outline" size={18} color={c.brand} />
               <Text style={[s.rowV, { flex: 1 }]}>Total</Text>
-              <Text style={{ color: c.brand, fontSize: 20, fontWeight: "700" }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
+              <Text style={{ color: editorialGold(c), fontSize: 28, fontFamily: fonts.displayBold }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
             </View>
           </>)}
           {err ? <View style={{ flexDirection: "row", gap: 6, marginTop: spacing.md }}><Ionicons name="alert-circle" size={16} color={c.error} /><Text style={{ color: c.error, flex: 1 }}>{err}</Text></View> : null}
