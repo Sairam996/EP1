@@ -14,6 +14,7 @@ import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { Alert } from "react-native";
 import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from "@/src/sampleVendor";
 import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
+import { HeartPop, hapticLight } from "@/src/components/Celebration";
 
 const { width } = Dimensions.get("window");
 
@@ -98,8 +99,11 @@ export default function VendorDetail() {
   const sampleNote = () => Alert.alert("Sample listing", "This is a preview vendor to show how listings look on Thara. Booking opens with real partners.");
   const book = (path: string) => (isSample ? sampleNote() : router.push(path as any));
   const toggleFav = async () => {
-    if (isSample) { setFavorited((f) => !f); return; }
-    try { const r = await api.post(`/favorites/${id}`); setFavorited(r.favorited); } catch { /* ignore */ }
+    hapticLight();
+    const next = !favorited;
+    setFavorited(next); // optimistic so the heart pops instantly
+    if (isSample) return;
+    try { const r = await api.post(`/favorites/${id}`); setFavorited(!!r.favorited); } catch { setFavorited(!next); }
   };
 
   if (loadErr && !v) return <View style={styles.loader}><EmptyState icon="cloud-offline-outline" title="Couldn't load this vendor" message="Check your connection and try again." ctaTitle="Go back" ghost onCta={() => router.back()} /></View>;
@@ -139,7 +143,9 @@ export default function VendorDetail() {
           <Ionicons name="arrow-back" size={20} color="#F5F0E6" />
         </Pressable>
         <Pressable testID="fav-btn" onPress={toggleFav} hitSlop={8} style={[styles.iconCircle, { top: insets.top + 8, right: 16 }]}>
-          <Ionicons name={favorited ? "heart" : "heart-outline"} size={20} color={favorited ? colors.error : "#F3F4F6"} />
+          <HeartPop active={favorited}>
+            <Ionicons name={favorited ? "heart" : "heart-outline"} size={20} color={favorited ? colors.error : "#F3F4F6"} />
+          </HeartPop>
         </Pressable>
         <View style={styles.heroText}>
           <View style={{ flexDirection: "row", gap: 6 }}>

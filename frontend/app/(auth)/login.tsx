@@ -25,6 +25,7 @@ import { TharaLogo } from "@/src/components/TharaLogo";
 import { LaunchIntro } from "@/src/components/LaunchIntro";
 import { BokehBackground } from "@/src/components/BokehBackground";
 import { consumeLaunchIntro } from "@/src/launchGate";
+import { useCelebrate } from "@/src/components/Celebration";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 
 type Step = "phone" | "otp" | "profile";
@@ -45,6 +46,7 @@ const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 export default function Login() {
   const insets = useSafeAreaInsets();
   const { sendOtp, verifyOtp, completeProfile } = useAuth();
+  const celebrate = useCelebrate();
   const { colors, isDark } = useTheme();
   const [step, setStep] = useState<Step>("phone");
   const [phoneLocal, setPhoneLocal] = useState("");
@@ -325,6 +327,13 @@ export default function Login() {
     try {
       const u = await verifyOtp(fullPhone, value);
       if (u.profile_complete || (u.name && u.name.length > 1 && !u.email?.endsWith("@phone.thara.app"))) {
+        const first = u.name && !u.name.startsWith("+") ? u.name.trim().split(/\s+/)[0] : "";
+        celebrate({
+          intensity: "light",
+          title: first ? `Welcome back, ${first}` : "Welcome back",
+          subtitle: u.role === "vendor" ? "Your bookings are waiting." : "Let\u2019s plan something beautiful.",
+          icon: "sparkles",
+        });
         routeHome(u.role);
         return;
       }
@@ -361,6 +370,12 @@ export default function Login() {
         email: gmail.trim() || undefined,
         city,
         role: asPartner ? "vendor" : "customer",
+      });
+      celebrate({
+        intensity: "big",
+        title: u.role === "vendor" ? "Welcome, Thara Partner" : "Welcome to Thara",
+        subtitle: u.role === "vendor" ? "Your partner journey begins today." : "Every celebration starts here.",
+        icon: u.role === "vendor" ? "ribbon" : "sparkles",
       });
       routeHome(u.role);
     } catch (e: any) {

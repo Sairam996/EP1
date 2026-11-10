@@ -5,10 +5,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
+import { useCelebrate } from "@/src/components/Celebration";
 import { colors, radius, spacing, themedStyles } from "@/src/theme";
 
 export default function Kyc() {
   const insets = useSafeAreaInsets();
+  const celebrate = useCelebrate();
   const [biz, setBiz] = useState(""); const [gst, setGst] = useState(""); const [pan, setPan] = useState("");
   const [addr, setAddr] = useState(""); const [status, setStatus] = useState<string>("loading");
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,7 @@ export default function Kyc() {
     try {
       const r = await api.post("/kyc", { business_name: biz, gst_number: gst, pan_number: pan.trim().toUpperCase(), address: addr, document_url: "" });
       setStatus(r.status);
+      celebrate({ intensity: "light", title: "KYC submitted", subtitle: "We\u2019ll verify your business within 1\u20132 days.", icon: "shield-checkmark" });
     } catch (e: any) { alert(e.message); }
     finally { setLoading(false); }
   };

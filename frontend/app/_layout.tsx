@@ -10,6 +10,7 @@ import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } 
 import { AuthProvider } from "@/src/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { CelebrationProvider } from "@/src/components/Celebration";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -69,7 +70,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <ThemedStack />
+          <CelebrationProvider>
+            <ThemedStack />
+          </CelebrationProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

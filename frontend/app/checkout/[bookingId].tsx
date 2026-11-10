@@ -1,14 +1,12 @@
-import { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput, Platform, Dimensions } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, Pressable, ActivityIndicator, ScrollView, TextInput, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import ConfettiCannon from "react-native-confetti-cannon";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { colors, radius, spacing, themedStyles, press } from "@/src/theme";
-
-const { width, height } = Dimensions.get("window");
+import { SuccessSeal, useCelebrate } from "@/src/components/Celebration";
+import { colors, fonts, radius, spacing, themedStyles, press } from "@/src/theme";
 
 export default function Checkout() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -19,6 +17,7 @@ export default function Checkout() {
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState<{ earned: number; redeemed: number; tier?: string; tier_up?: boolean; boost_pct?: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const celebrate = useCelebrate();
 
   useEffect(() => {
     Promise.all([api.get(`/bookings/${bookingId}`), api.get("/me/points")])
@@ -41,13 +40,18 @@ export default function Checkout() {
         razorpay_payment_id: paymentId,
         razorpay_signature: order.mode === "live" ? "TODO_real_signature_from_checkout_callback" : "mock_signature",
       });
-      if (verify.success) setDone({
-        earned: verify.earned_points || 0,
-        redeemed: verify.redeemed_points || 0,
-        tier: verify.tier,
-        tier_up: verify.tier_up,
-        boost_pct: verify.boost_pct,
-      });
+      if (verify.success) {
+        setDone({
+          earned: verify.earned_points || 0,
+          redeemed: verify.redeemed_points || 0,
+          tier: verify.tier,
+          tier_up: verify.tier_up,
+          boost_pct: verify.boost_pct,
+        });
+        celebrate({ intensity: "big" });
+        // Second wave for a tier upgrade.
+        if (verify.tier_up) setTimeout(() => celebrate({ intensity: "light", title: `You\u2019re now ${verify.tier}`, subtitle: "Tier upgraded \u2014 more points on every booking.", icon: "trophy", haptic: false }), 1400);
+      }
     } catch (e: any) { setErr(e.message); }
     finally { setPaying(false); }
   };
@@ -57,16 +61,8 @@ export default function Checkout() {
   if (done) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: spacing.xl }}>
-        {done.tier_up && (
-          <>
-            <ConfettiCannon count={150} origin={{ x: width / 2, y: -20 }} fadeOut autoStart explosionSpeed={350}
-              colors={["#D4AF37", "#FFD700", "#E5E4E2", "#FFF8DC", "#B5952F"]} />
-            <ConfettiCannon count={80} origin={{ x: width, y: 0 }} fadeOut autoStart explosionSpeed={300}
-              colors={["#D4AF37", "#FFD700", "#FFF"]} />
-          </>
-        )}
-        <View style={styles.successCircle}><Ionicons name="checkmark" size={48} color={colors.onBrand} /></View>
-        <Text style={styles.successTitle}>Payment Successful!</Text>
+        <SuccessSeal testID="booking-success-seal" />
+        <Text style={styles.successTitle}>Booking Confirmed</Text>
         <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>Your booking with {booking.vendor_name} is confirmed.</Text>
         {done.earned > 0 && (
           <View style={styles.earnedCard} testID="earned-card">
@@ -164,7 +160,7 @@ const styles = themedStyles((colors) => ({
   upi: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: spacing.xl, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border },
   successCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  successTitle: { color: colors.text, fontSize: 24, fontWeight: "500", marginTop: spacing.lg },
+  successTitle: { color: colors.text, fontSize: 30, fontFamily: fonts.displayBold, letterSpacing: 0.3, marginTop: spacing.lg },
   earnedCard: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint },
   redeemInput: { flex: 1, backgroundColor: colors.surface3, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
   maxBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand },

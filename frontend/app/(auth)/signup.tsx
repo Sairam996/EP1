@@ -5,6 +5,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { GoldButton, Body, Pill } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
+import { useCelebrate } from "@/src/components/Celebration";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, spacing, useThemedStyles } from "@/src/theme";
@@ -13,6 +14,7 @@ const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 
 export default function Signup() {
   const { signUp } = useAuth();
+  const celebrate = useCelebrate();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ role?: string }>();
@@ -49,6 +51,7 @@ export default function Signup() {
     setErr(null); setLoading(true);
     try {
       const u = await signUp({ name, email: email.trim().toLowerCase(), phone, password, role, city });
+      celebrate({ intensity: "big", title: u.role === "vendor" ? "Welcome, Thara Partner" : "Welcome to Thara", subtitle: "Your account is ready.", icon: "sparkles" });
       router.replace(u.role === "vendor" ? "/(vendor)/dashboard" : "/(customer)/home");
     } catch (e: any) { setErr(e.message || "Signup failed"); }
     finally { setLoading(false); }

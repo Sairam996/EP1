@@ -10,6 +10,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { api } from "@/src/api";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { TharaLogo } from "@/src/components/TharaLogo";
+import { useCelebrate } from "@/src/components/Celebration";
 
 type Item = { id: string; icon: string; label: string; sub?: string; soon?: boolean; onPress?: () => void };
 
@@ -18,6 +19,7 @@ const soon = (what: string) => Alert.alert(what, "Coming soon to Thara.");
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const { user, signOut, completeProfile } = useAuth();
+  const celebrate = useCelebrate();
   const { colors, effectiveMode } = useTheme();
   const [tier, setTier] = useState<any>(null);
   useEffect(() => { if (user?.role === "customer") api.get("/me/tier").then(setTier).catch(() => {}); }, [user]);
@@ -39,6 +41,7 @@ export default function Profile() {
     { text: "Continue", onPress: async () => {
       try {
         await completeProfile({ name: u.name, email: realEmail || undefined, city: u.city, role: "vendor" });
+        celebrate({ intensity: "big", title: "Welcome, Thara Partner", subtitle: "Set up your services to start receiving bookings.", icon: "ribbon" });
         router.replace("/(vendor)/dashboard");
       } catch (e: any) { Alert.alert("Couldn't switch", e?.message || "Please try again."); }
     } },
