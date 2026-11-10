@@ -6,7 +6,7 @@ import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, GhostButton } from "@/src/components/UI";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { fonts, colors, spacing, themedStyles } from "@/src/theme";
 
 export default function Referrals() {
   const insets = useSafeAreaInsets();
@@ -85,15 +85,15 @@ export default function Referrals() {
   );
 }
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
-  hero: { alignItems: "center", padding: spacing.xl, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand + "55", gap: 8 },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+  title: { color: colors.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
+  hero: { alignItems: "center", paddingVertical: spacing.xl, gap: 8 },
   heroTitle: { color: colors.text, fontSize: 22, fontWeight: "500", textAlign: "center" },
   heroSub: { color: colors.textSubtle, fontSize: 13, textAlign: "center" },
   lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xl, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
-  codeBox: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, borderStyle: "dashed" },
+  codeBox: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.45)" : "rgba(140,106,38,0.45)" },
   code: { color: colors.brand, fontSize: 22, fontWeight: "600", letterSpacing: 4 },
   copyBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface2, alignItems: "center", justifyContent: "center" },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.xl },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15, letterSpacing: 2 },
+  input: { backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: colors.text, fontSize: 15, letterSpacing: 2 },
 }));

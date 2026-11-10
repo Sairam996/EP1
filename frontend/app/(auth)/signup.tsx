@@ -8,7 +8,7 @@ import { TharaLogo } from "@/src/components/TharaLogo";
 import { useCelebrate } from "@/src/components/Celebration";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
 
 const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 
@@ -29,18 +29,18 @@ export default function Signup() {
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    title: { color: c.text, fontSize: 28, fontWeight: "500", marginTop: spacing.lg, marginBottom: 4 },
+    title: { color: c.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, marginTop: spacing.lg, marginBottom: 4 },
     label: { color: c.textMuted, fontSize: 11, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: "600" },
     input: {
-      backgroundColor: c.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14,
-      color: c.text, borderWidth: 1, borderColor: c.border, fontSize: 15,
+      backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+      color: c.text, fontSize: 15,
     },
     roleRow: { flexDirection: "row", gap: 12, marginTop: spacing.md },
     roleBtn: {
       flex: 1, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center",
-      backgroundColor: c.surface2, borderRadius: radius.md, paddingVertical: 14, borderWidth: 1, borderColor: c.border,
+      paddingVertical: 14, borderBottomWidth: 2, borderColor: "transparent",
     },
-    roleActive: { borderColor: c.brand, backgroundColor: c.brandTint },
+    roleActive: { borderColor: c.mode === "dark" ? "#E2BE6E" : "#8C6A26" },
     roleText: { color: c.textMuted, fontWeight: "600" },
     err: { color: c.error, marginTop: spacing.md, marginBottom: spacing.sm },
     brandTxt: { color: c.brand },

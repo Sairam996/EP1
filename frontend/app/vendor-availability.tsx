@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { fonts, colors, spacing, themedStyles } from "@/src/theme";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -138,13 +138,13 @@ function Legend({ color, label, dot }: { color: string; label: string; dot?: boo
 }
 
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+  title: { color: colors.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
   lbl: { color: colors.textMuted, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", marginTop: spacing.md },
-  calWrap: { borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
+  calWrap: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
   legend: { flexDirection: "row", gap: 16, flexWrap: "wrap" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 12 },
-  stepBtn: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  stepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
   stepVal: { color: colors.text, fontSize: 20, fontWeight: "600", minWidth: 28, textAlign: "center" },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.error + "66" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 12, paddingVertical: 6 },
 }));

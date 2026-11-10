@@ -74,7 +74,7 @@ export function DateField({ value, onChange, label, placeholder = "Pick a date",
 
 const styles = StyleSheet.create({
   label: { color: colors.textMuted, fontSize: 11, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
-  field: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: colors.border },
+  field: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(176,138,62,0.09)" /* static sheet: tint reads on both black and ivory */, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14 },
   fieldText: { flex: 1, color: colors.text, fontSize: 14 },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 18 },
   modal: { backgroundColor: colors.surface2, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },

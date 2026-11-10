@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, resolveImg } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { fonts, colors, radius, spacing, themedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
 
 const MAX_PHOTOS = 15;
@@ -160,14 +160,14 @@ export default function VendorServices() {
   );
 }
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+  title: { color: colors.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
   form: { padding: spacing.xl, gap: 4 },
   lbl: { color: colors.textMuted, fontSize: 11, marginTop: spacing.md, letterSpacing: 1, textTransform: "uppercase" },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, padding: 12, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 14, marginTop: 4 },
-  tpl: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand + "66", backgroundColor: colors.surface2, maxWidth: 240 },
-  editBanner: { flexDirection: "row", alignItems: "center", gap: 8, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
-  item: { flexDirection: "row", alignItems: "center", gap: 10, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
+  input: { backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14, marginTop: 4 },
+  tpl: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 14, paddingVertical: 8, maxWidth: 240 },
+  editBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: spacing.sm },
+  item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
   noPic: { width: 60, height: 60, borderRadius: radius.sm, backgroundColor: colors.surface3, alignItems: "center", justifyContent: "center" },
-  photoBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand },
+  photoBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 2 },
 }));

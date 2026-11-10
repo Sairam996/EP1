@@ -6,7 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
 
 const LABELS: any = {
@@ -29,14 +29,14 @@ export default function Points() {
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     loader: { flex: 1, backgroundColor: c.surface, justifyContent: "center" },
-    header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: c.border },
-    title: { color: c.text, fontSize: 20, fontWeight: "600" },
+    header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    title: { color: c.text, fontSize: 24, fontFamily: fonts.displayBold },
     tierShadow: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: 20, shadowColor: c.brand, shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-    tierCard: { padding: 18, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" },
-    tierIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.92)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+    tierCard: { padding: 20, borderRadius: 22, overflow: "hidden" },
+    tierIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.92)", alignItems: "center", justifyContent: "center" },
     tierEyebrow: { color: "rgba(255,255,255,0.85)", fontSize: 10, letterSpacing: 3, fontWeight: "600" },
     tierName: { color: "#fff", fontSize: 26, fontWeight: "700", letterSpacing: 1, marginTop: 2, textShadowColor: "rgba(0,0,0,0.4)", textShadowRadius: 6 },
-    boostBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: "rgba(0,0,0,0.35)", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+    boostBadge: { paddingHorizontal: 0, paddingVertical: 5 },
     boostText: { color: "#fff", fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
     progressLbl: { color: "rgba(255,255,255,0.95)", fontSize: 12 },
     progressBar: { height: 6, backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 3, overflow: "hidden", marginTop: 6 },
@@ -45,13 +45,13 @@ export default function Points() {
     perks: { marginTop: spacing.md, gap: 5 },
     perk: { flexDirection: "row", alignItems: "center", gap: 6 },
     perkText: { color: "rgba(255,255,255,0.94)", fontSize: 12 },
-    balanceCard: { alignItems: "center", padding: spacing.lg, marginHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm, backgroundColor: c.brandTint, borderRadius: radius.lg, borderWidth: 1, borderColor: c.brand, gap: 2 },
-    balance: { color: c.brand, fontSize: 36, fontWeight: "300", marginTop: 2 },
+    balanceCard: { alignItems: "center", padding: spacing.lg, marginHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm, gap: 2 },
+    balance: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 48, lineHeight: 54, fontFamily: fonts.displayBold, marginTop: 2 },
     balanceLbl: { color: c.textSubtle, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
     balanceSub: { color: c.textMuted, fontSize: 11, marginTop: 3 },
-    section: { color: c.text, fontSize: 14, fontWeight: "600", paddingHorizontal: spacing.xl, marginBottom: spacing.xs, marginTop: spacing.sm },
-    row: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
-    boostTag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.sm, backgroundColor: c.brandTint, borderWidth: 1, borderColor: c.brand },
+    section: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 11, fontWeight: "600", letterSpacing: 2.4, textTransform: "uppercase", paddingHorizontal: spacing.xl, marginBottom: spacing.xs, marginTop: spacing.lg },
+    row: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    boostTag: { paddingHorizontal: 0, paddingVertical: 1 },
     boostTagT: { color: c.brand, fontSize: 9, fontWeight: "700" },
     rowTitle: { color: c.text, fontWeight: "600" },
     rowMeta: { color: c.textMuted, fontSize: 12 },
@@ -128,7 +128,7 @@ export default function Points() {
       <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
         data={data.history}
         keyExtractor={(it) => it.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 8, paddingBottom: 60 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 0, paddingBottom: 60 }}
         ListEmptyComponent={<EmptyState compact icon="gift-outline" title="No activity yet" message="Book or invite a friend to earn points." />}
         renderItem={({ item }) => (
           <View style={styles.row}>

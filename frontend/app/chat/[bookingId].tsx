@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/context/AuthContext";
 import { useChatWebSocket } from "@/src/hooks/use-chat-ws";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { fonts, colors, radius, spacing, themedStyles } from "@/src/theme";
 
 export default function ChatThread() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -94,16 +94,16 @@ export default function ChatThread() {
   );
 }
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+  title: { color: colors.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
   statusT: { color: colors.textMuted, fontSize: 11 },
   dot: { width: 6, height: 6, borderRadius: 3 },
   bubble: { maxWidth: "78%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.lg },
   mine: { backgroundColor: colors.brand, alignSelf: "flex-end" },
-  theirs: { backgroundColor: colors.surface2, alignSelf: "flex-start", borderWidth: 1, borderColor: colors.border },
+  theirs: { backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", alignSelf: "flex-start" },
   typingDots: { flexDirection: "row", gap: 3 },
   tDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.textMuted },
-  inputRow: { flexDirection: "row", padding: spacing.lg, gap: 8, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  input: { flex: 1, backgroundColor: colors.surface2, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12, color: colors.text, borderWidth: 1, borderColor: colors.border },
+  inputRow: { flexDirection: "row", padding: spacing.lg, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)", backgroundColor: colors.surface },
+  input: { flex: 1, backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12, color: colors.text },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
 }));

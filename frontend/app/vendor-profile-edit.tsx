@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Pill } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { fonts, colors, spacing, themedStyles } from "@/src/theme";
 
 const CATS = ["venues", "catering", "photography", "decor", "music", "planning"];
 const FACILITY_LIBRARY = ["AC Hall", "Valet", "Bridal Suite", "Stage", "Outdoor", "Garden",
@@ -156,10 +156,10 @@ export default function VendorProfileEdit() {
   );
 }
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+  title: { color: colors.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
   lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.lg, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
+  input: { backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: colors.text, fontSize: 15 },
   facWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  facChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
+  facChip: { paddingHorizontal: 0, paddingVertical: 6, marginRight: 14, borderBottomWidth: 2, borderColor: "transparent" },
 }));

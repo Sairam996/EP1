@@ -1,11 +1,11 @@
 import { useState, useRef } from "react";
-import { View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 
 export default function AIChat() {
   const insets = useSafeAreaInsets();
@@ -20,16 +20,16 @@ export default function AIChat() {
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: c.border },
-    title: { color: c.text, fontSize: 18, fontWeight: "600" },
+    header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    title: { color: c.text, fontSize: 18 + 4, fontFamily: fonts.displayBold },
     aiDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: c.brand, alignItems: "center", justifyContent: "center" },
     bubble: { maxWidth: "85%", paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.lg },
     user: { backgroundColor: c.brand, alignSelf: "flex-end" },
-    ai: { backgroundColor: c.surface2, alignSelf: "flex-start", borderWidth: 1, borderColor: c.border },
+    ai: { backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", alignSelf: "flex-start" },
     userText: { color: c.onBrand, fontSize: 14, lineHeight: 20 },
     aiText: { color: c.text, fontSize: 14, lineHeight: 20 },
-    inputRow: { flexDirection: "row", padding: spacing.lg, gap: 8, borderTopWidth: 1, borderColor: c.border, backgroundColor: c.surface },
-    input: { flex: 1, backgroundColor: c.surface2, borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 12, color: c.text, borderWidth: 1, borderColor: c.border, maxHeight: 100 },
+    inputRow: { flexDirection: "row", padding: spacing.lg, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)", backgroundColor: c.surface },
+    input: { flex: 1, backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: radius.lg, paddingHorizontal: 16, paddingVertical: 12, color: c.text, maxHeight: 100 },
     sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.brand, alignItems: "center", justifyContent: "center" },
     thinkingText: { color: c.textMuted },
   }));

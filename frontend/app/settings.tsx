@@ -1,11 +1,11 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, type ThemeMode } from "@/src/context/ThemeContext";
 import { TharaLogo } from "@/src/components/TharaLogo";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
 
 type Option = { key: ThemeMode; label: string; hint: string; icon: keyof typeof Ionicons.glyphMap };
 const OPTIONS: Option[] = [
@@ -20,20 +20,20 @@ export default function Settings() {
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.md },
-    title: { color: c.text, fontSize: 22, fontWeight: "600", flex: 1 },
+    title: { color: c.text, fontSize: 22 + 4, fontFamily: fonts.displayBold, flex: 1 },
     section: { color: c.textMuted, fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", fontWeight: "600", marginTop: spacing.xl, marginBottom: 10, paddingHorizontal: spacing.xl },
-    card: { backgroundColor: c.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, marginHorizontal: spacing.xl, overflow: "hidden" },
+    card: { marginHorizontal: spacing.xl, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.lg, paddingVertical: 14 },
-    rowDivider: { borderTopWidth: 1, borderTopColor: c.divider },
+    rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.brandTint, alignItems: "center", justifyContent: "center" },
     optionLabel: { color: c.text, fontSize: 15, fontWeight: "500" },
     optionHint: { color: c.textMuted, fontSize: 12, marginTop: 2 },
     activeBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: c.brand, alignItems: "center", justifyContent: "center" },
     activeRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: c.border },
-    previewCard: { marginTop: 10, marginHorizontal: spacing.xl, padding: spacing.xl, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, alignItems: "center" },
+    previewCard: { marginTop: 10, marginHorizontal: spacing.xl, paddingVertical: spacing.xl, alignItems: "center" },
     previewSub: { color: c.textMuted, fontSize: 12, marginTop: 6, letterSpacing: 2 },
-    back: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
-    modeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: c.brandTint, borderWidth: 1, borderColor: c.brand },
+    back: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    modeBadge: { paddingHorizontal: 0, paddingVertical: 4 },
     modeBadgeText: { color: c.brand, fontSize: 10, fontWeight: "600", letterSpacing: 1.4 },
     footerHint: { color: c.textMuted, fontSize: 11, textAlign: "center", paddingHorizontal: spacing.xxl, marginTop: 18, lineHeight: 16 },
   }));
