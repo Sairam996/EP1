@@ -6,7 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, resolveImg } from "@/src/api";
-import { Rating, Pill } from "@/src/components/UI";
+import { Rating } from "@/src/components/UI";
+import { AnimatedChip } from "@/src/components/AnimatedChips";
+import { Divider, EyebrowLabel, ImageTile, gutter } from "@/src/components/ui";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
@@ -54,21 +56,21 @@ export default function Search() {
       backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)",
       borderWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.22)" : "rgba(92,83,68,0.18)" },
     input: { flex: 1, color: c.text, fontSize: 16, height: 50 },
-    card: { flexDirection: "row", backgroundColor: c.surface2, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.border },
-    img: { width: 110, height: 110 },
-    cardName: { color: c.text, fontSize: 16, fontWeight: "600" },
+    // Typeahead result: open row — rounded thumb, serif name, hairline below (no card frame).
+    card: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 12 },
+    img: { width: 78, height: 78, borderRadius: 14, backgroundColor: c.surface3 },
+    cardName: { color: c.text, fontSize: 20, lineHeight: 24, fontFamily: fonts.displayBold },
     cardMeta: { color: c.textMuted, fontSize: 12, textTransform: "capitalize" },
     cardSvc: { color: c.textSubtle, fontSize: 12 },
-    cardPrice: { color: c.brand, fontSize: 14, fontWeight: "700", marginTop: 4 },
-    secT: { color: c.brand, fontSize: 11, letterSpacing: 2, fontWeight: "700", marginBottom: 10, marginTop: spacing.lg },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    sChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 40, borderRadius: radius.pill, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
-    sChipT: { color: c.text, fontSize: 14, fontWeight: "500" },
-    recentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+    cardPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 13.5, fontWeight: "700", marginTop: 4 },
+    secT: { marginBottom: 8, marginTop: spacing.xxl },
+    chipWrap: { flexDirection: "row", flexWrap: "wrap" },
+    sChip: { width: "50%", flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },
+    sChipT: { color: c.text, fontSize: 15, fontWeight: "500" },
+    recentRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
     recentT: { color: c.text, fontSize: 15, flex: 1 },
     clear: { color: c.textMuted, fontSize: 12 },
     tip: { color: c.textMuted, fontSize: 13, marginTop: spacing.xl, textAlign: "center" },
-    trendCard: { width: 150, borderRadius: radius.md, overflow: "hidden", backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
     trendName: { color: c.text, fontWeight: "600", fontSize: 13 },
     hint: { color: c.textMuted, fontSize: 13, paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
     title: { color: c.text, fontFamily: fonts.displayBold, fontSize: 22 },
@@ -131,12 +133,22 @@ export default function Search() {
   const browsing = !active && (cat || event_type);   // category/event filter with no text → show list
 
   const renderCard = ({ item }: { item: any }) => {
+    const price0 = Number(item.starting_price);
+    // Browsing a category / event type: edge-to-edge photo with text on the image.
+    if (!active) {
+      return (
+        <ImageTile testID={`result-${item.id}`} onPress={() => openVendor(item.id)} uri={resolveImg(item.cover)} height={230} radius={0}
+          eyebrow={`${item.category || ""}${item.is_sample ? " · Sample" : ""}`} title={item.name}
+          subtitle={[item.reviews_count > 0 ? `★ ${Number(item.rating).toFixed(1)}` : "New", item.city, price0 > 0 ? `from ₹${price0.toLocaleString("en-IN")}` : null].filter(Boolean).join("   ·   ")} />
+      );
+    }
     const svc = active ? (item.services || []).find((s: any) => matches({ name: s.title, description: s.description }, term)) : null;
     const price = Number(item.starting_price);
     return (
-      <Pressable testID={`result-${item.id}`} onPress={() => openVendor(item.id)} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
+      <Pressable testID={`result-${item.id}`} onPress={() => openVendor(item.id)} style={({ pressed }) => [{ paddingHorizontal: gutter }, pressed && { opacity: 0.6 }]}>
+       <View style={styles.card}>
         <Image source={{ uri: resolveImg(item.cover) }} style={styles.img} contentFit="cover" />
-        <View style={{ flex: 1, padding: spacing.md, gap: 3 }}>
+        <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.cardMeta}>{item.category} • {item.city}{item.is_sample ? " • Sample" : ""}</Text>
           {svc ? <Text style={styles.cardSvc} numberOfLines={1}>Package: {svc.title}</Text> : null}
@@ -146,6 +158,9 @@ export default function Search() {
           </View>
           {price > 0 ? <Text style={styles.cardPrice}>₹{price.toLocaleString("en-IN")}+</Text> : null}
         </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />
+       </View>
+       <Divider />
       </Pressable>
     );
   };
@@ -155,11 +170,11 @@ export default function Search() {
       {recent.length > 0 ? (
         <View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={styles.secT}>RECENT SEARCHES</Text>
-            <Pressable hitSlop={10} onPress={() => { setRecent([]); AsyncStorage.removeItem(RECENT_KEY).catch(() => {}); }}><Text style={[styles.clear, { marginTop: spacing.lg }]}>Clear</Text></Pressable>
+            <EyebrowLabel style={styles.secT}>Recent searches</EyebrowLabel>
+            <Pressable hitSlop={10} onPress={() => { setRecent([]); AsyncStorage.removeItem(RECENT_KEY).catch(() => {}); }}><Text style={[styles.clear, { marginTop: spacing.xxl }]}>Clear</Text></Pressable>
           </View>
-          {recent.map((r) => (
-            <Pressable key={r} onPress={() => setQ(r)} style={styles.recentRow} testID={`recent-${r}`}>
+          {recent.map((r, i) => (
+            <Pressable key={r} onPress={() => setQ(r)} style={[styles.recentRow, i < recent.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" }]} testID={`recent-${r}`}>
               <Ionicons name="time-outline" size={18} color={colors.textMuted} />
               <Text style={styles.recentT}>{r}</Text>
               <Ionicons name="arrow-up-outline" size={16} color={colors.textMuted} style={{ transform: [{ rotate: "-45deg" }] }} />
@@ -167,26 +182,21 @@ export default function Search() {
           ))}
         </View>
       ) : null}
-      <Text style={styles.secT}>POPULAR SEARCHES</Text>
+      <EyebrowLabel style={styles.secT}>Popular searches</EyebrowLabel>
       <View style={styles.chipWrap}>
         {SUGGESTIONS.map((sg) => (
           <Pressable key={sg.label} onPress={() => setQ(sg.q)} style={styles.sChip} testID={`suggest-${sg.q}`}>
-            <Ionicons name={sg.icon as any} size={16} color={colors.brand} />
+            <Ionicons name={sg.icon as any} size={18} color={colors.mode === "dark" ? "#E2BE6E" : "#8C6A26"} />
             <Text style={styles.sChipT}>{sg.label}</Text>
           </Pressable>
         ))}
       </View>
-      <Text style={styles.secT}>TRENDING IN {city.toUpperCase()}</Text>
+      <EyebrowLabel style={styles.secT}>{`Trending in ${city}`}</EyebrowLabel>
       {loading ? <ActivityIndicator color={colors.brand} /> : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }} keyboardShouldPersistTaps="handled">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: spacing.xl }} style={{ marginHorizontal: -spacing.xl }} keyboardShouldPersistTaps="handled">
           {pool.slice(0, 8).map((v) => (
-            <Pressable key={v.id} onPress={() => openVendor(v.id)} style={styles.trendCard} testID={`trend-${v.id}`}>
-              <Image source={{ uri: resolveImg(v.cover) }} style={{ width: "100%", height: 96 }} contentFit="cover" />
-              <View style={{ padding: 10, gap: 2 }}>
-                <Text style={styles.trendName} numberOfLines={1}>{v.name}</Text>
-                <Text style={styles.cardMeta} numberOfLines={1}>{v.category}</Text>
-              </View>
-            </Pressable>
+            <ImageTile key={v.id} testID={`trend-${v.id}`} onPress={() => openVendor(v.id)} uri={resolveImg(v.cover)}
+              width={164} height={210} radius={16} title={v.name} eyebrow={v.category} />
           ))}
         </ScrollView>
       )}
@@ -212,10 +222,11 @@ export default function Search() {
         </View>
       </View>
       <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md }}>
-          <Pill label="All" active={!cat} onPress={() => setCat(null)} />
-          {cats.map((c) => <Pill key={c.id} label={c.name} active={cat === c.id} onPress={() => setCat(c.id)} testID={`s-cat-${c.id}`} />)}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}>
+          <AnimatedChip label="All" active={!cat} onPress={() => setCat(null)} />
+          {cats.map((c) => <AnimatedChip key={c.id} label={c.name} active={cat === c.id} onPress={() => setCat(c.id)} testID={`s-cat-${c.id}`} />)}
         </ScrollView>
+        <Divider />
       </View>
       {term.length === 1 ? <Text style={styles.hint}>Keep typing — results appear after {MIN_CHARS} letters</Text> : null}
       {!active && !browsing ? emptyState : loading && !active ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
@@ -223,8 +234,8 @@ export default function Search() {
           keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
           data={results}
           keyExtractor={(it) => it.id}
-          contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 40, gap: spacing.md }}
-          ListHeaderComponent={active ? <Text style={[styles.cardMeta, { marginBottom: 4 }]}>{results.length} result{results.length === 1 ? "" : "s"} for “{term}”{searching ? " · searching…" : ""}</Text> : undefined}
+          contentContainerStyle={{ paddingBottom: 40, gap: active ? 0 : 3 }}
+          ListHeaderComponent={active ? <Text style={[styles.cardMeta, { marginBottom: 4, marginTop: spacing.md, paddingHorizontal: gutter, textTransform: "none" }]}>{results.length} result{results.length === 1 ? "" : "s"} for “{term}”{searching ? " · searching…" : ""}</Text> : undefined}
           ListEmptyComponent={searching ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : <EmptyState icon="search-outline" title="No vendors found" message="Try another category, city or keyword." />}
           renderItem={renderCard}
         />

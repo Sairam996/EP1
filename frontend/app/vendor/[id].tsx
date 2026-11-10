@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Dimensions } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Dimensions, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,7 @@ import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { Alert } from "react-native";
 import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from "@/src/sampleVendor";
 import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
+import { EyebrowLabel, ImageTile, SectionHeader, TextLink } from "@/src/components/ui";
 import { HeartPop, hapticLight } from "@/src/components/Celebration";
 
 const { width } = Dimensions.get("window");
@@ -40,40 +41,33 @@ export default function VendorDetail() {
     heroText: { position: "absolute", top: 240, left: 16, right: 16 },
     name: { color: "#F5F0E6", fontSize: 28, fontFamily: fonts.displayBold, letterSpacing: 0.4 },
     muted: { color: "rgba(243,244,246,0.8)", fontSize: 11 },
-    verBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: c.brand, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, marginBottom: 6 },
-    verT: { color: c.onBrand, fontSize: 10, fontWeight: "700" },
-    tabRow: { flexDirection: "row", marginHorizontal: spacing.xl, marginTop: spacing.xl, borderBottomWidth: 1, borderColor: c.border },
-    tab: { paddingVertical: 12, paddingHorizontal: 16 },
-    tabActive: { borderBottomWidth: 2, borderColor: c.brand },
-    tabT: { color: c.textMuted, fontWeight: "600" },
-    tabActiveText: { color: c.brand },
+    verBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 },
+    verT: { color: "#E2BE6E", fontSize: 10.5, fontWeight: "700", letterSpacing: 1.8, textTransform: "uppercase" },
+    tabRow: { flexDirection: "row", marginHorizontal: spacing.xl, marginTop: spacing.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    tab: { paddingVertical: 12, marginRight: 24, borderBottomWidth: 2, borderColor: "transparent", marginBottom: -1 },
+    tabActive: { borderColor: c.mode === "dark" ? "#E2BE6E" : "#8C6A26" },
+    tabT: { color: c.textMuted, fontWeight: "600", fontSize: 14, letterSpacing: 0.3 },
+    tabActiveText: { color: c.text },
     body: { color: c.textSubtle, fontSize: 14, lineHeight: 22, marginTop: spacing.lg },
-    h3: { color: c.text, fontSize: 16, fontWeight: "600", marginBottom: 8 },
-    facWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    fac: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: c.surface2, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
-    facText: { color: c.textSubtle, fontSize: 13 },
-    priceBig: { color: c.brand, fontSize: 26, fontWeight: "700" },
-    locCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
-    locName: { color: c.text, fontWeight: "600" },
-    locDist: { color: c.textMuted, fontSize: 12 },
-    dirBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: c.brand },
-    dirBtnGhost: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, borderColor: c.brand, backgroundColor: "transparent" },
-    dirText: { color: c.onBrand, fontWeight: "700", fontSize: 13 },
-    dirGhostText: { color: c.brand, fontWeight: "600", fontSize: 11 },
-    review: { padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
-    reviewer: { color: c.text, fontWeight: "600" },
-    reviewText: { color: c.textSubtle, marginTop: 4 },
-    simCard: { width: 168, borderRadius: radius.md, overflow: "hidden", backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
+    h3: { color: c.text, fontSize: 22, fontFamily: fonts.displayBold, marginBottom: 8 },
+    facWrap: { flexDirection: "row", flexWrap: "wrap" },
+    fac: { width: "50%", flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7, paddingRight: 8 },
+    facText: { color: c.textSubtle, fontSize: 13.5, flexShrink: 1 },
+    priceBig: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold },
+    locCard: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    locName: { color: c.text, fontWeight: "600", fontSize: 14.5 },
+    locDist: { color: c.textMuted, fontSize: 12, marginTop: 2 },
+    review: { paddingVertical: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    reviewer: { color: c.text, fontFamily: fonts.displayBold, fontSize: 18 },
+    reviewText: { color: c.textSubtle, marginTop: 6, lineHeight: 20 },
     simName: { color: c.text, fontWeight: "600" },
-    cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: spacing.xl, backgroundColor: c.surface, borderTopWidth: 1, borderColor: c.border, flexDirection: "row", alignItems: "center", gap: 12 },
-    ctaLabel: { color: c.textMuted, fontSize: 11 },
-    ctaPrice: { color: c.brand, fontSize: 18, fontWeight: "700" },
+    cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: spacing.xl, backgroundColor: c.surface, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)", flexDirection: "row", alignItems: "center", gap: 12 },
+    ctaLabel: { color: c.textMuted, fontSize: 10.5, letterSpacing: 1.8, textTransform: "uppercase" },
+    ctaPrice: { color: c.text, fontSize: 24, lineHeight: 28, fontFamily: fonts.displayBold },
     empty: { color: c.textMuted },
-    pkgCard: { padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border },
-    pkgTitle: { color: c.text, fontSize: 15, fontWeight: "600" },
-    pkgPrice: { color: c.brand, fontSize: 16, fontWeight: "700" },
-    pkgBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, paddingVertical: 10, borderRadius: radius.md, backgroundColor: c.brand },
-    pkgBtnT: { color: c.onBrand, fontWeight: "600", fontSize: 13 },
+    pkgCard: { paddingVertical: spacing.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
+    pkgTitle: { color: c.text, fontSize: 21, lineHeight: 25, fontFamily: fonts.displayBold },
+    pkgPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 21, fontFamily: fonts.displayBold },
   }));
 
   useEffect(() => {
@@ -148,9 +142,9 @@ export default function VendorDetail() {
           </HeartPop>
         </Pressable>
         <View style={styles.heroText}>
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            {v.verified && <View style={styles.verBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verT}>Verified</Text></View>}
-            {v.founding_vendor && <View style={styles.verBadge}><Ionicons name="star" size={12} color={colors.onBrand} /><Text style={styles.verT}>Founding Vendor · {v.city}</Text></View>}
+          <View style={{ flexDirection: "row", gap: 14 }}>
+            {v.verified && <View style={styles.verBadge}><Ionicons name="checkmark-circle" size={12} color="#E2BE6E" /><Text style={styles.verT}>Verified</Text></View>}
+            {v.founding_vendor && <View style={styles.verBadge}><Ionicons name="star" size={11} color="#E2BE6E" /><Text style={styles.verT}>Founding Vendor · {v.city}</Text></View>}
           </View>
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
@@ -181,11 +175,11 @@ export default function VendorDetail() {
             {v.description ? <Text style={styles.body}>{v.description}</Text> : <SoftChip icon="document-text-outline" label="Description not listed yet" />}
 
             <View>
-              <SectionTitle icon="star" title="Ratings" right={reviews.length ? <Pressable onPress={() => setTab("reviews")}><Text style={{ color: colors.brand, fontSize: 12 }}>See all</Text></Pressable> : undefined} />
+              <SectionTitle icon="star" title="Ratings" right={reviews.length ? <TextLink title="See all" arrow onPress={() => setTab("reviews")} /> : undefined} />
               {reviews.length > 0 || v.reviews_count > 0 ? (
-                <View style={[styles.review, { flexDirection: "row", gap: spacing.lg, alignItems: "center" }]}>
+                <View style={{ flexDirection: "row", gap: spacing.xl, alignItems: "center" }}>
                   <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: colors.text, fontSize: 32, fontWeight: "700" }}>{avg.toFixed(1)}</Text>
+                    <Text style={{ color: colors.text, fontSize: 44, lineHeight: 48, fontFamily: fonts.displayBold }}>{avg.toFixed(1)}</Text>
                     <Rating value={avg} size={12} />
                     <Text style={styles.empty}>{v.reviews_count || reviews.length} reviews</Text>
                   </View>
@@ -193,8 +187,8 @@ export default function VendorDetail() {
                     {dist.map((n, i) => (
                       <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <Text style={[styles.empty, { width: 10, fontSize: 11 }]}>{5 - i}</Text>
-                        <View style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.surface3 }}>
-                          <View style={{ width: `${(n / reviews.length) * 100}%`, height: 5, borderRadius: 3, backgroundColor: colors.brand }} />
+                        <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.mode === "dark" ? "rgba(226,190,110,0.15)" : "rgba(140,106,38,0.15)" }}>
+                          <View style={{ width: `${(n / reviews.length) * 100}%`, height: 2, borderRadius: 1, backgroundColor: colors.brand }} />
                         </View>
                       </View>
                     ))}
@@ -210,7 +204,7 @@ export default function VendorDetail() {
                   {team.map((m: any, i: number) => (
                     <View key={m.id ?? i} style={{ width: 92, alignItems: "center", gap: 4 }}>
                       {m.photo || m.avatar ? <Image source={{ uri: resolveImg(m.photo || m.avatar) }} style={{ width: 64, height: 64, borderRadius: 32 }} contentFit="cover" />
-                        : <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTint, alignItems: "center", justifyContent: "center" }}><Ionicons name="person" size={26} color={colors.brand} /></View>}
+                        : <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, alignItems: "center", justifyContent: "center" }}><Ionicons name="person-outline" size={24} color={colors.brand} /></View>}
                       <Text style={styles.simName} numberOfLines={1}>{m.name ?? "Team member"}</Text>
                       {m.role ? <Text style={[styles.empty, { fontSize: 11 }]} numberOfLines={1}>{m.role}</Text> : null}
                     </View>
@@ -225,7 +219,7 @@ export default function VendorDetail() {
               <View style={styles.facWrap}>
                 {facilities.map((f: string) => (
                   <View key={f} style={styles.fac}>
-                    <Ionicons name="checkmark-circle" size={14} color={colors.brand} />
+                    <Ionicons name="checkmark" size={15} color={colors.brand} />
                     <Text style={styles.facText}>{f}</Text>
                   </View>
                 ))}
@@ -233,7 +227,7 @@ export default function VendorDetail() {
             </View>
             {Array.isArray(v.blocked_dates) ? <AvailabilityCalendar blocked={v.blocked_dates} /> : null}
             <View>
-              <Text style={styles.h3}>Starting at</Text>
+              <EyebrowLabel style={{ marginBottom: 4 }}>Starting at</EyebrowLabel>
               <Text style={styles.priceBig}>₹{startPrice.toLocaleString("en-IN")}</Text>
               <Text style={styles.empty}>Pick an available date on the next step.</Text>
             </View>
@@ -241,20 +235,14 @@ export default function VendorDetail() {
               <View>
                 <Text style={styles.h3}>Location</Text>
                 <View style={styles.locCard}>
-                  <Ionicons name="location" size={22} color={colors.brand} />
+                  <Ionicons name="location-outline" size={22} color={colors.brand} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.locName} numberOfLines={2}>{v.address || v.city}</Text>
                     {v.distance_km != null && v.distance_km > 0 && <Text style={styles.locDist}>{v.distance_km} km away</Text>}
                   </View>
-                  <View style={{ gap: 6, alignItems: "flex-end" }}>
-                    <Pressable testID="in-app-nav" onPress={() => (isSample ? openInMaps(v.lat, v.lng, v.name) : router.push(`/navigate/${v.id}` as any))} style={styles.dirBtn}>
-                      <Ionicons name="navigate-circle" size={16} color={colors.onBrand} />
-                      <Text style={styles.dirText}>Live Nav</Text>
-                    </Pressable>
-                    <Pressable testID="get-directions" onPress={() => openInMaps(v.lat, v.lng, v.name)} style={styles.dirBtnGhost}>
-                      <Ionicons name="open-outline" size={13} color={colors.brand} />
-                      <Text style={styles.dirGhostText}>Open Maps</Text>
-                    </Pressable>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <TextLink testID="in-app-nav" icon="navigate-outline" title="Live Nav" onPress={() => (isSample ? openInMaps(v.lat, v.lng, v.name) : router.push(`/navigate/${v.id}` as any))} />
+                    <TextLink testID="get-directions" icon="open-outline" title="Open Maps" size={12} color={colors.textMuted} onPress={() => openInMaps(v.lat, v.lng, v.name)} />
                   </View>
                 </View>
               </View>
@@ -263,35 +251,32 @@ export default function VendorDetail() {
         )}
 
         {tab === "packages" && (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm }}>
             {services.length === 0 ? <EmptyState compact icon="pricetags-outline" title="Packages coming soon" message="Book now to get a custom quote." /> :
               services.map((s) => (
                 <View key={s.id} style={styles.pkgCard} testID={`pkg-${s.id}`}>
                   {s.photos?.length > 0 && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                       {s.photos.map((p: string, i: number) => (
-                        <Image key={i} source={{ uri: resolveImg(p) }} style={{ width: 120, height: 90, borderRadius: radius.sm }} contentFit="cover" />
+                        <Image key={i} source={{ uri: resolveImg(p) }} style={{ width: 200, height: 140, borderRadius: 14 }} contentFit="cover" />
                       ))}
                     </ScrollView>
                   )}
-                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: s.photos?.length ? 10 : 0 }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: s.photos?.length ? 14 : 0 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.pkgTitle}>{s.title}</Text>
                       {s.description ? <Text style={styles.reviewText}>{s.description}</Text> : null}
                     </View>
                     <Text style={styles.pkgPrice}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
                   </View>
-                  <PressableScale onPress={() => book(`/booking-form/${v.id}?serviceId=${s.id}`)} style={styles.pkgBtn} testID={`pkg-book-${s.id}`}>
-                    <Text style={styles.pkgBtnT}>Select & Book</Text>
-                    <Ionicons name="arrow-forward" size={14} color={colors.onBrand} />
-                  </PressableScale>
+                  <TextLink testID={`pkg-book-${s.id}`} title="Select & Book" arrow style={{ marginTop: 8 }} onPress={() => book(`/booking-form/${v.id}?serviceId=${s.id}`)} />
                 </View>
               ))}
           </View>
         )}
 
         {tab === "reviews" && (
-          <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md, marginTop: spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm }}>
             {reviews.length === 0 ? <EmptyState compact icon="chatbubbles-outline" title="No reviews yet" message="Be among the first to celebrate with this vendor." /> :
               reviews.map((r) => (
                 <View key={r.id} style={styles.review}>
@@ -316,16 +301,11 @@ export default function VendorDetail() {
 
         {similar.length > 0 && (
           <View style={{ marginTop: spacing.xl }}>
-            <Text style={[styles.h3, { paddingHorizontal: spacing.xl }]}>Similar vendors</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 12, paddingTop: 12 }}>
+            <SectionHeader eyebrow="You may also love" title="Similar vendors" style={{ marginTop: spacing.md }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 12 }}>
               {similar.map((s) => (
-                <PressableScale key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} style={styles.simCard}>
-                  <Image source={{ uri: resolveImg(s.cover) }} style={{ width: "100%", height: 100 }} contentFit="cover" />
-                  <View style={{ padding: 10 }}>
-                    <Text style={styles.simName} numberOfLines={1}>{s.name}</Text>
-                    {s.reviews_count > 0 && <Rating value={s.rating} size={12} />}
-                  </View>
-                </PressableScale>
+                <ImageTile key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} uri={resolveImg(s.cover)} width={180} height={220} radius={16}
+                  title={s.name} subtitle={s.reviews_count > 0 ? `★ ${Number(s.rating).toFixed(1)}` : "New on Thara"} />
               ))}
             </ScrollView>
           </View>

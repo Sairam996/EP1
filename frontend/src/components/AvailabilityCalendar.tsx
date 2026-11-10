@@ -1,8 +1,8 @@
 /** Black/gold month calendar from the brand template — blocked dates filled gold, open dates outlined. */
 import { useMemo, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { fonts, radius, useThemedStyles } from "../theme";
+import { fonts, useThemedStyles } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 
 const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -15,22 +15,23 @@ export function AvailabilityCalendar({ blocked }: { blocked: string[] }) {
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const set = useMemo(() => new Set(blocked), [blocked]);
   const s = useThemedStyles((c) => ({
-    card: { padding: 16, borderRadius: radius.lg, backgroundColor: c.mode === "dark" ? "#070707" : c.surface2, borderWidth: 1, borderColor: c.border },
+    // Open calendar — no frame; hairlines above/below separate it from the page.
+    card: { paddingVertical: 18, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     title: { color: c.brand, fontFamily: fonts.display, fontSize: 22, letterSpacing: 4, textAlign: "center" },
     nav: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 4, marginBottom: 10 },
     month: { color: c.brand, fontSize: 15, letterSpacing: 2, fontWeight: "600" },
     row: { flexDirection: "row" },
     dow: { flex: 1, textAlign: "center", color: c.textMuted, fontSize: 10, letterSpacing: 1, marginBottom: 6 },
     cell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", padding: 3 },
-    dayBox: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center", borderRadius: 8 },
+    dayBox: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center", borderRadius: 999 },
     blockedBox: { backgroundColor: c.brand },
     day: { color: c.text, fontSize: 14 },
     blockedDay: { color: c.onBrand, fontWeight: "700" },
     legend: { flexDirection: "row", gap: 18, marginTop: 10, alignItems: "center" },
-    lgSq: { width: 14, height: 14, borderRadius: 3, backgroundColor: c.brand },
-    lgCi: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: c.text },
+    lgSq: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.brand },
+    lgCi: { width: 12, height: 12, borderRadius: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: c.text },
     lgT: { color: c.textMuted, fontSize: 11, letterSpacing: 1 },
-    note: { marginTop: 12, borderWidth: 1, borderColor: c.brand, borderRadius: radius.md, paddingVertical: 8, flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center" },
+    note: { marginTop: 12, paddingVertical: 4, flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center" },
     noteT: { color: c.brand, fontSize: 11, letterSpacing: 1, fontWeight: "600" },
   }));
   const first = new Date(ym.y, ym.m, 1).getDay();
