@@ -9,6 +9,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { fonts, spacing, useThemedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
+import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
 export default function ChatList() {
   const insets = useSafeAreaInsets();
@@ -34,6 +35,7 @@ export default function ChatList() {
     finally { setLoading(false); setRefresh(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useOnReconnect(load);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>

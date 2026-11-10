@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { isGatewayStatus, reportServerFailure, reportServerOk } from "./connectivity";
 
 // Token storage: Keychain/Keystore via expo-secure-store on native; AsyncStorage only on web.
 const TOKEN_KEY = "ep_token";
@@ -67,10 +68,14 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
       signal: ctrl.signal,
     });
   } catch (e: any) {
-    throw new Error(e?.name === "AbortError" ? "Request timed out" : `Network request failed: ${e?.message || e}`);
+    reportServerFailure();
+    const err: any = new Error(e?.name === "AbortError" ? "Request timed out" : `Network request failed: ${e?.message || e}`);
+    err.network = true;
+    throw err;
   } finally {
     clearTimeout(timer);
   }
+  if (isGatewayStatus(res.status)) reportServerFailure(); else reportServerOk();
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("json") ? await res.json() : await res.text();
   if (!res.ok) {
@@ -83,7 +88,10 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
       else if (d) msg = JSON.stringify(d);
       else msg = JSON.stringify(data);
     }
-    throw new Error(msg);
+    const err: any = new Error(msg);
+    err.status = res.status;
+    if (isGatewayStatus(res.status)) err.network = true;
+    throw err;
   }
   return data;
 }
@@ -93,11 +101,30 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
 async function getWithRetry(p: string, opts?: any) {
   try { return await req("GET", p, undefined, opts); }
   catch (e: any) {
-    if (!/^Network request failed|^Request timed out/.test(String(e?.message || ""))) throw e;
+    if (!e?.network) throw e;
     await new Promise((r) => setTimeout(r, 600));
     return req("GET", p, undefined, opts);
   }
 }
+
+/** Lightweight reachability probe used by the offline screen (no retry, short timeout). */
+export async function probeServer(timeoutMs = 6000): Promise<boolean> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}/categories?_probe=${Date.now()}`, { method: "GET", signal: ctrl.signal });
+    const up = !isGatewayStatus(res.status) && res.status < 500;
+    if (up) reportServerOk();
+    return up;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** True for connectivity failures (offline, timeout, tunnel/backend down) rather than app errors. */
+export function isNetworkError(e: any): boolean { return !!e?.network; }
 
 export const api = {
   get: (p: string, opts?: any) => getWithRetry(p, opts),

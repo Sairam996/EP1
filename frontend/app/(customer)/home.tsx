@@ -16,6 +16,7 @@ import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips"
 import { EmptyState } from "@/src/components/Polish";
 import { RotatingHint } from "@/src/components/RotatingHint";
 import { EyebrowLabel, SectionHeader as SectionHead, gutter } from "@/src/components/ui";
+import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
 const { width } = Dimensions.get("window");
 const HERO_W = width - spacing.xl * 2;
@@ -152,6 +153,8 @@ export default function Home() {
   }, [city, category]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
+  // Back online / server recovered → refresh every section.
+  useOnReconnect(load);
 
   // Refetch when Home regains focus (e.g. back from checkout) if the last load failed or is stale.
   useFocusEffect(useCallback(() => {

@@ -10,6 +10,7 @@ import { fonts, spacing, useThemedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, StatusText, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
 import { GoldButton } from "@/src/components/UI";
+import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
 export default function Bookings() {
   const insets = useSafeAreaInsets();
@@ -39,6 +40,7 @@ export default function Bookings() {
     finally { setLoading(false); setRefresh(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useOnReconnect(load);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>

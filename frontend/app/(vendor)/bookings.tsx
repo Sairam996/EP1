@@ -7,6 +7,7 @@ import { api } from "@/src/api";
 import { colors, fonts, spacing, themedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, StatusText, TextLink, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
+import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
 const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
 
@@ -22,6 +23,7 @@ export default function VendorBookings() {
     finally { setLoading(false); setRefresh(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useOnReconnect(load);
 
   const updateStatus = async (id: string, status: string) => {
     try { await api.patch(`/bookings/${id}/status?status_val=${status}`); load(); } catch (e: any) { alert(e.message); }

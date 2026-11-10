@@ -6,6 +6,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
 import { colors, fonts, spacing, themedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, ListRow, Section, StatStrip, gutter } from "@/src/components/ui";
+import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
 const STEPS = [
   { key: "description", label: "Describe your business", route: "/vendor-profile-edit" },
@@ -37,6 +38,7 @@ export default function Dashboard() {
     finally { setRefresh(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useOnReconnect(load);
 
   if (!data) return <View style={{ flex: 1, backgroundColor: colors.surface, justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>;
 

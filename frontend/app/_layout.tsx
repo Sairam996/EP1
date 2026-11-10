@@ -11,6 +11,7 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CelebrationProvider } from "@/src/components/Celebration";
+import { OfflineOverlay } from "@/src/components/OfflineOverlay";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -72,6 +73,8 @@ export default function RootLayout() {
         <AuthProvider>
           <CelebrationProvider>
             <ThemedStack />
+            {/* Above every screen, below the celebration burst layer. */}
+            <OfflineOverlay />
           </CelebrationProvider>
         </AuthProvider>
       </ThemeProvider>

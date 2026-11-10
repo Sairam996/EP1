@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
-import { api, setToken, loadToken } from "../api";
+import { api, setToken, loadToken, isNetworkError } from "../api";
+import { onReconnect } from "../connectivity";
 
 export type User = {
   id: string; name: string; email: string; phone: string;
@@ -30,18 +31,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    let alive = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const hydrate = async () => {
+      if (!alive) return;
       const t = await loadToken();
       if (t) {
         try {
           const u = await api.get("/auth/me");
+          if (!alive) return;
           setUser(u);
-        } catch {
+        } catch (e) {
+          // Offline / server down: keep the session and the boot screen (the offline
+          // page shows on top) and retry when connectivity returns. Only a real auth
+          // rejection signs the user out.
+          if (isNetworkError(e)) {
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(hydrate, 5000);
+            return;
+          }
           await setToken(null);
         }
       }
-      setLoading(false);
-    })();
+      unsub();
+      if (alive) setLoading(false);
+    };
+    const unsub = onReconnect(() => { clearTimeout(retryTimer); hydrate(); });
+    hydrate();
+    return () => { alive = false; clearTimeout(retryTimer); unsub(); };
   }, []);
 
   const registerPush = async (userId: string) => {
