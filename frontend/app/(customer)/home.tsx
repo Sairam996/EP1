@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Dimensions } from "react-native";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Dimensions, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -14,6 +14,7 @@ import { Rating } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
 import { EmptyState } from "@/src/components/Polish";
+import { RotatingHint } from "@/src/components/RotatingHint";
 
 const { width } = Dimensions.get("window");
 const HERO_W = width - spacing.xl * 2;
@@ -55,16 +56,23 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cityOpen, setCityOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const lastLoad = useRef(0);
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.xl, paddingVertical: spacing.sm },
-    brandHeader: { alignItems: "center", paddingTop: spacing.lg, paddingBottom: spacing.lg },
-    searchBar: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: spacing.xl, marginTop: spacing.md, height: 56, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderStrong },
-    searchText: { color: c.textMuted, fontSize: 16, flex: 1 },
-    cityPick: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 44, backgroundColor: c.surface2, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border },
-    cityText: { color: c.text, fontWeight: "600", fontSize: 15 },
-    iconBtn: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.border },
+    topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+    topSide: { flex: 1, flexDirection: "row", alignItems: "center" },
+    // Soft filled pill + muted hairline (no bright gold outline).
+    searchBar: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: spacing.xl, marginTop: spacing.md, height: 50, paddingLeft: 16, paddingRight: 6, borderRadius: radius.pill,
+      backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)",
+      borderWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.22)" : "rgba(92,83,68,0.18)" },
+    searchDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: c.mode === "dark" ? "rgba(255,248,235,0.16)" : "rgba(28,28,28,0.14)" },
+    aiInSearch: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: c.brandTint },
+    cityPick: { flexDirection: "row", alignItems: "center", gap: 4, height: 40, paddingRight: 6, maxWidth: 130 },
+    cityText: { color: c.text, fontWeight: "600", fontSize: 14, flexShrink: 1 },
+    retryBtn: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm, paddingHorizontal: 18, height: 40, borderRadius: radius.pill, backgroundColor: c.brandTint },
+    retryText: { color: c.brand, fontWeight: "600", fontSize: 14 },
     cityDrop: { marginTop: spacing.sm, paddingVertical: 4 },
     cityChip: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
     greet: { color: c.text, fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
@@ -99,24 +107,33 @@ export default function Home() {
     comboPrice: { color: c.brand, fontSize: 17, fontWeight: "700" },
     comboOrig: { color: "rgba(243,244,246,0.6)", fontSize: 12, textDecorationLine: "line-through" },
     comboSave: { color: c.success, fontSize: 11, fontWeight: "700" },
-    fab: { position: "absolute", right: 18, width: 52, height: 52, borderRadius: 26, backgroundColor: c.brand, alignItems: "center", justifyContent: "center", shadowColor: c.brand, shadowOpacity: 0.5, shadowRadius: 12, elevation: 6 },
     seeAll: { color: c.brand, fontSize: 13, fontWeight: "600" },
     empty: { color: c.textMuted, padding: spacing.md },
   }));
 
+  // Each section loads independently: one failed request (e.g. a dropped tunnel
+  // fetch) must not blank the whole screen. Failures surface a Retry state.
   const load = useCallback(async () => {
-    try {
-      const [c, e, ci, v, cb] = await Promise.all([
-        api.get("/categories", { auth: false }),
-        api.get("/event-types", { auth: false }),
-        api.get("/cities", { auth: false }),
-        api.get(`/vendors?city=${city}${category ? `&category=${category}` : ""}&trending=true&limit=20`, { auth: false }),
-        api.get("/combos", { auth: false }),
-      ]);
-      setCategories(c); setEventTypes(e); setCities(ci); // Dedupe trending by vendor id and avoid repeating the same cover image.
+    lastLoad.current = Date.now(); // also de-dupes the mount + first-focus calls
+    const enc = encodeURIComponent;
+    const [c, e, ci, v, cb] = await Promise.allSettled([
+      api.get("/categories", { auth: false }),
+      api.get("/event-types", { auth: false }),
+      api.get("/cities", { auth: false }),
+      api.get(`/vendors?city=${enc(city)}${category ? `&category=${enc(category)}` : ""}&trending=true&limit=20`, { auth: false }),
+      api.get("/combos", { auth: false }),
+    ]);
+    const ok = <T,>(r: PromiseSettledResult<T>) => (r.status === "fulfilled" && Array.isArray(r.value) ? (r.value as any[]) : null);
+    if (ok(c)) setCategories(ok(c)!);
+    if (ok(e)) setEventTypes(ok(e)!);
+    if (ok(ci)) setCities(ok(ci)!);
+    if (ok(cb)) setCombos(ok(cb)!);
+    const vs = ok(v);
+    if (vs) {
+      // Dedupe trending by vendor id and avoid repeating the same cover image.
       const seenIds = new Set<string>(); const seenCovers = new Set<string>();
       const uniq: any[] = []; const dupCover: any[] = [];
-      for (const x of v || []) {
+      for (const x of vs) {
         if (seenIds.has(x.id)) continue; seenIds.add(x.id);
         const alt = (x.gallery || []).find((g: string) => g && !seenCovers.has(g));
         if (x.cover && !seenCovers.has(x.cover)) { seenCovers.add(x.cover); uniq.push(x); }
@@ -126,38 +143,55 @@ export default function Home() {
       const list = [...uniq, ...dupCover];
       // Always include one showcase vendor (Hyderabad) so details can be previewed.
       if (city === "Hyderabad" && (!category || category === SAMPLE_VENDOR.category)) list.unshift(SAMPLE_VENDOR);
-      setVendors(list); setCombos(cb);
-    } catch (err) { console.warn(err); }
-    finally { setLoading(false); setRefreshing(false); }
+      setVendors(list);
+    }
+    const failed = [c, e, ci, v, cb].filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+    if (failed.length) console.warn("home load:", failed.map((f) => String(f.reason?.message || f.reason)).join(" | "));
+    setLoadError(!vs || !ok(c) ? "Couldn\u2019t load Thara right now." : null);
+    if (!vs || !ok(c)) lastLoad.current = 0; // let the next focus retry
+    setLoading(false); setRefreshing(false);
   }, [city, category]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
 
+  // Refetch when Home regains focus (e.g. back from checkout) if the last load failed or is stale.
+  useFocusEffect(useCallback(() => {
+    if (Date.now() - lastLoad.current > 60_000) load();
+  }, [load]));
+
   const onRefresh = () => { setRefreshing(true); load(); };
+  const retry = () => { setLoading(true); load(); };
 
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: 96 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
-        {/* Brand header — large serif THARA per brand template */}
-        <View style={styles.brandHeader}>
-          <TharaLogo variant="wordmark" size={44} testID="home-wordmark" />
-        </View>
+        {/* Top row: location (left) · THARA wordmark (centre) */}
         <View style={styles.topBar}>
-          <Pressable testID="city-selector" onPress={() => setCityOpen((o) => !o)} style={styles.cityPick}>
-            <Ionicons name="location" size={18} color={colors.brand} />
-            <Text style={styles.cityText}>{city}</Text>
-            <Ionicons name={cityOpen ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
+          <View style={styles.topSide}>
+            <Pressable testID="city-selector" onPress={() => setCityOpen((o) => !o)} style={styles.cityPick} hitSlop={8}
+              accessibilityRole="button" accessibilityLabel={`City: ${city}. Change city`}>
+              <Ionicons name="location" size={17} color={colors.brand} />
+              <Text style={styles.cityText} numberOfLines={1}>{city}</Text>
+              <Ionicons name={cityOpen ? "chevron-up" : "chevron-down"} size={13} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <TharaLogo variant="wordmark" size={36} testID="home-wordmark" />
+          <View style={styles.topSide} />
+        </View>
+        {/* Search pill with rotating hints and Thara AI inside on the right */}
+        <View style={styles.searchBar}>
+          <Pressable testID="search-btn" onPress={() => router.push("/search")} accessibilityRole="search" accessibilityLabel="Search vendors and services"
+            style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" }, pressed && { opacity: 0.7 }]}>
+            <Ionicons name="search" size={19} color={colors.brand} style={{ opacity: 0.85 }} />
+            <RotatingHint testID="home-search-hint" />
           </Pressable>
-          <Pressable testID="ai-btn" onPress={() => router.push("/ai-chat")} style={styles.iconBtn} accessibilityLabel="AI assistant">
-            <Ionicons name="sparkles-outline" size={20} color={colors.brand} />
+          <View style={styles.searchDivider} />
+          <Pressable testID="ai-btn" onPress={() => router.push("/ai-chat")} hitSlop={6} accessibilityRole="button" accessibilityLabel="Ask Thara AI"
+            style={({ pressed }) => [styles.aiInSearch, pressed && { transform: [{ scale: 0.92 }] }]}>
+            <Ionicons name="sparkles" size={17} color={colors.brand} />
           </Pressable>
         </View>
-        <Pressable testID="search-btn" onPress={() => router.push("/search")} accessibilityRole="search"
-          style={({ pressed }) => [styles.searchBar, pressed && { opacity: 0.85 }]}>
-          <Ionicons name="search" size={22} color={colors.brand} />
-          <Text style={styles.searchText}>Search venues, decor, photographers…</Text>
-        </Pressable>
 
         {cityOpen && (
           <View style={styles.cityDrop} testID="city-dropdown">
@@ -202,6 +236,12 @@ export default function Home() {
           ))}
         </ScrollView>
 
+        {loadError && categories.length === 0 && !loading ? (
+          <Pressable testID="home-retry-top" onPress={retry} style={({ pressed }) => [styles.retryBtn, { marginTop: spacing.lg }, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+            <Ionicons name="refresh" size={16} color={colors.brand} />
+            <Text style={styles.retryText}>{loadError} Retry</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.section}>Categories</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           <AnimatedChip testID="cat-all" label="All" active={!category} onPress={() => setCategory(null)} />
@@ -220,7 +260,17 @@ export default function Home() {
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
           vendors.length === 0 ? (
             <View style={{ paddingHorizontal: spacing.xl }}>
-              <EmptyState compact icon="storefront-outline" title={`No vendors yet in ${city}`} message="We're onboarding partners here — check back soon." />
+              {loadError ? (
+                <>
+                  <EmptyState compact icon="cloud-offline-outline" title="Couldn\u2019t load vendors" message="Check your connection and try again." />
+                  <Pressable testID="home-retry" onPress={retry} style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+                    <Ionicons name="refresh" size={16} color={colors.brand} />
+                    <Text style={styles.retryText}>Retry</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <EmptyState compact icon="storefront-outline" title={`No vendors yet in ${city}`} message="We're onboarding partners here — check back soon." />
+              )}
             </View>
           ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 14 }}>
@@ -267,9 +317,6 @@ export default function Home() {
         </View>
       </ScrollView>
 
-      <Pressable testID="ai-fab" onPress={() => router.push("/ai-chat")} style={({ pressed }) => [styles.fab, { bottom: spacing.xl }, pressed && { transform: [{ scale: 0.96 }] }]} accessibilityRole="button">
-        <Ionicons name="sparkles" size={22} color={colors.onBrand} />
-      </Pressable>
     </View>
   );
 }

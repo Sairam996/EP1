@@ -80,7 +80,7 @@ export default function Checkout() {
           </View>
         )}
         {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off)</Text>}
-        <GoldButton testID="done-btn" title="View My Bookings" onPress={() => router.replace("/(customer)/bookings")} style={{ marginTop: spacing.xl, minWidth: 240 }} />
+        <GoldButton testID="done-btn" title="View My Bookings" onPress={() => router.dismissTo("/(customer)/bookings")} style={{ marginTop: spacing.xl, minWidth: 240 }} />
       </View>
     );
   }

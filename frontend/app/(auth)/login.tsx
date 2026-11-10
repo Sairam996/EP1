@@ -13,7 +13,6 @@ import {
   StyleSheet,
 } from "react-native";
 import Constants from "expo-constants";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -110,19 +109,8 @@ export default function Login() {
         marginBottom: spacing.md,
       },
       cardWrap: { flexGrow: 1, justifyContent: "center" as const, paddingVertical: spacing.md },
-      blurCard: {
-        borderRadius: 24,
-        overflow: "hidden" as const,
-        borderWidth: 0,
-        borderColor: "transparent",
-      },
-      cardInner: {
-        padding: 22,
-        backgroundColor: dark ? "rgba(8,8,8,0.62)" : "rgba(255,252,245,0.70)",
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: dark ? "rgba(226,190,110,0.35)" : "rgba(140,106,38,0.25)",
-        borderRadius: 24,
-      },
+      // Borderless: no card outline or frosted box; fields carry their own soft fill.
+      cardInner: { paddingVertical: 8 },
       label: {
         color: c.textMuted,
         fontSize: 11,
@@ -132,32 +120,33 @@ export default function Login() {
         marginBottom: 8,
       },
       input: {
-        backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
-        borderRadius: radius.md,
+        backgroundColor: dark ? "rgba(255,255,255,0.07)" : "rgba(140,106,38,0.07)",
+        borderRadius: 14,
         paddingHorizontal: 14,
         paddingVertical: 0,
-        height: 60,
+        height: 50,
         color: c.text,
-        borderWidth: 1,
-        borderColor: dark ? "rgba(226,190,110,0.28)" : "rgba(140,106,38,0.22)",
-        fontSize: 19,
-        letterSpacing: 0.5,
+        borderWidth: 0,
+        fontSize: 17,
+        letterSpacing: 0.3,
         marginBottom: 12,
       },
-      phoneRow: { flexDirection: "row" as const, gap: 10, marginBottom: 14 },
+      // One soft filled field with the country code inline.
+      phoneRow: {
+        flexDirection: "row" as const, alignItems: "center" as const, height: 50, borderRadius: 14,
+        backgroundColor: dark ? "rgba(255,255,255,0.07)" : "rgba(140,106,38,0.07)", marginBottom: 14, overflow: "hidden" as const,
+      },
       ccBtn: {
         flexDirection: "row" as const,
         alignItems: "center" as const,
         gap: 4,
-        paddingHorizontal: 14,
-        height: 60,
-        borderRadius: radius.md,
-        borderWidth: 1,
-        borderColor: dark ? "rgba(226,190,110,0.28)" : "rgba(140,106,38,0.22)",
-        backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+        paddingLeft: 14,
+        paddingRight: 10,
+        height: 50,
       },
-      ccText: { color: c.text, fontSize: 18, fontWeight: "600" as const },
-      phoneInput: { flex: 1, marginBottom: 0 },
+      ccDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: dark ? "rgba(255,248,235,0.22)" : "rgba(28,28,28,0.18)" },
+      ccText: { color: c.text, fontSize: 16, fontWeight: "600" as const },
+      phoneInput: { flex: 1, marginBottom: 0, backgroundColor: "transparent", borderRadius: 0, paddingHorizontal: 12 },
       otpInput: {
         letterSpacing: 10,
         fontSize: 22,
@@ -259,12 +248,12 @@ export default function Login() {
       changeLink: { color: c.brand, fontWeight: "700" as const },
       otpBoxes: { flexDirection: "row" as const, justifyContent: "space-between" as const, marginBottom: spacing.lg },
       otpBox: {
-        width: 50, height: 64, borderRadius: radius.md, alignItems: "center" as const, justifyContent: "center" as const,
-        borderWidth: 1, borderColor: c.border,
-        backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.72)",
+        width: 46, height: 52, borderRadius: 12, alignItems: "center" as const, justifyContent: "center" as const,
+        borderWidth: 0, borderBottomWidth: 2, borderBottomColor: "transparent",
+        backgroundColor: dark ? "rgba(255,255,255,0.07)" : "rgba(140,106,38,0.07)",
       },
-      otpBoxActive: { borderColor: c.brand, borderWidth: 2 },
-      otpDigit: { color: c.text, fontSize: 28, fontWeight: "700" as const },
+      otpBoxActive: { borderBottomColor: c.brand, backgroundColor: dark ? "rgba(226,190,110,0.10)" : "rgba(140,106,38,0.10)" },
+      otpDigit: { color: c.text, fontSize: 22, fontWeight: "600" as const },
       hiddenOtp: { position: "absolute" as const, opacity: 0.01, width: 1, height: 1 },
       resendRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.lg },
       pills: { flexDirection: "row" as const, gap: 8 },
@@ -419,11 +408,7 @@ export default function Login() {
           </View>
 
           <View style={styles.cardWrap}>
-            <BlurView
-              intensity={Platform.OS === "ios" ? 40 : 55}
-              tint={isDark ? "dark" : "light"}
-              style={styles.blurCard}
-            >
+            <View>
               <View style={styles.cardInner}>
                 {step === "phone" ? (
                   <>
@@ -433,6 +418,7 @@ export default function Login() {
                         <Text style={styles.ccText}>{country.flag} {country.code}</Text>
                         <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
                       </Pressable>
+                      <View style={styles.ccDivider} />
                       <TextInput
                         testID="login-phone"
                         value={phoneLocal}
@@ -453,7 +439,7 @@ export default function Login() {
                       onPress={onSendOtp}
                       loading={loading}
                       disabled={!phoneValid}
-                      style={{ minHeight: 58 }}
+                      style={{ minHeight: 52 }}
                     />
                     <Text style={styles.terms}>
                       By continuing, you agree to our{" "}
@@ -525,7 +511,7 @@ export default function Login() {
                       onPress={() => onVerifyOtp()}
                       loading={loading}
                       disabled={otp.length < 6}
-                      style={{ minHeight: 58 }}
+                      style={{ minHeight: 52 }}
                     />
                   </>
                 ) : null}
@@ -614,7 +600,7 @@ export default function Login() {
                   </>
                 ) : null}
               </View>
-            </BlurView>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

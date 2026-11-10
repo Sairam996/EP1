@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, ScrollView, Keyboard } from "react-native";
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, ScrollView, Keyboard, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
+import { RotatingHint } from "@/src/components/RotatingHint";
 import { SAMPLE_VENDOR, SAMPLE_SERVICES } from "@/src/sampleVendor";
 
 const MIN_CHARS = 2;
@@ -49,8 +50,10 @@ export default function Search() {
     root: { flex: 1, backgroundColor: c.surface },
     headerRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: spacing.lg, paddingRight: 64 },
     back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-    searchBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, height: 56, backgroundColor: c.surface2, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: c.borderStrong },
-    input: { flex: 1, color: c.text, fontSize: 17, height: 56 },
+    searchBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, height: 50, paddingHorizontal: 16, borderRadius: radius.pill,
+      backgroundColor: c.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)",
+      borderWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.22)" : "rgba(92,83,68,0.18)" },
+    input: { flex: 1, color: c.text, fontSize: 16, height: 50 },
     card: { flexDirection: "row", backgroundColor: c.surface2, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.border },
     img: { width: 110, height: 110 },
     cardName: { color: c.text, fontSize: 16, fontWeight: "600" },
@@ -198,10 +201,13 @@ export default function Search() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color={colors.brand} />
-          <TextInput testID="search-input" value={q} onChangeText={setQ} placeholder="Search vendors, services…"
-            placeholderTextColor={colors.textMuted} style={styles.input} autoFocus returnKeyType="search"
-            onSubmitEditing={() => saveRecent(q)} autoCorrect={false} />
+          <Ionicons name="search" size={19} color={colors.brand} style={{ opacity: 0.85 }} />
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            {!q ? <View style={StyleSheet.absoluteFill}><RotatingHint testID="search-hint" style={{ fontSize: 16 }} /></View> : null}
+            <TextInput testID="search-input" value={q} onChangeText={setQ} accessibilityLabel="Search vendors and services"
+              style={styles.input} autoFocus returnKeyType="search"
+              onSubmitEditing={() => saveRecent(q)} autoCorrect={false} />
+          </View>
           {q ? <Pressable hitSlop={10} onPress={() => setQ("")} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={20} color={colors.textMuted} /></Pressable> : null}
         </View>
       </View>

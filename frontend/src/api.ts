@@ -88,8 +88,19 @@ async function req(method: string, path: string, body?: any, opts: { auth?: bool
   return data;
 }
 
+// GETs are idempotent: retry once after a transient network failure (e.g. iOS
+// "Fetch request has been canceled" over the Expo tunnel) instead of failing the screen.
+async function getWithRetry(p: string, opts?: any) {
+  try { return await req("GET", p, undefined, opts); }
+  catch (e: any) {
+    if (!/^Network request failed|^Request timed out/.test(String(e?.message || ""))) throw e;
+    await new Promise((r) => setTimeout(r, 600));
+    return req("GET", p, undefined, opts);
+  }
+}
+
 export const api = {
-  get: (p: string, opts?: any) => req("GET", p, undefined, opts),
+  get: (p: string, opts?: any) => getWithRetry(p, opts),
   post: (p: string, b?: any, opts?: any) => req("POST", p, b, opts),
   patch: (p: string, b?: any, opts?: any) => req("PATCH", p, b, opts),
   del: (p: string, opts?: any) => req("DELETE", p, undefined, opts),
