@@ -54,13 +54,13 @@ export default function Kyc() {
           {status === "rejected" && <Text style={{ color: colors.error, marginBottom: spacing.sm }}>Your previous submission needs changes — please re-submit.</Text>}
           <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to get verified — only verified vendors are listed to customers on Thara.</Text>
           <Text style={styles.lbl}>Business Name *</Text>
-          <TextInput value={biz} onChangeText={setBiz} placeholder="Registered name" placeholderTextColor={colors.textMuted} style={styles.input} testID="kyc-biz" />
+          <TextInput value={biz} onChangeText={setBiz} placeholder="Registered name" placeholderTextColor={colors.textMuted + "88"} style={styles.input} testID="kyc-biz" />
           <Text style={styles.lbl}>PAN Number *</Text>
-          <TextInput value={pan} onChangeText={setPan} placeholder="ABCDE1234F" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" testID="kyc-pan" />
+          <TextInput value={pan} onChangeText={setPan} placeholder="ABCDE1234F" placeholderTextColor={colors.textMuted + "88"} style={styles.input} autoCapitalize="characters" testID="kyc-pan" />
           <Text style={styles.lbl}>GST Number</Text>
-          <TextInput value={gst} onChangeText={setGst} placeholder="22AAAAA0000A1Z5" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" testID="kyc-gst" />
+          <TextInput value={gst} onChangeText={setGst} placeholder="22AAAAA0000A1Z5" placeholderTextColor={colors.textMuted + "88"} style={styles.input} autoCapitalize="characters" testID="kyc-gst" />
           <Text style={styles.lbl}>Business Address *</Text>
-          <TextInput value={addr} onChangeText={setAddr} placeholder="Full address" placeholderTextColor={colors.textMuted} style={[styles.input, { height: 80, textAlignVertical: "top" }]} multiline testID="kyc-addr" />
+          <TextInput value={addr} onChangeText={setAddr} placeholder="Full address" placeholderTextColor={colors.textMuted + "88"} style={[styles.input, { height: 80, textAlignVertical: "top" }]} multiline testID="kyc-addr" />
           <GoldButton testID="kyc-submit" title="Submit KYC" onPress={submit} loading={loading} style={{ marginTop: spacing.xxxl }} />
         </View>
       )}

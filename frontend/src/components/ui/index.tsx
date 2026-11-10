@@ -159,6 +159,7 @@ export function ImageTile({ uri, title, subtitle, eyebrow, width, height = 220, 
       {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} />
         : <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}><Ionicons name={fallbackIcon} size={30} color={editorialGold(c)} style={{ opacity: 0.5 }} /></View>}
       <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.78)"]} locations={[0.35, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      {topRight ? <LinearGradient colors={["rgba(0,0,0,0.45)", "rgba(0,0,0,0)"]} style={{ position: "absolute", left: 0, right: 0, top: 0, height: 64 }} pointerEvents="none" /> : null}
       {topRight ? <View style={{ position: "absolute", top: 12, right: 12 }}>{topRight}</View> : null}
       <View style={{ position: "absolute", left: 16, right: 16, bottom: 14, flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
         <View style={{ flex: 1 }}>
@@ -208,17 +209,18 @@ export function KeyValue({ label, value, last, emphasis, valueColor }: { label: 
   );
 }
 
-/** Soft radial-ish gold glow behind a hero element (stacked translucent discs). */
+/** Soft radial-ish gold glow behind a hero element (many faint stacked discs → smooth falloff). */
 export function GoldGlow({ size = 220, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
   const base = c.mode === "dark" ? "226,190,110" : "176,138,62";
-  const layers = [1, 0.78, 0.56, 0.36];
-  const alphas = c.mode === "dark" ? [0.035, 0.05, 0.065, 0.08] : [0.05, 0.07, 0.09, 0.11];
+  const steps = 14;
+  const per = c.mode === "dark" ? 0.012 : 0.016; // tiny per-layer alpha so no visible rings
   return (
     <View pointerEvents="none" style={[{ position: "absolute", width: size, height: size, alignItems: "center", justifyContent: "center" }, style]}>
-      {layers.map((f, i) => (
-        <View key={i} style={{ position: "absolute", width: size * f, height: size * f, borderRadius: (size * f) / 2, backgroundColor: `rgba(${base},${alphas[i]})` }} />
-      ))}
+      {Array.from({ length: steps }, (_, i) => {
+        const f = 1 - i * (0.62 / steps);
+        return <View key={i} style={{ position: "absolute", width: size * f, height: size * f, borderRadius: (size * f) / 2, backgroundColor: `rgba(${base},${per})` }} />;
+      })}
     </View>
   );
 }

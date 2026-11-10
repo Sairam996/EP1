@@ -70,8 +70,8 @@ export default function Home() {
       borderWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.22)" : "rgba(92,83,68,0.18)" },
     searchDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: c.mode === "dark" ? "rgba(255,248,235,0.16)" : "rgba(28,28,28,0.14)" },
     aiInSearch: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: c.brandTint },
-    cityPick: { flexDirection: "row", alignItems: "center", gap: 4, height: 40, paddingRight: 6, maxWidth: 130 },
-    cityText: { color: c.text, fontWeight: "600", fontSize: 14, flexShrink: 1 },
+    cityPick: { flexDirection: "row", alignItems: "center", gap: 3, height: 40, paddingRight: 4 },
+    cityText: { color: c.text, fontWeight: "600", fontSize: 13, flexShrink: 1 },
     retryBtn: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm, paddingHorizontal: 12, height: 40 },
     retryText: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontWeight: "700", fontSize: 14, letterSpacing: 0.6 },
     cityDrop: { marginTop: spacing.sm, paddingVertical: 4 },
@@ -175,7 +175,7 @@ export default function Home() {
               <Ionicons name={cityOpen ? "chevron-up" : "chevron-down"} size={13} color={colors.textMuted} />
             </Pressable>
           </View>
-          <TharaLogo variant="wordmark" size={36} testID="home-wordmark" />
+          <TharaLogo variant="wordmark" size={31} testID="home-wordmark" />
           <View style={styles.topSide} />
         </View>
         {/* Search pill with rotating hints and Thara AI inside on the right */}

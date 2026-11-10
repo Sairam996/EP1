@@ -115,7 +115,7 @@ export default function Profile() {
 
       <View style={s.hero}>
         <View style={s.glowWrap}>
-          <GoldGlow size={230} />
+          <GoldGlow size={210} />
           <View style={s.avatarRing}>
             {u.avatar ? <Image source={{ uri: u.avatar }} style={s.avatar} contentFit="cover" />
               : <View style={s.initials}><Text style={s.initialsT}>{initials}</Text></View>}

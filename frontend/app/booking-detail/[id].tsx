@@ -53,7 +53,7 @@ export default function BookingDetail() {
       </View>
 
       <Section eyebrow="Your event">
-        <KeyValue label="Event" value={String(b.event_type || "").replace(/_/g, " ")} />
+        <KeyValue label="Event" value={String(b.event_type || "").replace(/_/g, " ").replace(/^./, (x) => x.toUpperCase())} />
         <KeyValue label="Date" value={b.event_date} />
         <KeyValue label="Guests" value={String(b.guests)} />
         <KeyValue label="Payment" value={<StatusText status={b.payment_status} />} />
