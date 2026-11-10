@@ -6,7 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
+import { Divider, EyebrowLabel, gutter } from "@/src/components/ui";
+import { EmptyState } from "@/src/components/Polish";
 
 export default function ChatList() {
   const insets = useSafeAreaInsets();
@@ -17,11 +19,11 @@ export default function ChatList() {
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    h: { color: c.text, fontSize: 24, fontWeight: "600", paddingHorizontal: spacing.xl, marginTop: spacing.sm, marginBottom: spacing.md },
-    row: { flexDirection: "row", alignItems: "center", gap: 12, padding: spacing.md, backgroundColor: c.surface2, borderRadius: radius.lg, marginBottom: spacing.sm, borderWidth: 1, borderColor: c.border },
-    av: { width: 52, height: 52, borderRadius: 26 },
-    name: { color: c.text, fontSize: 15, fontWeight: "600" },
-    last: { color: c.textMuted, fontSize: 12 },
+    h: { color: c.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold },
+    row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14 },
+    av: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.surface3 },
+    name: { color: c.text, fontSize: 19, lineHeight: 23, fontFamily: fonts.displayBold },
+    last: { color: c.textMuted, fontSize: 13 },
     empty: { color: c.textMuted },
     emptyMuted: { color: c.textMuted, fontSize: 12 },
   }));
@@ -35,28 +37,30 @@ export default function ChatList() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
-      <Text style={styles.h}>Messages</Text>
+      <View style={{ paddingHorizontal: gutter, marginTop: spacing.md, marginBottom: spacing.sm, gap: 4 }}>
+        <EyebrowLabel>Conversations</EyebrowLabel>
+        <Text style={styles.h}>Messages</Text>
+      </View>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
         <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
           data={items}
           keyExtractor={(it) => it.booking_id}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: 100 }}
+          ItemSeparatorComponent={() => <Divider inset={70} />}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={
-            <View style={{ alignItems: "center", marginTop: 80, gap: 8 }}>
-              <Ionicons name="chatbubbles-outline" size={56} color={colors.textMuted} />
-              <Text style={styles.empty}>No conversations yet</Text>
-              <Text style={styles.emptyMuted}>Book a vendor to start chatting</Text>
+            <View style={{ marginTop: 40 }}>
+              <EmptyState icon="chatbubbles-outline" title="No conversations yet" message="Book a vendor to start chatting." />
             </View>
           }
           renderItem={({ item }) => (
-            <Pressable testID={`thread-${item.booking_id}`} onPress={() => router.push(`/chat/${item.booking_id}`)} style={styles.row}>
+            <Pressable testID={`thread-${item.booking_id}`} onPress={() => router.push(`/chat/${item.booking_id}`)} style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
               <Image source={{ uri: item.vendor_cover }} style={styles.av} contentFit="cover" />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.name} numberOfLines={1}>{item.vendor_name}</Text>
                 <Text style={styles.last} numberOfLines={1}>{item.last_message}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />
             </Pressable>
           )}
         />

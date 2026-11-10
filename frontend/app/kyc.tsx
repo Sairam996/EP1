@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { useCelebrate } from "@/src/components/Celebration";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { colors, fonts, spacing, themedStyles } from "@/src/theme";
+import { EyebrowLabel, gutter } from "@/src/components/ui";
 
 export default function Kyc() {
   const insets = useSafeAreaInsets();
@@ -32,23 +33,24 @@ export default function Kyc() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.surface }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
-        <Text style={styles.title}>KYC Verification</Text>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back"><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
+        <Text style={styles.title}>Business Verification</Text>
+        <EyebrowLabel>KYC · Thara Partner</EyebrowLabel>
       </View>
       {status === "approved" ? (
         <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }}>
-          <View style={styles.okCircle}><Ionicons name="checkmark" size={40} color={colors.onBrand} /></View>
-          <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>You{"'"}re Verified ✨</Text>
+          <View style={styles.okCircle}><Ionicons name="checkmark" size={40} color={colors.brand} /></View>
+          <Text style={{ color: colors.text, fontSize: 30, fontFamily: fonts.displayBold }}>You{"'"}re Verified</Text>
           <Text style={{ color: colors.textMuted, textAlign: "center" }}>Your business is verified. The gold badge is now on your listing.</Text>
         </View>
       ) : status === "pending" ? (
         <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }} testID="kyc-pending">
-          <View style={[styles.okCircle, { backgroundColor: colors.warning }]}><Ionicons name="time" size={40} color={colors.onBrand} /></View>
-          <Text style={{ color: colors.text, fontSize: 22, fontWeight: "500" }}>Under Review</Text>
+          <View style={styles.okCircle}><Ionicons name="time-outline" size={38} color={colors.brand} /></View>
+          <Text style={{ color: colors.text, fontSize: 30, fontFamily: fonts.displayBold }}>Under Review</Text>
           <Text style={{ color: colors.textMuted, textAlign: "center" }}>Thanks! The Thara team is verifying your details. You{"'"}ll get the Verified badge within 1–2 business days.</Text>
         </View>
       ) : (
-        <View style={{ padding: spacing.xl, gap: 6 }}>
+        <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
           {status === "rejected" && <Text style={{ color: colors.error, marginBottom: spacing.sm }}>Your previous submission needs changes — please re-submit.</Text>}
           <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to get verified — only verified vendors are listed to customers on Thara.</Text>
           <Text style={styles.lbl}>Business Name *</Text>
@@ -59,16 +61,17 @@ export default function Kyc() {
           <TextInput value={gst} onChangeText={setGst} placeholder="22AAAAA0000A1Z5" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" testID="kyc-gst" />
           <Text style={styles.lbl}>Business Address *</Text>
           <TextInput value={addr} onChangeText={setAddr} placeholder="Full address" placeholderTextColor={colors.textMuted} style={[styles.input, { height: 80, textAlignVertical: "top" }]} multiline testID="kyc-addr" />
-          <GoldButton testID="kyc-submit" title="Submit KYC" onPress={submit} loading={loading} style={{ marginTop: spacing.lg }} />
+          <GoldButton testID="kyc-submit" title="Submit KYC" onPress={submit} loading={loading} style={{ marginTop: spacing.xxxl }} />
         </View>
       )}
     </ScrollView>
   );
 }
 const styles = themedStyles((colors) => ({
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: colors.border },
-  title: { color: colors.text, fontSize: 18, fontWeight: "500" },
-  lbl: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md, letterSpacing: 1, textTransform: "uppercase" },
-  input: { backgroundColor: colors.surface2, borderRadius: radius.md, padding: 14, color: colors.text, borderWidth: 1, borderColor: colors.border, fontSize: 15 },
-  okCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  header: { paddingHorizontal: gutter, paddingBottom: spacing.sm, gap: 6 },
+  title: { color: colors.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, marginTop: spacing.md },
+  lbl: { color: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 10.5, fontWeight: "600", marginTop: spacing.xl, marginBottom: 6, letterSpacing: 2, textTransform: "uppercase" },
+  // Underline field: soft fill-free input with a gold hairline beneath.
+  input: { paddingVertical: 10, paddingHorizontal: 0, color: colors.text, fontSize: 17, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.mode === "dark" ? "rgba(226,190,110,0.45)" : "rgba(140,106,38,0.45)" },
+  okCircle: { width: 96, height: 96, borderRadius: 48, borderWidth: 1, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
 }));

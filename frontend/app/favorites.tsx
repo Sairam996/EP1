@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
-import { Rating } from "@/src/components/UI";
 import { useTheme } from "@/src/context/ThemeContext";
-import { radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
+import { EyebrowLabel, ImageTile, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
 
 export default function Favorites() {
@@ -18,10 +17,8 @@ export default function Favorites() {
 
   const styles = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md, borderBottomWidth: 1, borderColor: c.border },
-    title: { color: c.text, fontSize: 20, fontWeight: "600" },
-    card: { flexDirection: "row", backgroundColor: c.surface2, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.border },
-    img: { width: 100, height: 100 },
+    header: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+    title: { color: c.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, marginTop: spacing.md },
     empty: { color: c.textMuted, textAlign: "center", marginTop: 40 },
     name: { color: c.text, fontWeight: "600" },
     price: { color: c.brand, fontWeight: "700", marginTop: 4 },
@@ -30,22 +27,19 @@ export default function Favorites() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
-        <Text style={styles.title}>Favorites</Text>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back"><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
+        <Text style={styles.title}>Saved</Text>
+        <EyebrowLabel muted style={{ marginTop: 4 }}>{items.length ? `${items.length} vendor${items.length === 1 ? "" : "s"} you loved` : "Your shortlist"}</EyebrowLabel>
       </View>
       <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
         data={items} keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+        contentContainerStyle={{ paddingBottom: 60, gap: 3 }}
         ListEmptyComponent={<EmptyState icon="heart-outline" title="No favorites yet" message="Tap the heart on any vendor to save it here." ctaTitle="Explore vendors" ghost onCta={() => router.push("/search" as any)} />}
         renderItem={({ item }) => (
-          <Pressable onPress={() => router.push(`/vendor/${item.id}`)} style={styles.card}>
-            <Image source={{ uri: item.cover }} style={styles.img} contentFit="cover" />
-            <View style={{ flex: 1, padding: spacing.md }}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Rating value={item.rating} size={12} />
-              <Text style={styles.price}>₹{item.starting_price.toLocaleString("en-IN")}+</Text>
-            </View>
-          </Pressable>
+          <ImageTile onPress={() => router.push(`/vendor/${item.id}`)} uri={item.cover} height={240} radius={0} testID={`fav-${item.id}`}
+            eyebrow={item.category} title={item.name}
+            subtitle={[item.reviews_count > 0 || item.rating ? `★ ${Number(item.rating || 0).toFixed(1)}` : null, Number(item.starting_price) > 0 ? `from ₹${Number(item.starting_price).toLocaleString("en-IN")}` : null].filter(Boolean).join("   ·   ")}
+            topRight={<Ionicons name="heart" size={20} color="#E2BE6E" />} />
         )}
       />
     </View>

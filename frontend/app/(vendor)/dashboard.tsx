@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, router } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
-import { colors, radius, spacing, themedStyles } from "@/src/theme";
+import { colors, fonts, spacing, themedStyles } from "@/src/theme";
+import { Divider, EyebrowLabel, ListRow, Section, StatStrip, gutter } from "@/src/components/ui";
 
 const STEPS = [
   { key: "description", label: "Describe your business", route: "/vendor-profile-edit" },
@@ -58,116 +58,62 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.surface }}
-      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}
+      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}>
-      <View style={{ paddingHorizontal: spacing.xl }}>
-        <Text style={styles.welcome}>Welcome back,</Text>
-        <Text style={styles.name}>{user?.name?.split(" ")[0]}</Text>
-        {data.founding_vendor && (
-          <View style={styles.founding}><Ionicons name="star" size={12} color={colors.onBrand} /><Text style={styles.foundingT}>Founding Vendor · Hyderabad</Text></View>
-        )}
-        <Pressable testID="kyc-prompt" onPress={() => router.push("/kyc")} style={[styles.kycPrompt, { borderColor: kyc.color + "77" }]}>
-          <Ionicons name={kyc.icon as any} size={20} color={kyc.color} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: kyc.color, fontWeight: "600" }}>KYC: {kyc.label}</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 12 }}>{kyc.sub}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
+      <View style={{ paddingHorizontal: gutter, marginTop: spacing.md }}>
+        <EyebrowLabel>{data.founding_vendor ? "Founding Vendor · Hyderabad" : "Partner dashboard"}</EyebrowLabel>
+        <Text style={styles.name}>Welcome back, {user?.name?.split(" ")[0]}</Text>
+      </View>
 
-        <View style={styles.strength} testID="profile-strength">
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-            <Text style={styles.strengthT}>Profile strength</Text>
-            <Text style={styles.strengthPct}>{comp.percent}%</Text>
-          </View>
-          <View style={styles.barBg}><View style={[styles.barFill, { width: `${comp.percent}%` }]} /></View>
-          <Text style={{ color: comp.listable ? colors.success : colors.textMuted, fontSize: 12, marginTop: 6 }}>
-            {comp.listable ? "✓ Live — customers in your city can find you" : "Finish the steps below to go live on Thara"}
+      <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
+        <Divider />
+        <ListRow testID="kyc-prompt" icon={kyc.icon.endsWith("-outline") ? (kyc.icon as any) : (`${kyc.icon}-outline` as any)} iconColor={kyc.color}
+          title={`KYC · ${kyc.label}`} subtitle={kyc.sub} onPress={() => router.push("/kyc")} last />
+        <Divider />
+      </View>
+
+      <StatStrip style={{ marginHorizontal: gutter, marginTop: spacing.lg }} items={tiles.map((t) => ({ id: `stat-${t.lbl}`, value: t.val ?? 0, label: t.lbl }))} />
+      <Divider style={{ marginHorizontal: gutter }} />
+      <StatStrip style={{ marginHorizontal: gutter }} items={[
+        { id: "st-pending", value: data.pending ?? 0, label: "Pending", onPress: () => router.push("/(vendor)/bookings") },
+        { id: "st-confirmed", value: data.confirmed ?? 0, label: "Confirmed", onPress: () => router.push("/(vendor)/bookings") },
+        { id: "st-completed", value: data.completed ?? 0, label: "Completed", onPress: () => router.push("/(vendor)/bookings") },
+      ]} />
+      <Divider style={{ marginHorizontal: gutter }} />
+
+      <Section eyebrow="Profile strength" testID="profile-strength">
+        <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+          <Text style={styles.strengthPct}>{comp.percent}%</Text>
+          <Text style={{ color: comp.listable ? colors.success : colors.textMuted, fontSize: 12, flexShrink: 1, textAlign: "right", marginLeft: 12 }}>
+            {comp.listable ? "Live — customers in your city can find you" : "Finish the steps below to go live"}
           </Text>
-          <View style={{ marginTop: spacing.md, gap: 2 }}>
-            {STEPS.map((st) => {
-              const ok = !!comp.checks?.[st.key];
-              return (
-                <Pressable key={st.key} testID={`step-${st.key}`} onPress={() => router.push(st.route as any)} style={styles.step}>
-                  <Ionicons name={ok ? "checkmark-circle" : "ellipse-outline"} size={18} color={ok ? colors.success : colors.borderStrong} />
-                  <Text style={[styles.stepT, ok && { color: colors.textMuted, textDecorationLine: "line-through" }]}>{st.label}</Text>
-                  {!ok && <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />}
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
-      </View>
-      <View style={styles.grid}>
-        {tiles.map(t => (
-          <View key={t.lbl} style={styles.tile}>
-            <Ionicons name={t.icon as any} size={20} color={colors.brand} />
-            <Text style={styles.tileVal}>{t.val}</Text>
-            <Text style={styles.tileLbl}>{t.lbl}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={[styles.row, { marginHorizontal: spacing.xl, marginTop: spacing.lg }]}>
-        <View style={styles.statusBox}>
-          <Text style={styles.statusN}>{data.pending}</Text>
-          <Text style={styles.statusL}>Pending</Text>
+        <View style={styles.barBg}><View style={[styles.barFill, { width: `${comp.percent}%` }]} /></View>
+        <View style={{ marginTop: spacing.sm }}>
+          {STEPS.map((st, i) => {
+            const ok = !!comp.checks?.[st.key];
+            return (
+              <ListRow key={st.key} testID={`step-${st.key}`} icon={ok ? "checkmark-circle-outline" : "ellipse-outline"} iconColor={ok ? colors.success : undefined}
+                title={st.label} titleStyle={ok ? { color: colors.textMuted, textDecorationLine: "line-through" } : undefined}
+                onPress={() => router.push(st.route as any)} chevron={!ok} last={i === STEPS.length - 1} />
+            );
+          })}
         </View>
-        <View style={styles.statusBox}>
-          <Text style={[styles.statusN, { color: colors.success }]}>{data.confirmed}</Text>
-          <Text style={styles.statusL}>Confirmed</Text>
-        </View>
-        <View style={styles.statusBox}>
-          <Text style={[styles.statusN, { color: colors.info }]}>{data.completed}</Text>
-          <Text style={styles.statusL}>Completed</Text>
-        </View>
-      </View>
-      <View style={styles.actions}>
-        <Pressable testID="edit-profile-link" onPress={() => router.push("/vendor-profile-edit")} style={styles.action}>
-          <Ionicons name="create" size={22} color={colors.brand} />
-          <Text style={styles.actT}>Edit Business Profile</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
-        <Pressable testID="services-link" onPress={() => router.push("/vendor-services")} style={styles.action}>
-          <Ionicons name="construct" size={22} color={colors.brand} />
-          <Text style={styles.actT}>Packages & Services ({data.services_count ?? 0})</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
-        <Pressable testID="avail-link" onPress={() => router.push("/vendor-availability")} style={styles.action}>
-          <Ionicons name="calendar" size={22} color={colors.brand} />
-          <Text style={styles.actT}>Availability Calendar</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
-        <Pressable testID="kyc-link" onPress={() => router.push("/kyc")} style={styles.action}>
-          <Ionicons name="shield-checkmark" size={22} color={colors.brand} />
-          <Text style={styles.actT}>KYC Verification · {kyc.label}</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </Pressable>
-      </View>
+      </Section>
+
+      <Section eyebrow="Manage">
+        <Divider />
+        <ListRow testID="edit-profile-link" icon="create-outline" title="Edit Business Profile" subtitle="Photos, story, event types" onPress={() => router.push("/vendor-profile-edit")} />
+        <ListRow testID="services-link" icon="pricetags-outline" title="Packages & Services" subtitle={`${data.services_count ?? 0} listed`} onPress={() => router.push("/vendor-services")} />
+        <ListRow testID="avail-link" icon="calendar-outline" title="Availability Calendar" subtitle="Block dates you're booked" onPress={() => router.push("/vendor-availability")} />
+        <ListRow testID="kyc-link" icon="shield-checkmark-outline" title="KYC Verification" subtitle={kyc.label} onPress={() => router.push("/kyc")} last />
+      </Section>
     </ScrollView>
   );
 }
 const styles = themedStyles((colors) => ({
-  welcome: { color: colors.textMuted, fontSize: 14 },
-  name: { color: colors.text, fontSize: 28, fontWeight: "500" },
-  kycPrompt: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.warning + "55" },
-  founding: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill, marginTop: 8 },
-  foundingT: { color: colors.onBrand, fontSize: 11, fontWeight: "700" },
-  strength: { marginTop: spacing.md, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand + "55" },
-  strengthT: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  strengthPct: { color: colors.brand, fontSize: 22, fontWeight: "700" },
-  barBg: { height: 6, borderRadius: 3, backgroundColor: colors.surface3, marginTop: 8, overflow: "hidden" },
-  barFill: { height: 6, borderRadius: 3, backgroundColor: colors.brand },
-  step: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  stepT: { color: colors.text, fontSize: 14, flex: 1 },
-  grid: { flexDirection: "row", flexWrap: "wrap", padding: spacing.xl, gap: 12 },
-  tile: { flexBasis: "47%", padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, gap: 6 },
-  tileVal: { color: colors.brand, fontSize: 26, fontWeight: "600" },
-  tileLbl: { color: colors.textMuted, fontSize: 12 },
-  row: { flexDirection: "row", gap: 10 },
-  statusBox: { flex: 1, padding: spacing.md, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: "center" },
-  statusN: { color: colors.warning, fontSize: 22, fontWeight: "600" },
-  statusL: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
-  actions: { paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: spacing.sm },
-  action: { flexDirection: "row", alignItems: "center", gap: 14, padding: spacing.lg, backgroundColor: colors.surface2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  actT: { color: colors.text, fontSize: 15, fontWeight: "500", flex: 1 },
+  name: { color: colors.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, marginTop: 6 },
+  strengthPct: { color: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 44, lineHeight: 48, fontFamily: fonts.displayBold },
+  barBg: { height: 2, borderRadius: 1, backgroundColor: colors.mode === "dark" ? "rgba(226,190,110,0.15)" : "rgba(140,106,38,0.15)", marginTop: 10, overflow: "hidden" },
+  barFill: { height: 2, borderRadius: 1, backgroundColor: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26" },
 }));
