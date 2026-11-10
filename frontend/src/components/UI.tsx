@@ -1,7 +1,7 @@
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator, ViewStyle, TextStyle, StyleProp } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, ViewStyle, TextStyle, StyleProp } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { radius, spacing, useThemedStyles, touch, press, type, elevation } from "../theme";
+import { radius, spacing, useThemedStyles, touch, press, type } from "../theme";
 import { useTheme } from "../context/ThemeContext";
 
 export function GoldButton({ title, onPress, loading, disabled, testID, icon, style }:
@@ -9,11 +9,10 @@ export function GoldButton({ title, onPress, loading, disabled, testID, icon, st
   const { colors } = useTheme();
   const styles = useThemedStyles((c) => ({
     gBtn: {
-      backgroundColor: c.brand, borderRadius: radius.md, minHeight: 48, paddingVertical: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center",
-      borderWidth: 1, borderColor: c.brand2,
-      shadowColor: c.brand, ...elevation.raised,
+      backgroundColor: c.brand, borderRadius: radius.pill, minHeight: 50, paddingVertical: 13, paddingHorizontal: 22, alignItems: "center", justifyContent: "center",
+      shadowColor: c.brand, shadowOpacity: c.mode === "dark" ? 0.28 : 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
     },
-    gBtnText: { color: c.onBrand, fontSize: 14, fontWeight: "700", letterSpacing: 0.4 },
+    gBtnText: { color: c.onBrand, fontSize: 14, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase" },
   }));
   return (
     <Pressable testID={testID} onPress={onPress} disabled={disabled || loading}
@@ -33,13 +32,14 @@ export function GhostButton({ title, onPress, testID, icon, style }:
   { title: string; onPress?: () => void; testID?: string; icon?: string; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
   const styles = useThemedStyles((c) => ({
-    ghBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: radius.md, minHeight: touch.minTarget, paddingVertical: 11, paddingHorizontal: 16, borderWidth: 1.5, borderColor: c.brand, backgroundColor: c.brandTint },
-    ghBtnText: { color: c.brand2, fontSize: 14, fontWeight: "700" },
+    // Secondary action = text button (no outline, no fill) per the editorial layout.
+    ghBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", minHeight: touch.minTarget, paddingVertical: 10, paddingHorizontal: 12 },
+    ghBtnText: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 14, fontWeight: "700", letterSpacing: 0.6 },
   }));
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => [styles.ghBtn, pressed && { opacity: press.opacity, transform: [{ scale: press.scale }] }, style]}>
-      {icon ? <Ionicons name={icon as any} size={18} color={colors.brand} style={{ marginRight: 6 }} /> : null}
+      style={({ pressed }) => [styles.ghBtn, pressed && { opacity: 0.55 }, style]}>
+      {icon ? <Ionicons name={icon as any} size={18} color={colors.mode === "dark" ? "#E2BE6E" : "#8C6A26"} style={{ marginRight: 6 }} /> : null}
       <Text style={styles.ghBtnText}>{title}</Text>
     </Pressable>
   );
@@ -47,9 +47,10 @@ export function GhostButton({ title, onPress, testID, icon, style }:
 
 export function Card({ children, style, testID }: { children: any; style?: StyleProp<ViewStyle>; testID?: string }) {
   const styles = useThemedStyles((c) => ({
+    // Open block: no border, no fill — separation comes from a gold hairline below.
     card: {
-      backgroundColor: c.surface2, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: c.border,
-      shadowColor: c.mode === "dark" ? "#D4AF37" : "#C4A35A", ...elevation.card,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)",
     },
   }));
   return <View testID={testID} style={[styles.card, style]}>{children}</View>;
@@ -72,14 +73,15 @@ export function Pill({ label, active, onPress, testID }:
   { label: string; active?: boolean; onPress?: () => void; testID?: string }) {
   const { colors } = useTheme();
   const styles = useThemedStyles((c) => ({
-    pill: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
-    pillText: { color: c.text, fontSize: 12, fontWeight: "500" },
+    // Text option with an underline when selected (no boxed chip).
+    pill: { paddingHorizontal: 4, minHeight: 36, alignItems: "center", justifyContent: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
+    pillText: { color: c.textMuted, fontSize: 14, fontWeight: "500" },
   }));
   return (
     <Pressable testID={testID} onPress={onPress} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
       accessibilityRole="button" accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => [styles.pill, pressed && { opacity: press.opacity }, active && { backgroundColor: colors.brandTint, borderColor: colors.brand, borderWidth: 1.5 }]}>
-      <Text style={[styles.pillText, active && { color: colors.brand2, fontWeight: "700" }]}>{label}</Text>
+      style={({ pressed }) => [styles.pill, pressed && { opacity: press.opacity }, active && { borderBottomColor: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26" }]}>
+      <Text style={[styles.pillText, active && { color: colors.text, fontWeight: "700" }]}>{label}</Text>
     </Pressable>
   );
 }
