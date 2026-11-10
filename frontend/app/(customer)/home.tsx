@@ -15,6 +15,7 @@ import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
 import { EmptyState } from "@/src/components/Polish";
 import { RotatingHint } from "@/src/components/RotatingHint";
+import { EyebrowLabel, SectionHeader as SectionHead, gutter } from "@/src/components/ui";
 
 const { width } = Dimensions.get("window");
 const HERO_W = width - spacing.xl * 2;
@@ -71,43 +72,41 @@ export default function Home() {
     aiInSearch: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: c.brandTint },
     cityPick: { flexDirection: "row", alignItems: "center", gap: 4, height: 40, paddingRight: 6, maxWidth: 130 },
     cityText: { color: c.text, fontWeight: "600", fontSize: 14, flexShrink: 1 },
-    retryBtn: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm, paddingHorizontal: 18, height: 40, borderRadius: radius.pill, backgroundColor: c.brandTint },
-    retryText: { color: c.brand, fontWeight: "600", fontSize: 14 },
+    retryBtn: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm, paddingHorizontal: 12, height: 40 },
+    retryText: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontWeight: "700", fontSize: 14, letterSpacing: 0.6 },
     cityDrop: { marginTop: spacing.sm, paddingVertical: 4 },
-    cityChip: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center" },
-    greet: { color: c.text, fontSize: 22, fontWeight: "600", letterSpacing: 0.2 },
-    greetSub: { color: c.textMuted, fontSize: 13, marginTop: 4 },
-    hero: { height: 168, borderRadius: radius.lg, overflow: "hidden" },
+    greet: { color: c.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, letterSpacing: 0.2, marginTop: 6 },
+    greetSub: { color: c.textMuted, fontSize: 13.5, marginTop: 2 },
+    hero: { height: 230, borderRadius: 20, overflow: "hidden" },
     heroImg: { width: "100%", height: "100%" },
     heroScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "70%" },
     heroText: { position: "absolute", left: 16, bottom: 16, right: 16 },
-    heroLabel: { color: c.brand, fontSize: 11, letterSpacing: 2, fontWeight: "600" },
-    heroTitle: { color: "#F5F0E6", fontSize: 18, fontWeight: "500", marginTop: 2 },
-    section: { color: c.text, fontSize: 19, fontFamily: fonts.displayBold, letterSpacing: 0.4, marginTop: spacing.xl, marginBottom: spacing.sm, paddingHorizontal: spacing.xl },
-    sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingRight: spacing.xl },
+    heroLabel: { color: "#E2BE6E", fontSize: 10.5, letterSpacing: 2.4, fontWeight: "700" },
+    heroTitle: { color: "#FFF8EB", fontSize: 26, lineHeight: 30, fontFamily: fonts.displayBold, marginTop: 4 },
     chipRow: { paddingHorizontal: spacing.xl, gap: 8 },
-    vCard: { width: 190, height: 230, borderRadius: radius.lg, overflow: "hidden", backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
+    vCard: { width: 214, height: 284, borderRadius: 18, overflow: "hidden", backgroundColor: c.surface3 },
     vImg: { width: "100%", height: "100%", position: "absolute" },
     vScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "75%" },
     vMeta: { position: "absolute", left: 12, bottom: 12, right: 12 },
-    vName: { color: "#F5F0E6", fontSize: 14, fontWeight: "600", marginBottom: 2 },
+    vName: { color: "#FFF8EB", fontSize: 21, lineHeight: 24, fontFamily: fonts.displayBold, marginBottom: 4 },
     vRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     vDot: { color: "rgba(243,244,246,0.7)" },
     vMuted: { color: "rgba(243,244,246,0.85)", fontSize: 11 },
-    vPrice: { color: c.brand, fontSize: 13, fontWeight: "700", marginTop: 3 },
-    verifiedBadge: { position: "absolute", top: 8, left: 8, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: c.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
-    sampleBadge: { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.65)", borderWidth: 1, borderColor: c.brand, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
-    verifiedText: { color: c.onBrand, fontSize: 9, fontWeight: "700" },
-    combo: { height: 168, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: c.border },
+    vPrice: { color: "#E2BE6E", fontSize: 13, fontWeight: "700", marginTop: 5, letterSpacing: 0.3 },
+    // Text-on-image tags (no solid/outlined pills).
+    verifiedBadge: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center", gap: 4 },
+    sampleBadge: { position: "absolute", top: 12, right: 12 },
+    verifiedText: { color: "#FFF8EB", fontSize: 10, fontWeight: "700", letterSpacing: 1.6, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
+    topScrim: { position: "absolute", left: 0, right: 0, top: 0, height: 70 },
+    combo: { height: 240, overflow: "hidden" },
     comboImg: { width: "100%", height: "100%", position: "absolute" },
     comboScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "85%" },
     comboBox: { position: "absolute", left: 16, right: 16, bottom: 16 },
-    comboTitle: { color: "#F5F0E6", fontSize: 18, fontWeight: "600" },
+    comboTitle: { color: "#FFF8EB", fontSize: 28, lineHeight: 32, fontFamily: fonts.displayBold },
     comboDesc: { color: "rgba(243,244,246,0.85)", fontSize: 11, marginTop: 3 },
-    comboPrice: { color: c.brand, fontSize: 17, fontWeight: "700" },
+    comboPrice: { color: "#E2BE6E", fontSize: 20, fontFamily: fonts.displayBold },
     comboOrig: { color: "rgba(243,244,246,0.6)", fontSize: 12, textDecorationLine: "line-through" },
     comboSave: { color: c.success, fontSize: 11, fontWeight: "700" },
-    seeAll: { color: c.brand, fontSize: 13, fontWeight: "600" },
     empty: { color: c.textMuted, padding: spacing.md },
   }));
 
@@ -195,20 +194,18 @@ export default function Home() {
 
         {cityOpen && (
           <View style={styles.cityDrop} testID="city-dropdown">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: spacing.xl }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl }}>
               {cities.map((cc) => (
-                <Pressable key={cc} testID={`city-opt-${cc}`} onPress={() => { setCity(cc); setCityOpen(false); }}
-                  style={[styles.cityChip, cc === city && { borderColor: colors.brand, backgroundColor: colors.brandTint }]}>
-                  <Text style={{ color: cc === city ? colors.brand : colors.textSubtle }}>{cc}</Text>
-                </Pressable>
+                <AnimatedChip key={cc} testID={`city-opt-${cc}`} label={cc} active={cc === city} onPress={() => { setCity(cc); setCityOpen(false); }} />
               ))}
             </ScrollView>
           </View>
         )}
 
         {/* Hero greeting */}
-        <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.lg }}>
-          <Text style={styles.greet}>Namaste {user?.name?.split(" ")[0] || ""}</Text>
+        <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxl }}>
+          <EyebrowLabel>Welcome to Thara</EyebrowLabel>
+          <Text style={styles.greet}>{user?.name?.split(" ")[0] ? `Namaste, ${user.name.split(" ")[0]}` : "Namaste"}</Text>
           <Text style={styles.greetSub}>Plan your perfect celebration ✨</Text>
         </View>
 
@@ -219,7 +216,7 @@ export default function Home() {
           {HERO_IMAGES.map((src, i) => (
             <View key={i} style={[styles.hero, { width: HERO_W, marginLeft: i === 0 ? 0 : HERO_GAP }]}>
               <Image source={{ uri: src }} style={styles.heroImg} contentFit="cover" />
-              <LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.heroScrim} />
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.82)"]} style={styles.heroScrim} />
               <View style={styles.heroText}>
                 <Text style={styles.heroLabel}>{HERO_COPY[i % HERO_COPY.length].label}</Text>
                 <Text style={styles.heroTitle}>{HERO_COPY[i % HERO_COPY.length].title}</Text>
@@ -228,8 +225,8 @@ export default function Home() {
           ))}
         </ScrollView>
 
-        <Text style={styles.section}>Event Types</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+        <SectionHead eyebrow="Celebrate" title="Event Types" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chipRow, { gap: 4 }]}>
           {eventTypes.map((et) => (
             <AnimatedEventTile key={et.id} testID={`event-${et.id}`} label={et.name} icon={et.icon}
               onPress={() => router.push(`/search?event_type=${et.id}`)} />
@@ -242,7 +239,7 @@ export default function Home() {
             <Text style={styles.retryText}>{loadError} Retry</Text>
           </Pressable>
         ) : null}
-        <Text style={styles.section}>Categories</Text>
+        <SectionHead eyebrow="Browse" title="Categories" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           <AnimatedChip testID="cat-all" label="All" active={!category} onPress={() => setCategory(null)} />
           {categories.map((cat) => (
@@ -251,12 +248,7 @@ export default function Home() {
           ))}
         </ScrollView>
 
-        <View style={styles.sectionRow}>
-          <Text style={styles.section}>Trending in {city}</Text>
-          <Pressable onPress={() => router.push("/search")} hitSlop={12}>
-            <Text style={styles.seeAll}>See all</Text>
-          </Pressable>
-        </View>
+        <SectionHead eyebrow={`Trending in ${city}`} title="Most Loved Vendors" action="See all" onAction={() => router.push("/search")} />
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
           vendors.length === 0 ? (
             <View style={{ paddingHorizontal: spacing.xl }}>
@@ -273,13 +265,15 @@ export default function Home() {
               )}
             </View>
           ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 14 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 14 }}
+            snapToInterval={214 + 14} decelerationRate="fast">
             {vendors.map((v) => (
-              <Pressable key={v.id} testID={`vendor-card-${v.id}`} onPress={() => router.push(`/vendor/${v.id}`)} style={styles.vCard}>
+              <Pressable key={v.id} testID={`vendor-card-${v.id}`} onPress={() => router.push(`/vendor/${v.id}`)} style={({ pressed }) => [styles.vCard, pressed && { transform: [{ scale: 0.985 }] }]}>
                 <Image source={{ uri: resolveImg(v.cover) }} style={styles.vImg} contentFit="cover" />
-                {(v as any).is_sample ? <View style={styles.sampleBadge}><Text style={[styles.verifiedText, { color: colors.brand }]}>SAMPLE</Text></View> : null}
-                {v.verified && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={12} color={colors.onBrand} /><Text style={styles.verifiedText}>Verified</Text></View>}
-                <LinearGradient colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.vScrim} />
+                <LinearGradient colors={["rgba(0,0,0,0.45)", "transparent"]} style={styles.topScrim} />
+                {(v as any).is_sample ? <View style={styles.sampleBadge}><Text style={[styles.verifiedText, { color: "#E2BE6E" }]}>SAMPLE</Text></View> : null}
+                {v.verified && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={12} color="#E2BE6E" /><Text style={styles.verifiedText}>VERIFIED</Text></View>}
+                <LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.vScrim} />
                 <View style={styles.vMeta}>
                   <Text style={styles.vName} numberOfLines={1}>{v.name}</Text>
                   <View style={styles.vRow}>
@@ -295,8 +289,9 @@ export default function Home() {
           )
         )}
 
-        <Text style={styles.section}>Combo Packages</Text>
-        <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
+        <SectionHead eyebrow="Curated" title="Combo Packages" />
+        {/* Edge-to-edge imagery, separated by whitespace rather than card frames. */}
+        <View style={{ gap: 3 }}>
           {combos.map((cb) => (
             <Pressable key={cb.id} testID={`combo-${cb.id}`} accessibilityRole="button"
               onPress={() => openCombo(cb)}

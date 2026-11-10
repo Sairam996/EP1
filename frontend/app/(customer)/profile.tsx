@@ -1,14 +1,14 @@
 import { View, Text, Pressable, ScrollView, Alert, Linking } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import Constants from "expo-constants";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { api } from "@/src/api";
-import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, spacing, useThemedStyles } from "@/src/theme";
+import { Divider, FeatureBand, GoldGlow, ListRow, Section, StatStrip, editorialGold, gutter } from "@/src/components/ui";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { useCelebrate } from "@/src/components/Celebration";
 
@@ -47,43 +47,41 @@ export default function Profile() {
     } },
   ]);
 
+  const gold = editorialGold(colors);
   const s = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
-    hero: { marginHorizontal: spacing.xl, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.35)" : "rgba(140,106,38,0.25)" },
-    heroIn: { padding: 20, alignItems: "center" },
-    avatarRing: { width: 92, height: 92, borderRadius: 46, borderWidth: 2, borderColor: c.brand, alignItems: "center", justifyContent: "center", padding: 3 },
-    avatar: { width: 82, height: 82, borderRadius: 41 },
-    initials: { width: 82, height: 82, borderRadius: 41, backgroundColor: c.brandTint, alignItems: "center", justifyContent: "center" },
-    initialsT: { color: c.brand, fontFamily: fonts.displayBold, fontSize: 34, letterSpacing: 2 },
-    name: { color: c.text, fontFamily: fonts.displayBold, fontSize: 28, marginTop: 10, letterSpacing: 0.4 },
-    meta: { color: c.textMuted, fontSize: 13, marginTop: 2 },
-    chips: { flexDirection: "row", gap: 8, marginTop: 12, flexWrap: "wrap", justifyContent: "center" },
-    chip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: c.brand, backgroundColor: c.brandTint },
-    chipT: { color: c.brand, fontSize: 12, fontWeight: "600" },
-    progWrap: { width: "100%", marginTop: 16 },
-    progRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-    progT: { color: c.textSubtle, fontSize: 12, fontWeight: "600" },
-    progBar: { height: 6, borderRadius: 3, backgroundColor: c.surface3, overflow: "hidden" },
-    progFill: { height: 6, borderRadius: 3, backgroundColor: c.brand },
-    quick: { flexDirection: "row", gap: 10, marginHorizontal: spacing.xl, marginTop: spacing.lg },
-    qBtn: { flex: 1, alignItems: "center", gap: 6, paddingVertical: 14, borderRadius: radius.lg, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
-    qT: { color: c.text, fontSize: 12, fontWeight: "600" },
-    vendorCard: { marginHorizontal: spacing.xl, marginTop: spacing.lg, borderRadius: radius.lg, padding: 16, flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: c.brand },
-    vendorT: { color: c.onBrand, fontFamily: fonts.displayBold, fontSize: 20 },
-    vendorS: { color: c.onBrand, fontSize: 12, opacity: 0.8, marginTop: 2 },
-    secT: { color: c.brand, fontSize: 11, letterSpacing: 2, fontWeight: "700", marginTop: spacing.xl, marginBottom: 8, marginHorizontal: spacing.xl + 4 },
-    group: { marginHorizontal: spacing.xl, borderRadius: radius.lg, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border, overflow: "hidden" },
-    row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, minHeight: 56, paddingVertical: 10 },
-    rowDiv: { borderTopWidth: 1, borderTopColor: c.divider },
-    ico: { width: 34, height: 34, borderRadius: 10, backgroundColor: c.brandTint, alignItems: "center", justifyContent: "center" },
-    lbl: { color: c.text, fontSize: 15, fontWeight: "500" },
-    sub: { color: c.textMuted, fontSize: 12, marginTop: 1 },
-    soon: { color: c.brand, fontSize: 10, fontWeight: "700", letterSpacing: 1, borderWidth: 1, borderColor: c.brand, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
-    signOut: { marginHorizontal: spacing.xl, marginTop: spacing.xl, minHeight: 54, borderRadius: radius.lg, borderWidth: 1, borderColor: c.error + "66", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    signOutT: { color: c.error, fontSize: 15, fontWeight: "700" },
-    foot: { alignItems: "center", marginTop: spacing.xl, opacity: 0.8 },
-    ver: { color: c.textMuted, fontSize: 11, marginTop: 6, letterSpacing: 1 },
+    hero: { alignItems: "center", paddingHorizontal: gutter, paddingTop: spacing.lg },
+    glowWrap: { width: 112, height: 112, alignItems: "center", justifyContent: "center" },
+    avatarRing: { width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.75)" : "rgba(140,106,38,0.7)", alignItems: "center", justifyContent: "center", padding: 4 },
+    avatar: { width: 90, height: 90, borderRadius: 45 },
+    initials: { width: 90, height: 90, borderRadius: 45, alignItems: "center", justifyContent: "center" },
+    initialsT: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontFamily: fonts.display, fontSize: 40, letterSpacing: 3 },
+    name: { color: c.text, fontFamily: fonts.displayBold, fontSize: 36, lineHeight: 42, marginTop: 14, letterSpacing: 0.4, textAlign: "center" },
+    meta: { color: c.textMuted, fontSize: 12.5, marginTop: 4, letterSpacing: 0.3, textAlign: "center" },
+    badges: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 8 },
+    badgeT: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 12, fontWeight: "600", letterSpacing: 1.6, textTransform: "uppercase" },
+    dot: { color: c.textMuted, fontSize: 12 },
+    progWrap: { width: "72%", marginTop: 18, alignItems: "center" },
+    progT: { color: c.textMuted, fontSize: 11.5, letterSpacing: 0.4, marginBottom: 8 },
+    progBar: { width: "100%", height: 2, borderRadius: 1, backgroundColor: c.mode === "dark" ? "rgba(226,190,110,0.15)" : "rgba(140,106,38,0.15)", overflow: "hidden" },
+    progFill: { height: 2, borderRadius: 1, backgroundColor: c.mode === "dark" ? "#E2BE6E" : "#8C6A26" },
+    stats: { marginHorizontal: gutter, marginTop: spacing.xxl },
+    signOut: { alignSelf: "center", marginTop: spacing.xxxl, paddingVertical: 10, paddingHorizontal: 24 },
+    signOutT: { color: c.textMuted, fontSize: 14, fontWeight: "600", letterSpacing: 1.2 },
+    foot: { alignItems: "center", marginTop: spacing.md, opacity: 0.75 },
+    ver: { color: c.textMuted, fontSize: 10.5, marginTop: 8, letterSpacing: 2 },
   }));
+
+  const [counts, setCounts] = useState<{ bookings?: number; saved?: number; threads?: number }>({});
+  useEffect(() => {
+    if (!user || user.role !== "customer") return;
+    api.get("/bookings").then((b: any) => setCounts((x) => ({ ...x, bookings: Array.isArray(b) ? b.length : undefined }))).catch(() => {});
+    api.get("/favorites").then((f: any) => setCounts((x) => ({ ...x, saved: Array.isArray(f) ? f.length : undefined }))).catch(() => {});
+    api.get("/chat/threads").then((t: any) => setCounts((x) => ({ ...x, threads: Array.isArray(t) ? t.length : undefined }))).catch(() => {});
+  }, [user]);
+  const points = typeof tier?.balance === "number" ? tier.balance : undefined;
+  const fmt = (n?: number) => (typeof n === "number" ? n.toLocaleString("en-IN") : undefined);
+  const version = Constants.expoConfig?.version || "1.0.0";
 
   const sections: { title: string; items: Item[] }[] = [
     { title: "MY CELEBRATIONS", items: [
@@ -110,88 +108,76 @@ export default function Profile() {
   ];
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
-      <View style={{ alignItems: "center", marginBottom: spacing.lg }}>
+    <ScrollView style={s.root} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <View style={{ alignItems: "center" }}>
         <TharaLogo variant="wordmark" size={30} />
       </View>
 
       <View style={s.hero}>
-        <LinearGradient colors={colors.mode === "dark" ? ["#16120A", "#070707"] : ["#FFFCF5", "#F3E7CF"]} style={s.heroIn}>
+        <View style={s.glowWrap}>
+          <GoldGlow size={230} />
           <View style={s.avatarRing}>
             {u.avatar ? <Image source={{ uri: u.avatar }} style={s.avatar} contentFit="cover" />
               : <View style={s.initials}><Text style={s.initialsT}>{initials}</Text></View>}
           </View>
-          <Text style={s.name} numberOfLines={1}>{u.name || "Guest"}</Text>
-          <Text style={s.meta}>{[u.phone, realEmail].filter(Boolean).join("  ·  ")}</Text>
-          <View style={s.chips}>
-            <View style={s.chip}><Ionicons name="location" size={12} color={colors.brand} /><Text style={s.chipT}>{u.city || "Hyderabad"}</Text></View>
-            {tier?.tier ? (
-              <Pressable testID="tier-badge" onPress={() => router.push("/points")} style={s.chip}>
-                <Ionicons name={tier.tier.icon} size={12} color={colors.brand} /><Text style={s.chipT}>{tier.tier.name} Member</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {pct < 100 ? (
-            <Pressable style={s.progWrap} onPress={() => router.push("/settings")} testID="profile-progress">
-              <View style={s.progRow}><Text style={s.progT}>Complete your profile</Text><Text style={[s.progT, { color: colors.brand }]}>{pct}%</Text></View>
-              <View style={s.progBar}><View style={[s.progFill, { width: `${pct}%` }]} /></View>
-            </Pressable>
-          ) : null}
-        </LinearGradient>
-      </View>
-
-      <View style={s.quick}>
-        {[
-          { id: "q-book", icon: "calendar", label: "Bookings", go: "/(customer)/bookings" },
-          { id: "q-fav", icon: "heart", label: "Saved", go: "/favorites" },
-          { id: "q-msg", icon: "chatbubbles", label: "Messages", go: "/(customer)/chat" },
-          { id: "q-pts", icon: "diamond", label: "Points", go: "/points" },
-        ].map((q) => (
-          <Pressable key={q.id} testID={q.id} onPress={() => router.push(q.go as any)} style={({ pressed }) => [s.qBtn, pressed && { opacity: 0.8 }]}>
-            <Ionicons name={q.icon as any} size={22} color={colors.brand} />
-            <Text style={s.qT}>{q.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Pressable testID="vendor-mode" onPress={isVendor ? () => router.replace("/(vendor)/dashboard") : becomeVendor}
-        style={({ pressed }) => [s.vendorCard, pressed && { opacity: 0.9 }]}>
-        <Ionicons name={isVendor ? "storefront" : "briefcase"} size={28} color={colors.onBrand} />
-        <View style={{ flex: 1 }}>
-          <Text style={s.vendorT}>{isVendor ? "Switch to Vendor Dashboard" : "Become a Thara Partner"}</Text>
-          <Text style={s.vendorS}>{isVendor ? "Manage bookings, services & calendar" : "List your services and get bookings in Hyderabad"}</Text>
         </View>
-        <Ionicons name="arrow-forward" size={20} color={colors.onBrand} />
-      </Pressable>
+        <Text style={s.name} numberOfLines={1}>{u.name || "Guest"}</Text>
+        <Text style={s.meta}>{[u.phone, realEmail].filter(Boolean).join("   ·   ")}</Text>
+        <View style={s.badges}>
+          <Text style={s.badgeT}>{u.city || "Hyderabad"}</Text>
+          {tier?.tier ? (
+            <>
+              <Text style={s.dot}>·</Text>
+              <Pressable testID="tier-badge" onPress={() => router.push("/points")} hitSlop={8}>
+                <Text style={s.badgeT}>{tier.tier.name} Member</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+        {pct < 100 ? (
+          <Pressable style={s.progWrap} onPress={() => router.push("/settings")} testID="profile-progress">
+            <Text style={s.progT}>Profile {pct}% complete  ·  <Text style={{ color: gold, fontWeight: "600" }}>Finish</Text></Text>
+            <View style={s.progBar}><View style={[s.progFill, { width: `${pct}%` }]} /></View>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={s.stats}>
+        <Divider />
+        <StatStrip items={[
+          { id: "q-book", value: fmt(counts.bookings), icon: "calendar-outline", label: "Bookings", onPress: () => router.push("/(customer)/bookings") },
+          { id: "q-fav", value: fmt(counts.saved), icon: "heart-outline", label: "Saved", onPress: () => router.push("/favorites") },
+          { id: "q-msg", value: fmt(counts.threads), icon: "chatbubbles-outline", label: "Messages", onPress: () => router.push("/(customer)/chat") },
+          { id: "q-pts", value: fmt(points), icon: "diamond-outline", label: "Points", onPress: () => router.push("/points") },
+        ]} />
+        <Divider />
+      </View>
+
+      <FeatureBand testID="vendor-mode"
+        onPress={isVendor ? () => router.replace("/(vendor)/dashboard") : becomeVendor}
+        eyebrow={isVendor ? "Partner" : "For vendors"}
+        title={isVendor ? "Your Vendor Dashboard" : "Become a Thara Partner"}
+        subtitle={isVendor ? "Manage bookings, services & calendar" : "List your services and get bookings in Hyderabad"}
+        cta={isVendor ? "Open dashboard" : "Start listing"}
+        icon={isVendor ? "storefront-outline" : "ribbon-outline"} />
 
       {sections.map((sec) => (
-        <View key={sec.title}>
-          <Text style={s.secT}>{sec.title}</Text>
-          <View style={s.group}>
-            {sec.items.map((it, i) => (
-              <Pressable key={it.id} testID={`menu-${it.id}`} onPress={it.onPress}
-                style={({ pressed }) => [s.row, i > 0 && s.rowDiv, pressed && { opacity: 0.7 }]}>
-                <View style={s.ico}><Ionicons name={it.icon as any} size={18} color={colors.brand} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.lbl}>{it.label}</Text>
-                  {it.sub ? <Text style={s.sub}>{it.sub}</Text> : null}
-                </View>
-                {it.soon ? <Text style={s.soon}>SOON</Text> : null}
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <Section key={sec.title} eyebrow={sec.title}>
+          <Divider />
+          {sec.items.map((it, i) => (
+            <ListRow key={it.id} testID={`menu-${it.id}`} icon={it.icon as any} title={it.label} subtitle={it.sub}
+              soon={it.soon} onPress={it.onPress} last={i === sec.items.length - 1} />
+          ))}
+        </Section>
       ))}
 
-      <Pressable testID="signout-btn" onPress={handleSignOut} style={({ pressed }) => [s.signOut, pressed && { opacity: 0.7 }]}>
-        <Ionicons name="log-out-outline" size={20} color={colors.error} />
+      <Pressable testID="signout-btn" onPress={handleSignOut} style={({ pressed }) => [s.signOut, pressed && { opacity: 0.5 }]} accessibilityRole="button">
         <Text style={s.signOutT}>Sign out</Text>
       </Pressable>
 
       <View style={s.foot}>
-        <TharaLogo variant="star" height={26} />
-        <Text style={s.ver}>INDIAN EVENTS. TIMELESS BEAUTY.</Text>
+        <TharaLogo variant="star" height={22} />
+        <Text style={s.ver}>THARA  ·  VERSION {version}</Text>
       </View>
     </ScrollView>
   );

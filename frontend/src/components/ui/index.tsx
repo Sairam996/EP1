@@ -65,6 +65,19 @@ export function TextLink({ title, onPress, icon, arrow, testID, style, color, si
   );
 }
 
+/** Header half of a Section — use above horizontally-scrolling (flush) content. */
+export function SectionHeader({ eyebrow, title, action, onAction, style }: { eyebrow?: string; title?: string; action?: string; onAction?: () => void; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: gutter, marginTop: spacing.xxl + 6, marginBottom: spacing.md }, style]}>
+      <View style={{ flex: 1, gap: 4 }}>
+        {eyebrow ? <EyebrowLabel>{eyebrow}</EyebrowLabel> : null}
+        {title ? <SerifTitle size={24}>{title}</SerifTitle> : null}
+      </View>
+      {action && onAction ? <TextLink title={action} onPress={onAction} arrow /> : null}
+    </View>
+  );
+}
+
 /** Section: eyebrow (+ optional serif title and right action) above open content. */
 export function Section({ eyebrow, title, action, onAction, children, style, flush, testID }: {
   eyebrow?: string; title?: string; action?: string; onAction?: () => void; children?: ReactNode;
