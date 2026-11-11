@@ -14,6 +14,7 @@ import string
 import json as json_mod
 import time
 from collections import defaultdict, deque
+from urllib.parse import urlparse
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Request, Header
 from fastapi.staticfiles import StaticFiles
@@ -180,6 +181,9 @@ class VendorOut(BaseModel):
     event_types: List[str] = []
     address: str = ""
     phone: str = ""
+    instagram_url: Optional[str] = ""
+    facebook_url: Optional[str] = ""
+    website_url: Optional[str] = ""
     owner_id: Optional[str] = None
 
 class BookingIn(BaseModel):
@@ -251,12 +255,18 @@ class ServiceIn(BaseModel):
     description: str = Field(default="", max_length=2000)
     price: int = Field(ge=0)
     photos: List[str] = Field(default_factory=list, max_length=15)
+    instagram_url: Optional[str] = Field(default="", max_length=300)
+    facebook_url: Optional[str] = Field(default="", max_length=300)
+    website_url: Optional[str] = Field(default="", max_length=300)
 
 class ServicePatch(BaseModel):
     title: Optional[str] = Field(default=None, min_length=2, max_length=120)
     description: Optional[str] = Field(default=None, max_length=2000)
     price: Optional[int] = Field(default=None, ge=0)
     photos: Optional[List[str]] = Field(default=None, max_length=15)
+    instagram_url: Optional[str] = Field(default=None, max_length=300)
+    facebook_url: Optional[str] = Field(default=None, max_length=300)
+    website_url: Optional[str] = Field(default=None, max_length=300)
 
 class VendorPatch(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=120)
@@ -271,6 +281,9 @@ class VendorPatch(BaseModel):
     event_types: Optional[List[str]] = None
     address: Optional[str] = Field(default=None, max_length=300)
     phone: Optional[str] = Field(default=None, max_length=20)
+    instagram_url: Optional[str] = Field(default=None, max_length=300)
+    facebook_url: Optional[str] = Field(default=None, max_length=300)
+    website_url: Optional[str] = Field(default=None, max_length=300)
     lat: Optional[float] = Field(default=None, ge=-90, le=90)
     lng: Optional[float] = Field(default=None, ge=-180, le=180)
 
@@ -550,6 +563,111 @@ async def me(u: dict = Depends(get_current_user)):
             "role": u["role"], "city": u.get("city"), "vendor_id": u.get("vendor_id"),
             "avatar": u.get("avatar")}
 
+
+# ── Social / portfolio links ─────────────────────────────────────────────────
+def _assert_safe_url_input(s: str):
+    if len(s) > 300:
+        raise HTTPException(422, "Link is too long")
+    low = s.strip().lower()
+    if re.match(r"^(javascript|data|file|vbscript|about):", low):
+        raise HTTPException(422, "Invalid link")
+    if any(ch.isspace() for ch in s.strip()):
+        raise HTTPException(422, "Invalid link")
+
+def normalize_instagram(raw: Optional[str]) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    _assert_safe_url_input(s)
+    m = re.search(r"(?:https?://)?(?:www\.)?(?:instagram\.com|instagr\.am)/(.+)$", s, re.I)
+    if m:
+        path = m.group(1).split("?")[0].strip("/")
+        parts = [p for p in path.split("/") if p]
+        if not parts:
+            raise HTTPException(422, "Enter a valid Instagram handle or URL")
+        if parts[0].lower() in ("p", "reel", "reels", "stories") and len(parts) >= 2:
+            kind = "reel" if parts[0].lower() in ("reel", "reels") else parts[0].lower()
+            return f"https://www.instagram.com/{kind}/{parts[1]}"
+        handle = parts[0]
+    else:
+        handle = s[1:] if s.startswith("@") else s
+        handle = handle.strip().strip("/")
+    if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", handle):
+        raise HTTPException(422, "Enter a valid Instagram handle or URL")
+    return f"https://www.instagram.com/{handle}"
+
+def normalize_facebook(raw: Optional[str]) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    _assert_safe_url_input(s)
+    m = re.search(r"(?:https?://)?(?:www\.|m\.)?(?:facebook\.com|fb\.com|fb\.me)/(.+)$", s, re.I)
+    if m:
+        rest = m.group(1)
+        idm = re.search(r"profile\.php\?id=(\d+)", rest, re.I)
+        if idm:
+            return f"https://www.facebook.com/profile.php?id={idm.group(1)}"
+        path = rest.split("?")[0].strip("/")
+        if not path or not re.fullmatch(r"[A-Za-z0-9._\-/]+", path) or len(path) > 200:
+            raise HTTPException(422, "Enter a valid Facebook page name or URL")
+        return f"https://www.facebook.com/{path}"
+    handle = s[1:] if s.startswith("@") else s
+    handle = handle.strip().strip("/")
+    if not re.fullmatch(r"[A-Za-z0-9.]{1,60}", handle):
+        raise HTTPException(422, "Enter a valid Facebook page name or URL")
+    return f"https://www.facebook.com/{handle}"
+
+def normalize_website(raw: Optional[str]) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    _assert_safe_url_input(s)
+    if re.match(r"^https?://", s, re.I):
+        if s.lower().startswith("http://"):
+            s = "https://" + s[7:]
+    else:
+        s = "https://" + s.lstrip("/")
+    parsed = urlparse(s)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not host or "." not in host:
+        raise HTTPException(422, "Enter a valid website URL")
+    if not re.fullmatch(r"[A-Za-z0-9.-]+", host):
+        raise HTTPException(422, "Enter a valid website URL")
+    return s
+
+def apply_social_links(upd: dict) -> dict:
+    """Normalize instagram/facebook/website fields in place. Empty string clears the link."""
+    if "instagram_url" in upd:
+        upd["instagram_url"] = normalize_instagram(upd.get("instagram_url"))
+    if "facebook_url" in upd:
+        upd["facebook_url"] = normalize_facebook(upd.get("facebook_url"))
+    if "website_url" in upd:
+        upd["website_url"] = normalize_website(upd.get("website_url"))
+    return upd
+
+
+def _service_pub(s: dict) -> dict:
+    if not s: return s
+    out = dict(s)
+    out.pop("_id", None)
+    for f in ("instagram_url", "facebook_url", "website_url"):
+        out[f] = out.get(f) or ""
+    return out
+
+def _demo_social_links(name: str, i: int) -> dict:
+    """Example portfolio links for seeded demo vendors. Some are intentionally partial or empty."""
+    slug = re.sub(r"[^a-z0-9]+", "", (name or "").lower())[:22] or f"vendor{i+1}"
+    if i % 8 == 7:
+        return {}
+    links = {
+        "instagram_url": f"https://www.instagram.com/{slug}",
+        "facebook_url": f"https://www.facebook.com/{slug}",
+        "website_url": f"https://www.{slug}.in",
+    }
+    if i % 5 == 4:
+        links.pop("facebook_url", None)
+    return links
+
 # --- Vendors ---
 def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float] = None, user_lng: Optional[float] = None) -> dict:
     v_lat = v.get("lat"); v_lng = v.get("lng")
@@ -571,6 +689,9 @@ def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float]
         "verified": v.get("verified", False), "facilities": v.get("facilities", []),
         "event_types": v.get("event_types", []), "address": v.get("address", ""),
         "phone": v.get("phone", ""), "owner_id": v.get("owner_id"),
+        "instagram_url": v.get("instagram_url") or "",
+        "facebook_url": v.get("facebook_url") or "",
+        "website_url": v.get("website_url") or "",
         "lat": v_lat, "lng": v_lng, "locality": v.get("locality", ""),
         "kyc_status": v.get("kyc_status", "approved" if v.get("verified") else "not_submitted"),
     }
@@ -606,7 +727,8 @@ async def get_vendor(vendor_id: str, lat: Optional[float] = None, lng: Optional[
 
 @api.get("/vendors/{vendor_id}/services")
 async def public_vendor_services(vendor_id: str):
-    return await db.services.find({"vendor_id": vendor_id}, {"_id": 0}).sort("price", 1).to_list(100)
+    items = await db.services.find({"vendor_id": vendor_id}, {"_id": 0}).sort("price", 1).to_list(100)
+    return [_service_pub(x) for x in items]
 
 @api.get("/vendors/{vendor_id}/availability")
 async def public_vendor_availability(vendor_id: str):
@@ -1083,6 +1205,7 @@ async def my_vendor(u: dict = Depends(require_role("vendor"))):
 @api.patch("/vendor/me")
 async def update_my_vendor(body: VendorPatch, u: dict = Depends(require_role("vendor"))):
     upd = body.dict(exclude_none=True)
+    apply_social_links(upd)
     if upd.get("cover") and upd["cover"] != STOCK_COVER: upd["cover_is_placeholder"] = False
     if "city" in upd and upd["city"] not in CITIES:
         raise HTTPException(422, f"City must be one of {', '.join(CITIES)}")
@@ -1138,23 +1261,26 @@ async def set_availability(body: AvailabilityIn, u: dict = Depends(require_role(
 
 @api.get("/vendor/services")
 async def list_services(u: dict = Depends(require_role("vendor"))):
-    return await db.services.find({"vendor_id": u["vendor_id"]}, {"_id": 0}).to_list(100)
+    items = await db.services.find({"vendor_id": u["vendor_id"]}, {"_id": 0}).to_list(100)
+    return [_service_pub(x) for x in items]
 
 @api.post("/vendor/services")
 async def add_service(body: ServiceIn, u: dict = Depends(require_role("vendor"))):
-    doc = {"id": str(uuid.uuid4()), "vendor_id": u["vendor_id"], **body.dict(),
+    payload = apply_social_links(body.dict())
+    doc = {"id": str(uuid.uuid4()), "vendor_id": u["vendor_id"], **payload,
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.services.insert_one(doc.copy())
-    return doc
+    return _service_pub(doc)
 
 @api.patch("/vendor/services/{sid}")
 async def update_service(sid: str, body: ServicePatch, u: dict = Depends(require_role("vendor"))):
     upd = body.dict(exclude_none=True)
+    apply_social_links(upd)
     if not upd: raise HTTPException(400, "Nothing to update")
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
     r = await db.services.update_one({"id": sid, "vendor_id": u["vendor_id"]}, {"$set": upd})
     if r.matched_count == 0: raise HTTPException(404, "Service not found")
-    return await db.services.find_one({"id": sid}, {"_id": 0})
+    return _service_pub(await db.services.find_one({"id": sid}, {"_id": 0}))
 
 @api.delete("/vendor/services/{sid}")
 async def delete_service(sid: str, u: dict = Depends(require_role("vendor"))):
@@ -1342,6 +1468,7 @@ async def seed():
             "address": f"{name}, {city}", "phone": f"+9199{10000000+i}",
             "lat": round(clat + lat_offset, 6), "lng": round(clng + lng_offset, 6),
             "created_at": datetime.now(timezone.utc).isoformat(),
+            **_demo_social_links(name, i),
         })
     await db.vendors.insert_many(docs)
     await _seed_services(docs)
@@ -1388,6 +1515,12 @@ async def on_startup():
         {"role": "vendor", "email": {"$regex": "@eventpro\\.in$"}}, {"_id": 0, "id": 1}).to_list(500)]
     demo = await db.vendors.find({"owner_id": {"$in": demo_owners}}, {"_id": 0}).to_list(500)
     await _seed_services(demo)
+    for i, v in enumerate(demo):
+        if v.get("instagram_url") or v.get("facebook_url") or v.get("website_url"):
+            continue
+        links = _demo_social_links(v.get("name") or "", i)
+        if links:
+            await db.vendors.update_one({"id": v["id"]}, {"$set": links})
 
 @app.on_event("shutdown")
 async def on_shutdown():

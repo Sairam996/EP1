@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, Pill } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
+import { SocialLinkFields } from "@/src/components/SocialLinkFields";
 import { fonts, colors, spacing, themedStyles } from "@/src/theme";
 
 const CATS = ["venues", "catering", "photography", "decor", "music", "planning"];
@@ -60,6 +61,7 @@ export default function VendorProfileEdit() {
         gallery: v.gallery || [], description: desc, starting_price: parseInt(String(v.starting_price), 10) || 0,
         facilities: v.facilities || [], event_types: v.event_types || [], address: v.address || "",
         phone: v.phone || "", locality: v.locality || "",
+        instagram_url: v.instagram_url || "", facebook_url: v.facebook_url || "", website_url: v.website_url || "",
       };
       if (lat !== undefined) upd.lat = lat;
       if (lng !== undefined) upd.lng = lng;
@@ -138,6 +140,11 @@ export default function VendorProfileEdit() {
 
         <Text style={styles.lbl}>Phone</Text>
         <TextInput value={v.phone || ""} onChangeText={t => set("phone", t)} keyboardType="phone-pad" style={styles.input} testID="vp-phone" />
+
+        <SocialLinkFields
+          value={{ instagram_url: v.instagram_url || "", facebook_url: v.facebook_url || "", website_url: v.website_url || "" }}
+          onChange={(next) => setV((p: any) => ({ ...p, ...next }))}
+        />
 
         <Text style={styles.lbl}>Facilities</Text>
         <View style={styles.facWrap}>

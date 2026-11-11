@@ -9,6 +9,8 @@ import { GoldButton } from "@/src/components/UI";
 import { PhotoPicker } from "@/src/components/PhotoPicker";
 import { fonts, colors, radius, spacing, themedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
+import { SocialLinkFields } from "@/src/components/SocialLinkFields";
+import type { SocialFields } from "@/src/utils/socialLinks";
 
 const MAX_PHOTOS = 15;
 
@@ -49,20 +51,35 @@ export default function VendorServices() {
   const [desc, setDesc] = useState("");
   const [price, setPrice] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [links, setLinks] = useState<SocialFields>({ instagram_url: "", facebook_url: "", website_url: "" });
+  const [vendorLinks, setVendorLinks] = useState<SocialFields>({ instagram_url: "", facebook_url: "", website_url: "" });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok: boolean } | null>(null);
 
+  const fromVendor = (v: any): SocialFields => ({
+    instagram_url: v?.instagram_url || "", facebook_url: v?.facebook_url || "", website_url: v?.website_url || "",
+  });
   const load = async () => setItems(await api.get("/vendor/services"));
   useEffect(() => {
     load();
-    api.get("/vendor/me").then((v) => v?.category && setCategory(v.category)).catch(() => {});
+    api.get("/vendor/me").then((v) => {
+      if (v?.category) setCategory(v.category);
+      const vl = fromVendor(v);
+      setVendorLinks(vl);
+      setLinks((cur) => (cur.instagram_url || cur.facebook_url || cur.website_url) ? cur : vl);
+    }).catch(() => {});
   }, []);
 
-  const reset = () => { setEditId(null); setTitle(""); setDesc(""); setPrice(""); setPhotos([]); };
+  const reset = () => { setEditId(null); setTitle(""); setDesc(""); setPrice(""); setPhotos([]); setLinks(vendorLinks); };
   const flash = (t: string, ok = true) => { setMsg({ t, ok }); setTimeout(() => setMsg(null), 2800); };
 
   const startEdit = (s: any) => {
     setEditId(s.id); setTitle(s.title); setDesc(s.description || ""); setPrice(String(s.price)); setPhotos(s.photos || []);
+    setLinks({
+      instagram_url: s.instagram_url || vendorLinks.instagram_url || "",
+      facebook_url: s.facebook_url || vendorLinks.facebook_url || "",
+      website_url: s.website_url || vendorLinks.website_url || "",
+    });
   };
 
   const save = async () => {
@@ -70,7 +87,10 @@ export default function VendorServices() {
     if (title.trim().length < 2 || !p || p <= 0) { flash("Title and a valid price are required", false); return; }
     setLoading(true);
     try {
-      const body = { title: title.trim(), description: desc.trim(), price: p, photos };
+      const body = {
+        title: title.trim(), description: desc.trim(), price: p, photos,
+        instagram_url: links.instagram_url || "", facebook_url: links.facebook_url || "", website_url: links.website_url || "",
+      };
       if (editId) await api.patch(`/vendor/services/${editId}`, body);
       else await api.post("/vendor/services", body);
       flash(editId ? "Package updated ✓" : `Package added with ${photos.length} photo(s) ✓`);
@@ -127,6 +147,7 @@ export default function VendorServices() {
           placeholderTextColor={colors.textMuted} style={styles.input} keyboardType="number-pad" testID="svc-price" />
         <Text style={[styles.lbl, { marginBottom: 8 }]}>Photos ({photos.length}/{MAX_PHOTOS})</Text>
         <PhotoPicker value={photos} onChange={setPhotos} max={MAX_PHOTOS} testID="svc-photos" hint="Show real work from this package — customers book what they can see." />
+        <SocialLinkFields value={links} onChange={setLinks} hint="Share Instagram, Facebook or your website so customers can see your work." />
         {msg && <Text style={{ color: msg.ok ? colors.success : colors.error, marginTop: 8 }}>{msg.t}</Text>}
         <GoldButton testID="svc-add" title={editId ? "Save Package" : "Add Package"} onPress={save} loading={loading} style={{ marginTop: spacing.md }} />
       </View>

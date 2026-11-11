@@ -40,6 +40,9 @@ export const SAMPLE_VENDOR = {
   facilities: ["600 guests", "Valet parking", "Bridal suite", "In-house décor", "Veg & non-veg catering", "Power backup"],
   address: "Road No. 36, Jubilee Hills, Hyderabad",
   lat: 17.4326, lng: 78.4071,
+  instagram_url: "https://www.instagram.com/sitarapalace",
+  facebook_url: "https://www.facebook.com/sitarapalace",
+  website_url: "https://www.sitarapalace.in",
   team: [
     { id: "t1", name: "Ananya R.", role: "Event Manager" },
     { id: "t2", name: "Vikram S.", role: "Décor Lead" },

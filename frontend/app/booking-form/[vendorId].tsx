@@ -10,6 +10,7 @@ import { GoldButton, GhostButton, Pill } from "@/src/components/UI";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
 import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
 import { editorialGold } from "@/src/components/ui";
+import { SeeTheirWork } from "@/src/components/SeeTheirWork";
 
 const EVENT_TYPES = ["wedding", "sangeet", "haldi", "mehendi", "reception", "birthday", "corporate", "engagement"];
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -160,6 +161,7 @@ export default function BookingForm() {
                 );
               })}
             </View>
+            <SeeTheirWork vendor={vendor} service={selected} style={{ marginTop: spacing.lg }} />
           </>)}
 
           {step === "event" && (<>

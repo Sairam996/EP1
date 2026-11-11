@@ -16,6 +16,7 @@ import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from
 import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
 import { EyebrowLabel, ImageTile, SectionHeader, TextLink } from "@/src/components/ui";
 import { HeartPop, hapticLight } from "@/src/components/Celebration";
+import { SeeTheirWork } from "@/src/components/SeeTheirWork";
 
 const { width } = Dimensions.get("window");
 
@@ -174,6 +175,8 @@ export default function VendorDetail() {
             ) : null}
             {v.description ? <Text style={styles.body}>{v.description}</Text> : <SoftChip icon="document-text-outline" label="Description not listed yet" />}
 
+            <SeeTheirWork vendor={v} service={services[0]} />
+
             <View>
               <SectionTitle icon="star" title="Ratings" right={reviews.length ? <TextLink title="See all" arrow onPress={() => setTab("reviews")} /> : undefined} />
               {reviews.length > 0 || v.reviews_count > 0 ? (
@@ -252,6 +255,7 @@ export default function VendorDetail() {
 
         {tab === "packages" && (
           <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm }}>
+            <SeeTheirWork vendor={v} style={{ marginTop: 4, marginBottom: spacing.md }} />
             {services.length === 0 ? <EmptyState compact icon="pricetags-outline" title="Packages coming soon" message="Book now to get a custom quote." /> :
               services.map((s) => (
                 <View key={s.id} style={styles.pkgCard} testID={`pkg-${s.id}`}>
