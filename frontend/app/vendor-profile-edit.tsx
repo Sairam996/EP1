@@ -21,7 +21,7 @@ const EVENT_TYPES = [
   { id: "baby_shower", name: "Baby Shower" },
 ];
 const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
-const PLACEHOLDER = "New vendor on Thara.";
+const PLACEHOLDER = "New partner on Thara.";
 
 export default function VendorProfileEdit() {
   const insets = useSafeAreaInsets();

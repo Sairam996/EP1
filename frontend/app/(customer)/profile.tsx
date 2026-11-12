@@ -36,7 +36,7 @@ export default function Profile() {
     { text: "Sign out", style: "destructive", onPress: async () => { await signOut(); router.replace("/(auth)/login"); } },
   ]);
 
-  const becomeVendor = () => Alert.alert("Become a Thara partner", "List your services and receive bookings. Switch this account to vendor mode?", [
+  const becomeVendor = () => Alert.alert("Become a Thara partner", "List your services and receive bookings. Switch this account to partner mode?", [
     { text: "Not now", style: "cancel" },
     { text: "Continue", onPress: async () => {
       try {
@@ -86,8 +86,8 @@ export default function Profile() {
   const sections: { title: string; items: Item[] }[] = [
     { title: "MY CELEBRATIONS", items: [
       { id: "bookings", icon: "calendar-outline", label: "My Bookings", sub: "Upcoming & past events", onPress: () => router.push("/(customer)/bookings") },
-      { id: "fav", icon: "heart-outline", label: "Saved & Shortlists", sub: "Vendors you loved", onPress: () => router.push("/favorites") },
-      { id: "inq", icon: "chatbubbles-outline", label: "My Enquiries", sub: "Conversations with vendors", onPress: () => router.push("/(customer)/chat") },
+      { id: "fav", icon: "heart-outline", label: "Saved & Shortlists", sub: "Partners you loved", onPress: () => router.push("/favorites") },
+      { id: "inq", icon: "chatbubbles-outline", label: "My Enquiries", sub: "Conversations with partners", onPress: () => router.push("/(customer)/chat") },
       { id: "planner", icon: "list-outline", label: "Event Checklist & Budget", soon: true, onPress: () => soon("Event checklist") },
     ] },
     { title: "REWARDS", items: [
@@ -155,8 +155,8 @@ export default function Profile() {
 
       <FeatureBand testID="vendor-mode"
         onPress={isVendor ? () => router.replace("/(vendor)/dashboard") : becomeVendor}
-        eyebrow={isVendor ? "Partner" : "For vendors"}
-        title={isVendor ? "Your Vendor Dashboard" : "Become a Thara Partner"}
+        eyebrow={isVendor ? "Partner" : "For partners"}
+        title={isVendor ? "Your Partner Dashboard" : "Become a Thara partner"}
         subtitle={isVendor ? "Manage bookings, services & calendar" : "List your services and get bookings in Hyderabad"}
         cta={isVendor ? "Open dashboard" : "Start listing"}
         icon={isVendor ? "storefront-outline" : "ribbon-outline"} />

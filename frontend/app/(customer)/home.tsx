@@ -18,6 +18,7 @@ import { EmptyState } from "@/src/components/Polish";
 import { RotatingHint } from "@/src/components/RotatingHint";
 import { EyebrowLabel, SectionHeader as SectionHead, gutter } from "@/src/components/ui";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
+import { TharaProBadge } from "@/src/components/TharaProBadge";
 
 const { width } = Dimensions.get("window");
 const HERO_W = width - spacing.xl * 2;
@@ -182,7 +183,7 @@ export default function Home() {
         </View>
         {/* Search pill with rotating hints and Thara AI inside on the right */}
         <View style={styles.searchBar}>
-          <Pressable testID="search-btn" onPress={() => router.push("/search")} accessibilityRole="search" accessibilityLabel="Search vendors and services"
+          <Pressable testID="search-btn" onPress={() => router.push("/search")} accessibilityRole="search" accessibilityLabel="Search partners and services"
             style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" }, pressed && { opacity: 0.7 }]}>
             <Ionicons name="search" size={19} color={colors.brand} style={{ opacity: 0.85 }} />
             <RotatingHint testID="home-search-hint" />
@@ -250,20 +251,20 @@ export default function Home() {
           ))}
         </ScrollView>
 
-        <SectionHead eyebrow={`Trending in ${city}`} title="Most Loved Vendors" action="See all" onAction={() => router.push("/search")} />
+        <SectionHead eyebrow={`Trending in ${city}`} title={`Top partners in ${city}`} action="See all" onAction={() => router.push("/search")} />
         {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
           vendors.length === 0 ? (
             <View style={{ paddingHorizontal: spacing.xl }}>
               {loadError ? (
                 <>
-                  <EmptyState compact icon="cloud-offline-outline" title="Couldn\u2019t load vendors" message="Check your connection and try again." />
+                  <EmptyState compact icon="cloud-offline-outline" title="Couldn\u2019t load partners" message="Check your connection and try again." />
                   <Pressable testID="home-retry" onPress={retry} style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.8 }]} accessibilityRole="button">
                     <Ionicons name="refresh" size={16} color={colors.brand} />
                     <Text style={styles.retryText}>Retry</Text>
                   </Pressable>
                 </>
               ) : (
-                <EmptyState compact icon="storefront-outline" title={`No vendors yet in ${city}`} message="We're onboarding partners here — check back soon." />
+                <EmptyState compact icon="storefront-outline" title={`No partners yet in ${city}`} message="We're onboarding partners here — check back soon." />
               )}
             </View>
           ) : (
@@ -274,7 +275,7 @@ export default function Home() {
                 <Image source={{ uri: resolveImg(v.cover) }} style={styles.vImg} contentFit="cover" />
                 <LinearGradient colors={["rgba(0,0,0,0.45)", "transparent"]} style={styles.topScrim} />
                 {(v as any).is_sample ? <View style={styles.sampleBadge}><Text style={[styles.verifiedText, { color: "#E2BE6E" }]}>SAMPLE</Text></View> : null}
-                {v.verified && <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={12} color="#E2BE6E" /><Text style={styles.verifiedText}>VERIFIED</Text></View>}
+                {v.verified && <TharaProBadge variant="onImage" style={styles.verifiedBadge} />}
                 <LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.vScrim} />
                 <View style={styles.vMeta}>
                   <Text style={styles.vName} numberOfLines={1}>{v.name}</Text>

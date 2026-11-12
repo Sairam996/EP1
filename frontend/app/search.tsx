@@ -201,7 +201,7 @@ export default function Search() {
           ))}
         </ScrollView>
       )}
-      <Text style={styles.tip}>Try ‘palace’, ‘decor’, or a vendor name</Text>
+      <Text style={styles.tip}>Try ‘palace’, ‘decor’, or a partner name</Text>
     </ScrollView>
   );
 
@@ -215,7 +215,7 @@ export default function Search() {
           <Ionicons name="search" size={19} color={colors.brand} style={{ opacity: 0.85 }} />
           <View style={{ flex: 1, justifyContent: "center" }}>
             {!q ? <View style={StyleSheet.absoluteFill}><RotatingHint testID="search-hint" style={{ fontSize: 16 }} /></View> : null}
-            <TextInput testID="search-input" value={q} onChangeText={setQ} accessibilityLabel="Search vendors and services"
+            <TextInput testID="search-input" value={q} onChangeText={setQ} accessibilityLabel="Search partners and services"
               style={styles.input} autoFocus returnKeyType="search"
               onSubmitEditing={() => saveRecent(q)} autoCorrect={false} />
           </View>
@@ -237,7 +237,7 @@ export default function Search() {
           keyExtractor={(it) => it.id}
           contentContainerStyle={{ paddingBottom: 40, gap: active ? 0 : 3 }}
           ListHeaderComponent={active ? <Text style={[styles.cardMeta, { marginBottom: 4, marginTop: spacing.md, paddingHorizontal: gutter, textTransform: "none" }]}>{results.length} result{results.length === 1 ? "" : "s"} for “{term}”{searching ? " · searching…" : ""}</Text> : undefined}
-          ListEmptyComponent={searching ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : <EmptyState icon="search-outline" title="No vendors found" message="Try another category, city or keyword." />}
+          ListEmptyComponent={searching ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : <EmptyState icon="search-outline" title="No partners found" message="Try another category, city or keyword." />}
           renderItem={renderCard}
         />
       )}

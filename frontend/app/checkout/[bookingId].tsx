@@ -9,6 +9,7 @@ import { SuccessSeal, useCelebrate } from "@/src/components/Celebration";
 import { fonts, spacing, themedStyles, press, useColors } from "@/src/theme";
 import { EyebrowLabel, KeyValue, Section, TextLink, editorialGold, gutter } from "@/src/components/ui";
 import { formatInr } from "@/src/utils/price";
+import { PolicyInfo } from "@/src/components/PolicyInfo";
 import { RazorpayCheckoutModal, type RazorpayOrder, type RazorpaySuccess } from "@/src/components/RazorpayCheckout";
 
 type Breakdown = {
@@ -150,7 +151,7 @@ export default function Checkout() {
         <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>
           {done.kind === "balance"
             ? `The remaining balance with ${booking.vendor_name} is paid.`
-            : `Your 20% advance with ${booking.vendor_name} is paid. The balance of ₹${formatInr(done.balance_amount || 0)} is due on ${done.event_date} — pay in the app or directly to the vendor.`}
+            : `Your 20% advance with ${booking.vendor_name} is paid. The balance of ₹${formatInr(done.balance_amount || 0)} is due on ${done.event_date} — pay in the app or directly to the partner.`}
         </Text>
         {done.earned > 0 && (
           <View style={styles.earnedCard} testID="earned-card">
@@ -243,13 +244,9 @@ export default function Checkout() {
           )}
         </Section>
 
-        {policy ? (
-          <Section eyebrow="Cancellation">
-            <Text style={{ color: colors.textSubtle, fontSize: 13, lineHeight: 20 }} testID="cancel-policy">
-              {policy}
-            </Text>
-          </Section>
-        ) : null}
+        <View style={{ paddingHorizontal: gutter, marginTop: spacing.sm }}>
+          <PolicyInfo policy={policy} />
+        </View>
 
         <View style={styles.upi}>
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />

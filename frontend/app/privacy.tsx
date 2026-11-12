@@ -8,15 +8,15 @@ import { EyebrowLabel, SerifTitle, gutter } from "@/src/components/ui";
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: "1. Information we collect",
-    body: "When you use Thara we collect the details you give us — name, phone, email, city, booking notes, and (for vendors) business profile, KYC documents and payout-related identifiers. We also keep booking, payment, chat and review history, and device tokens so we can send service notifications.",
+    body: "When you use Thara we collect the details you give us — name, phone, email, city, booking notes, and (for partners) business profile, KYC documents and payout-related identifiers. We also keep booking, payment, chat and review history, and device tokens so we can send service notifications.",
   },
   {
     title: "2. How we use it",
-    body: "We use this information to create your account, show relevant vendors, process bookings and payments, run customer–vendor chat, prevent fraud, and improve the product. We do not sell your personal information.",
+    body: "We use this information to create your account, show relevant partners, process bookings and payments, run customer–partner chat, prevent fraud, and improve the product. We do not sell your personal information.",
   },
   {
     title: "3. Sharing",
-    body: "We share what a booking needs with the other party (for example, your name and event date with the vendor). Payment data is handled by our payment partner (Razorpay) when live payments are enabled. We may share information if the law requires it.",
+    body: "We share what a booking needs with the other party (for example, your name and event date with the partner). Payment data is handled by our payment partner (Razorpay) when live payments are enabled. We may share information if the law requires it.",
   },
   {
     title: "4. Retention",

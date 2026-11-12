@@ -37,8 +37,8 @@ const TEMPLATES: Record<string, { title: string; description: string; price: num
     { title: "DJ + Live Dhol", description: "DJ set plus 2 dhol players for baraat & sangeet.", price: 48000 },
   ],
   planning: [
-    { title: "Day-of Coordination", description: "Coordinator + 2 assistants, vendor management on the day.", price: 40000 },
-    { title: "Full Wedding Planning", description: "End-to-end planning, budgets, vendor sourcing, 3 events.", price: 250000 },
+    { title: "Day-of Coordination", description: "Coordinator + 2 assistants, team coordination on the day.", price: 40000 },
+    { title: "Full Wedding Planning", description: "End-to-end planning, budgets, sourcing, 3 events.", price: 250000 },
   ],
 };
 

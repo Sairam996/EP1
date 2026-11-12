@@ -64,7 +64,7 @@ export function DateField({ value, onChange, label, placeholder = "Pick a date",
               hideExtraDays
               enableSwipeMonths
             />
-            {disabledDates.length > 0 && <Text style={styles.note}>Greyed-out dates are unavailable for this vendor.</Text>}
+            {disabledDates.length > 0 && <Text style={styles.note}>Greyed-out dates are unavailable for this partner.</Text>}
           </Pressable>
         </Pressable>
       </Modal>

@@ -30,12 +30,12 @@ export default function Favorites() {
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back"><Ionicons name="arrow-back" size={22} color={colors.text} /></Pressable>
         <Text style={styles.title}>Saved</Text>
-        <EyebrowLabel muted style={{ marginTop: 4 }}>{items.length ? `${items.length} vendor${items.length === 1 ? "" : "s"} you loved` : "Your shortlist"}</EyebrowLabel>
+        <EyebrowLabel muted style={{ marginTop: 4 }}>{items.length ? `${items.length} partner${items.length === 1 ? "" : "s"} you loved` : "Your shortlist"}</EyebrowLabel>
       </View>
       <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
         data={items} keyExtractor={(i) => i.id}
         contentContainerStyle={{ paddingBottom: 60, gap: 3 }}
-        ListEmptyComponent={<EmptyState icon="heart-outline" title="No favorites yet" message="Tap the heart on any vendor to save it here." ctaTitle="Explore vendors" ghost onCta={() => router.push("/search" as any)} />}
+        ListEmptyComponent={<EmptyState icon="heart-outline" title="No favorites yet" message="Tap the heart on any partner to save it here." ctaTitle="Explore partners" ghost onCta={() => router.push("/search" as any)} />}
         renderItem={({ item }) => (
           <ImageTile onPress={() => router.push(`/vendor/${item.id}`)} uri={item.cover} height={240} radius={0} testID={`fav-${item.id}`}
             eyebrow={item.category} title={item.name}

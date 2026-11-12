@@ -118,7 +118,7 @@ def tpl_booking_new_vendor(vendor_name: str, customer: str, event_type: str, dat
         f"<p>Hi {vendor_name.split()[0]}, <b>{customer}</b> has requested a booking for a {event_type} on <b>{date}</b>.</p>"
         f"<p style='color:{_BRAND};font-weight:600;font-size:16px'>Total (incl. GST): ₹{amount:,}</p>"
         f"<p>A 20% advance after you accept locks the date. The balance is due on the event day.</p>"
-        f"<p>Open the {APP_NAME} vendor dashboard to accept or decline.</p>",
+        f"<p>Open the {APP_NAME} partner dashboard to accept or decline.</p>",
         f"{customer} wants to book you.")
 
 def tpl_booking_status(name: str, vendor: str, status: str, date: str,
@@ -128,11 +128,11 @@ def tpl_booking_status(name: str, vendor: str, status: str, date: str,
     extra = ""
     if status == "confirmed" and advance is not None:
         extra = (f"<p>Pay a 20% advance of <b style='color:{_BRAND}'>₹{advance:,}</b> to lock your date. "
-                 f"The balance of ₹{(balance or 0):,} is due on {date}, in the app or directly to the vendor.</p>")
+                 f"The balance of ₹{(balance or 0):,} is due on {date}, in the app or directly to the partner.</p>")
     elif status == "confirmed":
         extra = "<p>Pay a 20% advance in the app to lock your date. The balance is due on the event day.</p>"
     elif status == "rejected":
-        extra = f"<p>Don't worry — plenty more premium vendors on {APP_NAME}.</p>"
+        extra = f"<p>Don't worry — plenty more premium partners on {APP_NAME}.</p>"
     elif status == "completed":
         extra = "<p>Loved the experience? Leave them a review.</p>"
     return (f"Your booking is {verb}",
@@ -143,7 +143,7 @@ def tpl_booking_status(name: str, vendor: str, status: str, date: str,
 def tpl_payment_receipt(name: str, vendor: str, amount: int, earned: int, kind: str = "advance") -> tuple:
     label = "Advance payment" if kind == "advance" else "Balance payment"
     subject = f"{'Advance' if kind == 'advance' else 'Balance'} receipt — ₹{amount:,}"
-    tail = (" The remaining balance is due on the event date, in the app or directly to the vendor."
+    tail = (" The remaining balance is due on the event date, in the app or directly to the partner."
             if kind == "advance" else " Your booking is fully settled.")
     return (subject,
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>{label} received ✓</h2>"

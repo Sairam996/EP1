@@ -11,6 +11,8 @@ import { formatInr, formatPrice, previewTotals } from "@/src/utils/price";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
 import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
 import { editorialGold } from "@/src/components/ui";
+import { PolicyInfo } from "@/src/components/PolicyInfo";
+import { TharaProBadge } from "@/src/components/TharaProBadge";
 import { SeeTheirWork } from "@/src/components/SeeTheirWork";
 
 const EVENT_TYPES = ["wedding", "sangeet", "haldi", "mehendi", "reception", "birthday", "corporate", "engagement"];
@@ -225,7 +227,7 @@ export default function BookingForm() {
               <View style={s.vendorRow}>
                 {vendor.gallery?.[0] ? <Image source={{ uri: resolveImg(vendor.gallery[0]) }} style={s.vAvatar} contentFit="cover" /> : <View style={s.vAvatar} />}
                 <View style={{ flex: 1 }}><Text style={{ color: c.text, fontFamily: fonts.displayBold, fontSize: 21 }}>{vendor.name}</Text><Text style={s.sub}>{vendor.city} • {vendor.category}</Text></View>
-                {vendor.verified ? <Ionicons name="checkmark-circle" size={18} color={c.brand} /> : null}
+                {vendor.verified ? <TharaProBadge /> : null}
               </View>
             )}
             {services.length > 0 && <Review icon="pricetag-outline" label="Package" value={selected?.title ?? "Custom quote"} to="package" />}
@@ -254,13 +256,14 @@ export default function BookingForm() {
                       Pay 20% now: ₹{formatInr(tot.advance)}  ·  Balance ₹{formatInr(tot.balance)} on event day
                     </Text>
                     <Text style={{ color: c.textSubtle, marginTop: 6, fontSize: 13, lineHeight: 18 }}>
-                      After the vendor accepts, a 20% advance locks the date. The balance can be paid in the app or directly to the vendor from the event date.
+                      After the partner accepts, a 20% advance locks the date. The balance can be paid in the app or directly to the partner from the event date.
                     </Text>
                   </View>
                 );
               })() : (
                 <Text style={{ color: editorialGold(c), fontSize: 24, fontFamily: fonts.displayBold }}>Price on request</Text>
               )}
+              <PolicyInfo />
             </View>
           </>)}
           {err ? <View style={{ flexDirection: "row", gap: 6, marginTop: spacing.md }}><Ionicons name="alert-circle" size={16} color={c.error} /><Text style={{ color: c.error, flex: 1 }}>{err}</Text></View> : null}

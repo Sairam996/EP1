@@ -55,7 +55,7 @@ export default function ChatList() {
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={
             <View style={{ marginTop: 40 }}>
-              <EmptyState icon="chatbubbles-outline" title="No conversations yet" message="Book a vendor to start chatting." />
+              <EmptyState icon="chatbubbles-outline" title="No conversations yet" message="Book a partner to start chatting." />
             </View>
           }
           ListFooterComponent={(() => {

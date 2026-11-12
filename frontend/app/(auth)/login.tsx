@@ -574,9 +574,9 @@ export default function Login() {
                       onPress={() => setAsPartner((v) => !v)}
                     >
                       <View style={{ flex: 1, paddingRight: 12 }}>
-                        <Text style={styles.partnerLabel}>Partner profile</Text>
+                        <Text style={styles.partnerLabel}>{"I'm a partner"}</Text>
                         <Text style={styles.partnerHint}>
-                          List as a vendor and manage bookings
+                          List your services and manage bookings
                         </Text>
                       </View>
                       <View style={[styles.switchTrack, asPartner && styles.switchTrackOn]}>

@@ -11,7 +11,7 @@ export default function AIChat() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const [msgs, setMsgs] = useState<{ role: string; content: string }[]>([
-    { role: "assistant", content: "Namaste! I'm your Thara AI assistant. Ask me anything about planning your celebration — venues, budgets, timelines, vendors. ✨" },
+    { role: "assistant", content: "Namaste! I'm your Thara AI assistant. Ask me anything about planning your celebration — venues, budgets, timelines, partners. ✨" },
   ]);
   const [text, setText] = useState("");
   const [convoId, setConvoId] = useState<string | null>(null);

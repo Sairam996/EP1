@@ -41,18 +41,18 @@ export default function Kyc() {
         <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }}>
           <View style={styles.okCircle}><Ionicons name="checkmark" size={40} color={colors.brand} /></View>
           <Text style={{ color: colors.text, fontSize: 30, fontFamily: fonts.displayBold }}>You{"'"}re Verified</Text>
-          <Text style={{ color: colors.textMuted, textAlign: "center" }}>Your business is verified. The gold badge is now on your listing.</Text>
+          <Text style={{ color: colors.textMuted, textAlign: "center" }}>Your business is verified. The Thara Pro badge is now on your listing.</Text>
         </View>
       ) : status === "pending" ? (
         <View style={{ alignItems: "center", padding: spacing.xxl, gap: 12 }} testID="kyc-pending">
           <View style={styles.okCircle}><Ionicons name="time-outline" size={38} color={colors.brand} /></View>
           <Text style={{ color: colors.text, fontSize: 30, fontFamily: fonts.displayBold }}>Under Review</Text>
-          <Text style={{ color: colors.textMuted, textAlign: "center" }}>Thanks! The Thara team is verifying your details. You{"'"}ll get the Verified badge within 1–2 business days.</Text>
+          <Text style={{ color: colors.textMuted, textAlign: "center" }}>Thanks! The Thara team is verifying your details. You{"'"}ll get the Thara Pro badge within 1–2 business days.</Text>
         </View>
       ) : (
         <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
           {status === "rejected" && <Text style={{ color: colors.error, marginBottom: spacing.sm }}>Your previous submission needs changes — please re-submit.</Text>}
-          <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to get verified — only verified vendors are listed to customers on Thara.</Text>
+          <Text style={{ color: colors.textSubtle, marginBottom: spacing.md }}>Complete KYC to get verified — only verified partners are listed to customers on Thara.</Text>
           <Text style={styles.lbl}>Business Name *</Text>
           <TextInput value={biz} onChangeText={setBiz} placeholder="Registered name" placeholderTextColor={colors.textMuted + "88"} style={styles.input} testID="kyc-biz" />
           <Text style={styles.lbl}>PAN Number *</Text>

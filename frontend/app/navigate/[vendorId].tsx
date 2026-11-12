@@ -67,7 +67,7 @@ export default function NavigateScreen() {
         const v = await api.get(`/vendors/${vendorId}`, { auth: false });
         setVendor(v);
       } catch {
-        Alert.alert("Vendor not found");
+        Alert.alert("Partner not found");
         router.back();
       }
     })();

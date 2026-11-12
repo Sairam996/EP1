@@ -11,10 +11,11 @@ import { GoldButton } from "@/src/components/UI";
 import { fonts, spacing, useColors, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, KeyValue, ListRow, Section, StatusText, TextLink, editorialGold, gutter } from "@/src/components/ui";
 import { formatInr } from "@/src/utils/price";
+import { PolicyInfo } from "@/src/components/PolicyInfo";
 
 function prettyMethod(m?: string) {
   if (m === "in_app") return "Paid in the app";
-  if (m === "offline") return "Paid directly to the vendor";
+  if (m === "offline") return "Paid directly to the partner";
   return m || "";
 }
 
@@ -22,8 +23,8 @@ function lineStatus(s?: string) {
   const map: Record<string, string> = {
     paid: "Paid",
     paid_in_app: "Paid in the app",
-    paid_offline: "Paid to vendor",
-    claimed_offline: "Claimed — awaiting vendor",
+    paid_offline: "Paid to partner",
+    claimed_offline: "Claimed — awaiting partner",
     due: "Due",
     pending: "Pending",
   };
@@ -70,7 +71,7 @@ export default function BookingDetail() {
       ? (preview.refund_percent === 0
           ? "This is within 48 hours of the event, so the advance will not be refunded. Cancel anyway?"
           : `You’ll receive a ${preview.refund_percent}% refund of the advance (₹${formatInr(preview.refund_amount)}). Cancel this booking?`)
-      : "Withdraw this unpaid request? The vendor will be notified.";
+      : "Withdraw this unpaid request? The partner will be notified.";
     Alert.alert("Cancel booking?", msg, [
       { text: "Keep booking", style: "cancel" },
       { text: "Yes, cancel", style: "destructive", onPress: doCancel },
@@ -126,12 +127,12 @@ export default function BookingDetail() {
         {b.notes ? <Text style={s.notes}>“{b.notes}”</Text> : null}
         {b.status === "pending" ? (
           <Text style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
-            {isVendor ? "Accept this request so the customer can pay a 20% advance and lock the date." : "Waiting for the vendor to accept. You’ll pay a 20% advance once they confirm."}
+            {isVendor ? "Accept this request so the customer can pay a 20% advance and lock the date." : "Waiting for the partner to accept. You’ll pay a 20% advance once they confirm."}
           </Text>
         ) : null}
         {b.status === "confirmed" ? (
           <Text style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
-            {isVendor ? "Waiting for the customer to pay the 20% advance." : "The vendor has accepted. Pay a 20% advance to lock this date."}
+            {isVendor ? "Waiting for the customer to pay the 20% advance." : "The partner has accepted. Pay a 20% advance to lock this date."}
           </Text>
         ) : null}
         {b.refund_status && b.refund_status !== "n/a" ? (
@@ -159,7 +160,7 @@ export default function BookingDetail() {
 
       <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
         {b.status !== "rejected" && b.status !== "cancelled" ? (
-          <ListRow icon="chatbubbles-outline" title={isVendor ? "Message customer" : "Message vendor"} subtitle="Chat about your event details" onPress={() => router.push(`/chat/${b.id}`)} last={!primaryIsPay} />
+          <ListRow icon="chatbubbles-outline" title={isVendor ? "Message customer" : "Message partner"} subtitle="Chat about your event details" onPress={() => router.push(`/chat/${b.id}`)} last={!primaryIsPay} />
         ) : (
           <ListRow icon="chatbubbles-outline" title="Conversation closed" subtitle="This booking is no longer active" last />
         )}
@@ -170,10 +171,10 @@ export default function BookingDetail() {
 
       {!isVendor && balancePayable ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>The remaining ₹{formatInr(b.balance_amount)} can be paid in the app or directly to the vendor.</Text>
+          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>The remaining ₹{formatInr(b.balance_amount)} can be paid in the app or directly to the partner.</Text>
           <GoldButton testID="pay-balance" title={`Pay balance ₹${formatInr(b.balance_amount)}`} onPress={() => router.push(`/checkout/${b.id}?kind=balance`)} style={{ marginTop: spacing.lg }} />
           <View style={{ marginTop: spacing.md, alignItems: "center" }}>
-            <TextLink testID="claim-offline" title="I paid the vendor directly" onPress={() => act(() => api.post(`/bookings/${id}/balance/claim`), "Couldn’t record this")} />
+            <TextLink testID="claim-offline" title="I paid the partner directly" onPress={() => act(() => api.post(`/bookings/${id}/balance/claim`), "Couldn’t record this")} />
           </View>
         </Section>
       ) : null}
@@ -181,14 +182,14 @@ export default function BookingDetail() {
       {!isVendor && b.status === "booked" && !settled && !b.event_reached ? (
         <Section eyebrow="Balance">
           <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }} testID="balance-due-on">
-            Due on {b.event_date}. You can pay in the app or directly to the vendor from that day.
+            Due on {b.event_date}. You can pay in the app or directly to the partner from that day.
           </Text>
         </Section>
       ) : null}
 
       {!isVendor && claimed ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>You’ve told us you paid the vendor directly. Waiting for them to confirm they received ₹{formatInr(b.balance_amount)}.</Text>
+          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>You’ve told us you paid the partner directly. Waiting for them to confirm they received ₹{formatInr(b.balance_amount)}.</Text>
         </Section>
       ) : null}
 
@@ -230,7 +231,7 @@ export default function BookingDetail() {
 
       {canCancel && !isVendor ? (
         <Section eyebrow="Cancellation">
-          <Text style={{ color: colors.textSubtle, fontSize: 13, lineHeight: 20 }} testID="cancel-policy">{b.cancel_preview.policy}</Text>
+          <PolicyInfo policy={b.cancel_preview?.policy} />
           {b.advance_paid ? (
             <Text style={{ color: colors.text, marginTop: 10, fontSize: 14 }}>
               If you cancel now, {b.cancel_preview.refund_percent === 0 ? "the advance will not be refunded." : `you’ll receive a ${b.cancel_preview.refund_percent}% refund of the advance (₹${formatInr(b.cancel_preview.refund_amount)}).`}

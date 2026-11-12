@@ -18,6 +18,7 @@ import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
 import { EyebrowLabel, ImageTile, SectionHeader, TextLink } from "@/src/components/ui";
 import { HeartPop, hapticLight } from "@/src/components/Celebration";
 import { SeeTheirWork } from "@/src/components/SeeTheirWork";
+import { TharaProBadge } from "@/src/components/TharaProBadge";
 
 const { width } = Dimensions.get("window");
 
@@ -92,7 +93,7 @@ export default function VendorDetail() {
   }, [id, coords]);
 
   const isSample = id === SAMPLE_VENDOR_ID;
-  const sampleNote = () => Alert.alert("Sample listing", "This is a preview vendor to show how listings look on Thara. Booking opens with real partners.");
+  const sampleNote = () => Alert.alert("Sample listing", "This is a preview partner to show how listings look on Thara. Booking opens with real partners.");
   const book = (path: string) => (isSample ? sampleNote() : router.push(path as any));
   const toggleFav = async () => {
     hapticLight();
@@ -102,7 +103,7 @@ export default function VendorDetail() {
     try { const r = await api.post(`/favorites/${id}`); setFavorited(!!r.favorited); } catch { setFavorited(!next); }
   };
 
-  if (loadErr && !v) return <View style={styles.loader}><EmptyState icon="cloud-offline-outline" title="Couldn't load this vendor" message="Check your connection and try again." ctaTitle="Go back" ghost onCta={() => router.back()} /></View>;
+  if (loadErr && !v) return <View style={styles.loader}><EmptyState icon="cloud-offline-outline" title="Couldn't load this partner" message="Check your connection and try again." ctaTitle="Go back" ghost onCta={() => router.back()} /></View>;
   if (!v) return <View style={styles.loader}><ActivityIndicator color={colors.brand} /></View>;
 
   const gallery: string[] = v.gallery || [];
@@ -145,8 +146,8 @@ export default function VendorDetail() {
         </Pressable>
         <View style={styles.heroText}>
           <View style={{ flexDirection: "row", gap: 14 }}>
-            {v.verified && <View style={styles.verBadge}><Ionicons name="checkmark-circle" size={12} color="#E2BE6E" /><Text style={styles.verT}>Verified</Text></View>}
-            {v.founding_vendor && <View style={styles.verBadge}><Ionicons name="star" size={11} color="#E2BE6E" /><Text style={styles.verT}>Founding Vendor · {v.city}</Text></View>}
+            {v.verified && <TharaProBadge style={styles.verBadge} />}
+            {v.founding_vendor && <View style={styles.verBadge}><Ionicons name="star" size={11} color="#E2BE6E" /><Text style={styles.verT}>Founding Partner · {v.city}</Text></View>}
           </View>
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
@@ -283,7 +284,7 @@ export default function VendorDetail() {
 
         {tab === "reviews" && (
           <View style={{ paddingHorizontal: spacing.xl, marginTop: spacing.sm }}>
-            {reviews.length === 0 ? <EmptyState compact icon="chatbubbles-outline" title="No reviews yet" message="Be among the first to celebrate with this vendor." /> :
+            {reviews.length === 0 ? <EmptyState compact icon="chatbubbles-outline" title="No reviews yet" message="Be among the first to celebrate with this partner." /> :
               reviews.map((r) => (
                 <View key={r.id} style={styles.review}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -307,7 +308,7 @@ export default function VendorDetail() {
 
         {similar.length > 0 && (
           <View style={{ marginTop: spacing.xl }}>
-            <SectionHeader eyebrow="You may also love" title="Similar vendors" style={{ marginTop: spacing.md }} />
+            <SectionHeader eyebrow="You may also love" title="Similar partners" style={{ marginTop: spacing.md }} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, gap: 12 }}>
               {similar.map((s) => (
                 <ImageTile key={s.id} onPress={() => router.replace(`/vendor/${s.id}`)} uri={resolveImg(s.cover)} width={180} height={220} radius={16}

@@ -57,8 +57,8 @@ export default function Bookings() {
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={
             <View style={{ marginTop: 40 }}>
-              <EmptyState icon="calendar-outline" title="No bookings yet" message="When you book a vendor, your celebration plans live here." />
-              <GoldButton testID="explore-btn" title="Explore vendors" onPress={() => router.push("/(customer)/home")} style={{ marginHorizontal: spacing.xxxl }} />
+              <EmptyState icon="calendar-outline" title="No bookings yet" message="When you book a partner, your celebration plans live here." />
+              <GoldButton testID="explore-btn" title="Explore partners" onPress={() => router.push("/(customer)/home")} style={{ marginHorizontal: spacing.xxxl }} />
             </View>
           }
           renderItem={({ item }) => {

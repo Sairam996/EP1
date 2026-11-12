@@ -81,7 +81,7 @@ export default function Signup() {
           <Pressable testID="role-vendor" onPress={() => setRole("vendor")}
             style={[styles.roleBtn, role === "vendor" && styles.roleActive]}>
             <Ionicons name="briefcase" size={18} color={role === "vendor" ? colors.brand : colors.textMuted} />
-            <Text style={[styles.roleText, role === "vendor" && { color: colors.brand }]}>Vendor</Text>
+            <Text style={[styles.roleText, role === "vendor" && { color: colors.brand }]}>Partner</Text>
           </Pressable>
         </View>
 

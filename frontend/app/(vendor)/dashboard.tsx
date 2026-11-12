@@ -45,7 +45,7 @@ export default function Dashboard() {
   const comp = data.completeness || { percent: 0, checks: {}, listable: false };
   const ks: string = data.kyc_status || (data.verified ? "approved" : "not_submitted");
   const kyc = {
-    approved: { label: "Verified", sub: "Gold Verified badge is on your listing", icon: "shield-checkmark", color: colors.success },
+    approved: { label: "Verified", sub: "Thara Pro badge is on your listing", icon: "shield-checkmark", color: colors.success },
     pending: { label: "Under review", sub: "Our Hyderabad team is reviewing your documents (1–2 days)", icon: "time", color: colors.warning },
     rejected: { label: "Needs attention", sub: "Please re-submit your KYC details", icon: "close-circle", color: colors.error },
     not_submitted: { label: "Not submitted", sub: "Submit KYC to get verified and go live", icon: "alert-circle", color: colors.warning },
@@ -63,7 +63,7 @@ export default function Dashboard() {
       contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}>
       <View style={{ paddingHorizontal: gutter, marginTop: spacing.md }}>
-        <EyebrowLabel>{data.founding_vendor ? "Founding Vendor · Hyderabad" : "Partner dashboard"}</EyebrowLabel>
+        <EyebrowLabel>{data.founding_vendor ? "Founding Partner · Hyderabad" : "Partner dashboard"}</EyebrowLabel>
         <Text style={styles.name}>Welcome back, {user?.name?.split(" ")[0]}</Text>
       </View>
 

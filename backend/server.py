@@ -60,7 +60,7 @@ CANCELLATION_POLICY = {
     "half_refund_after_hours": 48,       # 2–7 days
     "summary": "The 20% advance is refunded in full if you cancel more than 7 days before the event. "
                "50% of the advance is refunded between 2 and 7 days. No refund of the advance within 48 hours of the event. "
-               "The remaining 80% is due on the event date, in the app or directly to the vendor. "
+               "The remaining 80% is due on the event date, in the app or directly to the partner. "
                "Unpaid requests can be withdrawn at any time.",
 }
 
@@ -508,7 +508,7 @@ async def complete_profile(body: CompleteProfileIn, u: dict = Depends(get_curren
             "category": "venues", "city": body.city or "Hyderabad",
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
-            "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
+            "description": "New partner on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
             "rating": 0.0, "reviews_count": 0, "seed_rating": 0.0, "seed_reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": u.get("phone", ""), "lat": clat, "lng": clng,
@@ -547,7 +547,7 @@ async def register(body: RegisterIn, request: Request):
             "category": "venues", "city": body.city or "Hyderabad",
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
-            "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
+            "description": "New partner on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
             "rating": 0.0, "reviews_count": 0, "seed_rating": 0.0, "seed_reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": body.phone, "lat": clat, "lng": clng,
@@ -800,7 +800,7 @@ def _balance_settled(b: dict) -> bool:
 def _display_status(b: dict) -> str:
     st = b.get("status")
     if st == "pending":
-        return "Awaiting vendor"
+        return "Awaiting partner"
     if st == "confirmed":
         return "Awaiting advance"
     if st == "booked":
@@ -949,7 +949,7 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
 @api.get("/vendors/{vendor_id}")
 async def get_vendor(vendor_id: str, lat: Optional[float] = None, lng: Optional[float] = None):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
-    if not v: raise HTTPException(404, "Vendor not found")
+    if not v: raise HTTPException(404, "Partner not found")
     await db.vendors.update_one({"id": vendor_id}, {"$inc": {"views": 1}})
     out = _vendor_pub(v, v.get("city", "Hyderabad"), lat, lng)
     out["founding_vendor"] = bool(v.get("founding_vendor"))
@@ -1043,7 +1043,7 @@ async def _enrich_booking(b: dict) -> dict:
         },
     ]
     return {**b,
-            "vendor_name": v["name"] if v else "Vendor",
+            "vendor_name": v["name"] if v else "Partner",
             "vendor_cover": v["cover"] if v else "",
             "customer_name": c["name"] if c else "Customer",
             "price_unit": price_unit_for((v or {}).get("category")),
@@ -1059,12 +1059,12 @@ async def _enrich_booking(b: dict) -> dict:
 @api.post("/bookings")
 async def create_booking(body: BookingIn, u: dict = Depends(require_role("customer"))):
     v = await db.vendors.find_one({"id": body.vendor_id})
-    if not v: raise HTTPException(404, "Vendor not found")
+    if not v: raise HTTPException(404, "Partner not found")
     avail = await _availability_summary(body.vendor_id)
     if body.event_date in avail["blocked_dates"]:
-        raise HTTPException(409, "Vendor is not available on this date")
+        raise HTTPException(409, "This partner is not available on this date")
     if body.event_date in avail["full_dates"]:
-        raise HTTPException(409, "Vendor is fully booked on this date")
+        raise HTTPException(409, "This partner is fully booked on this date")
     amount = body.amount
     service_title = None
     if body.service_id:
@@ -1263,7 +1263,7 @@ async def confirm_balance_offline(bid: str, u: dict = Depends(require_role("vend
         v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
         if cust:
             await send_push([cust["id"]], "Balance received",
-                f"{(v or {}).get('name') or 'The vendor'} confirmed your balance of ₹{int(b.get('balance_amount') or 0):,}.",
+                f"{(v or {}).get('name') or 'The partner'} confirmed your balance of ₹{int(b.get('balance_amount') or 0):,}.",
                 action_url=f"/booking-detail/{bid}")
     except Exception as e:
         logger.warning(f"balance confirm notify failed: {e}")
@@ -1362,7 +1362,7 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
         chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=cid,
                        system_message=("You are Thara AI, an expert Indian event-planning assistant. "
                                        "Help users plan weddings, sangeet, birthdays, corporate events. "
-                                       "Suggest vendors, budgets in INR, timelines. Be concise, warm, premium."))
+                                       "Suggest partners, budgets in INR, timelines. Be concise, warm, premium."))
         chat = chat.with_model("openai", "gpt-5.2")
         # Replay last 10 messages for context (the SDK manages session per session_id)
         msg = UserMessage(text=body.message)
@@ -1372,7 +1372,7 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
     except Exception as e:
         logger.warning(f"AI error fallback: {e}")
         reply = ("Here are quick tips: 1) Set a budget per category. 2) Lock the venue first. "
-                 "3) Book photography & catering 3-6 months ahead. Ask me for vendor suggestions in your city!")
+                 "3) Book photography & catering 3-6 months ahead. Ask me for partner suggestions in your city!")
     history.append({"role": "assistant", "content": reply,
                     "ts": datetime.now(timezone.utc).isoformat()})
     if convo:
@@ -1452,7 +1452,7 @@ async def quote_payment(body: PayOrderIn, u: dict = Depends(require_role("custom
     if kind == "advance":
         payable = b.get("status") == "confirmed" and not _advance_is_paid(b)
         blocked = None if payable else (
-            "Payment of the advance opens after the vendor confirms this booking"
+            "Payment of the advance opens after the partner confirms this booking"
             if b.get("status") != "confirmed" else "The advance has already been paid")
     else:
         payable = b.get("status") == "booked" and b.get("balance_status") == "due" and event_reached
@@ -1463,7 +1463,7 @@ async def quote_payment(body: PayOrderIn, u: dict = Depends(require_role("custom
         elif _balance_settled(b):
             blocked = "The balance has already been settled"
         elif b.get("balance_status") == "claimed_offline":
-            blocked = "Waiting for the vendor to confirm they received the balance"
+            blocked = "Waiting for the partner to confirm they received the balance"
         elif not event_reached:
             blocked = f"Due on {b.get('event_date')}"
         else:
@@ -1493,14 +1493,14 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
         if _advance_is_paid(b):
             raise HTTPException(409, "The advance has already been paid")
         if b.get("status") != "confirmed":
-            raise HTTPException(409, "The 20% advance can be paid after the vendor confirms this booking")
+            raise HTTPException(409, "The 20% advance can be paid after the partner confirms this booking")
     else:
         if _balance_settled(b):
             raise HTTPException(409, "The balance has already been settled")
         if not _advance_is_paid(b) or b.get("status") != "booked":
             raise HTTPException(409, "Pay the 20% advance first")
         if b.get("balance_status") == "claimed_offline":
-            raise HTTPException(409, "Waiting for the vendor to confirm they received the balance")
+            raise HTTPException(409, "Waiting for the partner to confirm they received the balance")
         if not _event_reached(b.get("event_date") or "2099-01-01"):
             raise HTTPException(409, f"The balance is due on {b.get('event_date')}")
     user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1, "lifetime_points": 1})
@@ -1571,12 +1571,12 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
         raise HTTPException(503, "Razorpay is not configured")
     if kind == "advance":
         if b.get("status") != "confirmed":
-            raise HTTPException(409, "The 20% advance can be paid after the vendor confirms this booking")
+            raise HTTPException(409, "The 20% advance can be paid after the partner confirms this booking")
     else:
         if b.get("status") != "booked" or not _advance_is_paid(b):
             raise HTTPException(409, "Pay the 20% advance first")
         if b.get("balance_status") == "claimed_offline":
-            raise HTTPException(409, "Waiting for the vendor to confirm they received the balance")
+            raise HTTPException(409, "Waiting for the partner to confirm they received the balance")
         if not _event_reached(b.get("event_date") or "2099-01-01"):
             raise HTTPException(409, f"The balance is due on {b.get('event_date')}")
 
@@ -1608,10 +1608,10 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
                       "points_earned": earn, "paid_at": now}})
         try:
             v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
-            subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn, kind="advance")
+            subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="advance")
             await send_email(u["email"], subj, html, prev)
             await send_push([u["id"]], "Advance paid — date locked",
-                f"₹{paid_amt:,} advance paid to {v['name'] if v else 'vendor'}. Balance ₹{int(b.get('balance_amount') or 0):,} is due on {b.get('event_date')}."
+                f"₹{paid_amt:,} advance paid to {v['name'] if v else 'partner'}. Balance ₹{int(b.get('balance_amount') or 0):,} is due on {b.get('event_date')}."
                 + (f" +{earn} points!" if earn else ""),
                 action_url=f"/booking-detail/{body.booking_id}")
             owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
@@ -1643,10 +1643,10 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
                   "points_earned": earn, "paid_at": now}})
     try:
         v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
-        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn, kind="balance")
+        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="balance")
         await send_email(u["email"], subj, html, prev)
         await send_push([u["id"]], "Balance paid",
-            f"₹{paid_amt:,} balance paid to {v['name'] if v else 'vendor'}."
+            f"₹{paid_amt:,} balance paid to {v['name'] if v else 'partner'}."
             + (f" +{earn} points!" if earn else ""),
             action_url=f"/booking-detail/{body.booking_id}")
         owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
@@ -1770,7 +1770,7 @@ class AdminVerifyIn(BaseModel):
 async def admin_verify_vendor(vendor_id: str, body: Optional[AdminVerifyIn] = None, _: bool = Depends(require_admin)):
     body = body or AdminVerifyIn()
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
-    if not v: raise HTTPException(404, "Vendor not found")
+    if not v: raise HTTPException(404, "Partner not found")
     st = "approved" if body.approve else "rejected"
     upd = {"verified": body.approve, "kyc_status": st,
            "verified_at": datetime.now(timezone.utc).isoformat() if body.approve else None}
@@ -1923,7 +1923,7 @@ async def upload_image(request: Request, file: UploadFile = File(...),
     return {"url": f"{base}{rel}", "path": rel}
 
 # --- Profile completeness / listing gate helpers ---
-PLACEHOLDER_DESCRIPTIONS = {"new vendor on thara.", "new vendor on eventpro.", ""}
+PLACEHOLDER_DESCRIPTIONS = {"new vendor on thara.", "new vendor on eventpro.", "new partner on thara.", "new partner on eventpro.", ""}
 STOCK_COVER = "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"
 
 def _is_uploaded(url: str) -> bool:
@@ -2013,7 +2013,7 @@ SEED_VENDORS = [
     ("Mumbai Spice Catering", "catering", "Mumbai", 1200, 4.7, "Multi-cuisine catering — Maharashtrian, Punjabi, Continental.", ["Buffet", "Live Counters", "Jain Menu"]),
     ("Stories By Riya", "photography", "Mumbai", 110000, 4.8, "Boutique storyteller for intimate weddings.", ["Candid", "Cinematography", "Albums"]),
     ("Petal & Pearl Decor", "decor", "Mumbai", 90000, 4.8, "Boho-luxe wedding decor in pastels & gold.", ["Floral", "Drapes", "Pastels"]),
-    ("EventCraft Planners Mumbai", "planning", "Mumbai", 150000, 4.7, "Full-service wedding planners with global vendors.", ["End-to-End", "Destination", "Coordination"]),
+    ("EventCraft Planners Mumbai", "planning", "Mumbai", 150000, 4.7, "Full-service wedding planners with global partners.", ["End-to-End", "Destination", "Coordination"]),
     # Delhi
     ("ITC Maurya Banquets", "venues", "Delhi", 600000, 4.9, "Iconic Delhi luxury banquet with regal interiors.", ["Premium", "Valet", "Suites"]),
     ("Royal Rasoi Catering", "catering", "Delhi", 1100, 4.6, "Mughlai, Awadhi & North Indian catering.", ["Tandoor", "Live", "Veg/Non-Veg"]),

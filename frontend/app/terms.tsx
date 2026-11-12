@@ -8,15 +8,15 @@ import { EyebrowLabel, SerifTitle, gutter } from "@/src/components/ui";
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: "1. Who we are",
-    body: "Thara is a marketplace that connects people planning celebrations in India with independent event vendors — venues, caterers, photographers, décor, music and planners. Thara is not the vendor and does not itself provide the booked service.",
+    body: "Thara is a marketplace that connects people planning celebrations in India with independent event partners — venues, caterers, photographers, décor, music and planners. Thara is not the partner and does not itself provide the booked service.",
   },
   {
     title: "2. Your account",
-    body: "You must be 18 or older to use Thara. Keep your phone and email details accurate. You are responsible for activity on your account. Vendors must only list services they can legally provide.",
+    body: "You must be 18 or older to use Thara. Keep your phone and email details accurate. You are responsible for activity on your account. Partners must only list services they can legally provide.",
   },
   {
     title: "3. Bookings",
-    body: "A booking request is a request, not a reservation, until the vendor accepts it. After they accept, you pay a 20% advance in the app to lock the date (status becomes booked). The remaining 80% is due on the event date, either in the app or directly to the vendor (the vendor must confirm an offline payment). Vendors set their own availability, packages and starting prices. Details on a listing (photos, capacity, inclusions) are provided by the vendor.",
+    body: "A booking request is a request, not a reservation, until the partner accepts it. After they accept, you pay a 20% advance in the app to lock the date (status becomes booked). The remaining 80% is due on the event date, either in the app or directly to the partner (the partner must confirm an offline payment). Partners set their own availability, packages and starting prices. Details on a listing (photos, capacity, inclusions) are provided by the partner.",
   },
   {
     title: "4. Payments and GST",
@@ -24,7 +24,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "5. Cancellation and refunds",
-    body: "You may cancel a request or a booked date from the booking details screen, until the balance has been settled. Unpaid requests can be withdrawn at any time with no charge. Refunds apply to the 20% advance only: a full refund of the advance if you cancel more than 7 days before the event; 50% of the advance between 2 and 7 days; no refund of the advance within 48 hours of the event. Refunds are returned to the original payment method. The vendor may decline a request before the advance is paid.",
+    body: "You may cancel a request or a booked date from the booking details screen, until the balance has been settled. Unpaid requests can be withdrawn at any time with no charge. Refunds apply to the 20% advance only: a full refund of the advance if you cancel more than 7 days before the event; 50% of the advance between 2 and 7 days; no refund of the advance within 48 hours of the event. Refunds are returned to the original payment method. The partner may decline a request before the advance is paid.",
   },
   {
     title: "6. Conduct",
@@ -32,7 +32,7 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "7. Liability",
-    body: "Vendors are responsible for the service they deliver. To the extent permitted by law, Thara is not liable for a vendor’s delay, cancellation, or quality of work, beyond facilitating the booking and any refund due under this policy.",
+    body: "Partners are responsible for the service they deliver. To the extent permitted by law, Thara is not liable for a partner’s delay, cancellation, or quality of work, beyond facilitating the booking and any refund due under this policy.",
   },
   {
     title: "8. Changes",
