@@ -11,6 +11,7 @@ import { api, resolveImg } from "@/src/api";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { SAMPLE_VENDOR } from "@/src/sampleVendor";
 import { formatInr, formatPrice } from "@/src/utils/price";
+import { numeric } from "@/src/components/Num";
 import { Rating } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
@@ -93,7 +94,7 @@ export default function Home() {
     vRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     vDot: { color: "rgba(243,244,246,0.7)" },
     vMuted: { color: "rgba(243,244,246,0.85)", fontSize: 11 },
-    vPrice: { color: "#E2BE6E", fontSize: 13, fontWeight: "700", marginTop: 5, letterSpacing: 0.3 },
+    vPrice: { color: "#E2BE6E", fontSize: 13, fontWeight: "700", marginTop: 5, letterSpacing: 0.3, ...numeric },
     // Text-on-image tags (no solid/outlined pills).
     verifiedBadge: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center", gap: 4 },
     sampleBadge: { position: "absolute", top: 12, right: 12 },
@@ -105,9 +106,9 @@ export default function Home() {
     comboBox: { position: "absolute", left: 16, right: 16, bottom: 16 },
     comboTitle: { color: "#FFF8EB", fontSize: 28, lineHeight: 32, fontFamily: fonts.displayBold },
     comboDesc: { color: "rgba(243,244,246,0.85)", fontSize: 11, marginTop: 3 },
-    comboPrice: { color: "#E2BE6E", fontSize: 20, fontFamily: fonts.displayBold },
-    comboOrig: { color: "rgba(243,244,246,0.6)", fontSize: 12, textDecorationLine: "line-through" },
-    comboSave: { color: c.success, fontSize: 11, fontWeight: "700" },
+    comboPrice: { color: "#E2BE6E", fontSize: 20, fontWeight: "600", ...numeric },
+    comboOrig: { color: "rgba(243,244,246,0.6)", fontSize: 12, textDecorationLine: "line-through", ...numeric },
+    comboSave: { color: c.success, fontSize: 11, fontWeight: "700", ...numeric },
     empty: { color: c.textMuted, padding: spacing.md },
   }));
 

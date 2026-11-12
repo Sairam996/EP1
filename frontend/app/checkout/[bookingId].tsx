@@ -9,6 +9,7 @@ import { SuccessSeal, useCelebrate } from "@/src/components/Celebration";
 import { fonts, spacing, themedStyles, press, useColors } from "@/src/theme";
 import { EyebrowLabel, KeyValue, Section, TextLink, editorialGold, gutter } from "@/src/components/ui";
 import { formatInr } from "@/src/utils/price";
+import { NumText } from "@/src/components/Num";
 import { PolicyInfo } from "@/src/components/PolicyInfo";
 import { RazorpayCheckoutModal, type RazorpayOrder, type RazorpaySuccess } from "@/src/components/RazorpayCheckout";
 
@@ -148,11 +149,11 @@ export default function Checkout() {
       <View style={{ flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: spacing.xl }}>
         <SuccessSeal testID="booking-success-seal" />
         <Text style={styles.successTitle}>{done.kind === "balance" ? "Balance settled" : "Date locked"}</Text>
-        <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>
+        <NumText style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>
           {done.kind === "balance"
             ? `The remaining balance with ${booking.vendor_name} is paid.`
             : `Your 20% advance with ${booking.vendor_name} is paid. The balance of ₹${formatInr(done.balance_amount || 0)} is due on ${done.event_date} — pay in the app or directly to the partner.`}
-        </Text>
+        </NumText>
         {done.earned > 0 && (
           <View style={styles.earnedCard} testID="earned-card">
             <Ionicons name="sparkles-outline" size={18} color={colors.brand} />
@@ -168,7 +169,7 @@ export default function Checkout() {
             <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19 }}>You&apos;ve leveled up to {done.tier}</Text>
           </View>
         )}
-        {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off the advance)</Text>}
+        {done.redeemed > 0 && <NumText style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off the advance)</NumText>}
         <GoldButton testID="done-btn" title="View My Bookings" onPress={() => router.dismissTo("/(customer)/bookings")} style={{ marginTop: spacing.xl, minWidth: 240 }} />
       </View>
     );
@@ -190,9 +191,9 @@ export default function Checkout() {
         <View style={{ paddingHorizontal: gutter, marginTop: spacing.md }}>
           <EyebrowLabel>Order summary</EyebrowLabel>
           <Text style={styles.vendor} numberOfLines={2}>{booking.vendor_name}</Text>
-          <Text style={{ color: colors.textMuted, marginTop: 4, textTransform: "capitalize" }}>
-            {String(booking.event_type || "").replace(/_/g, " ")}  ·  {booking.event_date}  ·  {booking.guests} guests
-          </Text>
+          <NumText style={{ color: colors.textMuted, marginTop: 4, textTransform: "capitalize" }}>
+            {`${String(booking.event_type || "").replace(/_/g, " ")}  ·  ${booking.event_date}  ·  ${booking.guests} guests`}
+          </NumText>
         </View>
 
         {awaitingVendor ? (
@@ -211,10 +212,9 @@ export default function Checkout() {
 
         {canPay && isAdvance && (quote.points_available || 0) > 0 && (
           <Section eyebrow="Thara Points">
-            <Text style={{ color: colors.textSubtle, fontSize: 13 }}>
-              Available <Text style={{ color: editorialGold(colors), fontWeight: "700" }}>{quote.points_available}</Text>
-              {"  ·  "}up to {quote.max_redeem} usable on the advance
-            </Text>
+            <NumText style={{ color: colors.textSubtle, fontSize: 13 }}>
+              {`Available ${quote.points_available}  ·  up to ${quote.max_redeem} usable on the advance`}
+            </NumText>
             <View style={{ flexDirection: "row", gap: 14, marginTop: 10, alignItems: "center" }}>
               <TextInput testID="redeem-input" value={redeemInput} onChangeText={refreshQuote} keyboardType="number-pad"
                 style={styles.redeemInput} placeholder="0" placeholderTextColor={colors.textMuted} />
@@ -238,9 +238,9 @@ export default function Checkout() {
             last
           />
           {canPay && quote.earn_estimate > 0 && (
-            <Text style={{ color: colors.success, fontSize: 12, marginTop: 2 }}>
-              You&apos;ll earn ~{quote.earn_estimate} points on this payment
-            </Text>
+            <NumText style={{ color: colors.success, fontSize: 12, marginTop: 2 }}>
+              {`You'll earn ~${quote.earn_estimate} points on this payment`}
+            </NumText>
           )}
         </Section>
 
@@ -282,7 +282,7 @@ const styles = themedStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
   title: { color: colors.text, fontSize: 22, fontFamily: fonts.displayBold },
   vendor: { color: colors.text, fontSize: 32, lineHeight: 38, fontFamily: fonts.displayBold, marginTop: 6 },
-  redeemInput: { flex: 1, backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, color: colors.text, fontSize: 16 },
+  redeemInput: { flex: 1, backgroundColor: colors.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(140,106,38,0.06)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, color: colors.text, fontSize: 16, fontVariant: ["tabular-nums", "lining-nums"] },
   upi: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: gutter, marginTop: spacing.lg },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.xl, paddingTop: spacing.md, backgroundColor: colors.surface },
   successTitle: { color: colors.text, fontSize: 28, fontFamily: fonts.displayBold, marginTop: spacing.lg, textAlign: "center" },

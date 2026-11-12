@@ -11,6 +11,7 @@ import { formatInr, formatPrice, previewTotals } from "@/src/utils/price";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
 import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
 import { editorialGold } from "@/src/components/ui";
+import { Num, NumText, numeric } from "@/src/components/Num";
 import { PolicyInfo } from "@/src/components/PolicyInfo";
 import { TharaProBadge } from "@/src/components/TharaProBadge";
 import { SeeTheirWork } from "@/src/components/SeeTheirWork";
@@ -101,7 +102,7 @@ export default function BookingForm() {
     calWrap: { paddingBottom: 6, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     stepBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.5)" : "rgba(140,106,38,0.5)", alignItems: "center", justifyContent: "center" },
-    bigNum: { color: p.text, fontSize: 52, fontFamily: fonts.displayBold, minWidth: 140, textAlign: "center" },
+    bigNum: { color: p.text, fontSize: 52, fontWeight: "600", minWidth: 140, textAlign: "center", ...numeric },
     row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: p.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     rowL: { ...type.caption, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1 },
     rowV: { ...type.body, color: p.text, fontWeight: "500" },
@@ -118,7 +119,7 @@ export default function BookingForm() {
   const Review = ({ icon, label, value, to }: { icon: any; label: string; value: string; to: StepKey }) => (
     <PressableScale style={s.row} onPress={() => setStepIdx(steps.indexOf(to))} accessibilityLabel={`Edit ${label}`}>
       <Ionicons name={icon} size={18} color={c.brand} />
-      <View style={{ flex: 1 }}><Text style={s.rowL}>{label}</Text><Text style={s.rowV} numberOfLines={3}>{value}</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.rowL}>{label}</Text><NumText style={s.rowV} numberOfLines={3}>{value}</NumText></View>
       <Ionicons name="create-outline" size={16} color={c.textMuted} />
     </PressableScale>
   );
@@ -131,9 +132,9 @@ export default function BookingForm() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={s.title}>Book {vendor?.name ?? ""}</Text>
-          <Text style={s.sub}>Step {stepIdx + 1} of {steps.length}</Text>
+          <NumText style={s.sub}>Step {stepIdx + 1} of {steps.length}</NumText>
         </View>
-        <Text style={{ color: editorialGold(c), fontFamily: fonts.displayBold, fontSize: 19 }}>{amount > 0 ? formatPrice(amount, selected?.price_unit || vendor?.price_unit) : "Price on request"}</Text>
+        {amount > 0 ? <Num style={{ color: editorialGold(c), fontSize: 19, fontWeight: "600" }}>{formatPrice(amount, selected?.price_unit || vendor?.price_unit)}</Num> : <Text style={{ color: editorialGold(c), fontFamily: fonts.displayBold, fontSize: 19 }}>Price on request</Text>}
       </View>
       <View style={s.progTrack}>
         {steps.map((k, i) => <View key={k} style={[s.seg, i <= stepIdx && { backgroundColor: c.brand }]} />)}
@@ -157,7 +158,7 @@ export default function BookingForm() {
                       {sv.description ? <Text style={{ color: c.textMuted, fontSize: 12 }} numberOfLines={2}>{sv.description}</Text> : null}
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={{ color: c.text, fontWeight: "600" }}>{formatPrice(sv.price, sv.price_unit || vendor?.price_unit)}</Text>
+                      <Num style={{ color: c.text, fontWeight: "600" }}>{formatPrice(sv.price, sv.price_unit || vendor?.price_unit)}</Num>
                       <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={18} color={on ? c.brand : c.textMuted} />
                     </View>
                   </PressableScale>
@@ -242,19 +243,19 @@ export default function BookingForm() {
                   <View testID="advance-preview">
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                       <Text style={[s.rowV, { flex: 0 }]}>Service</Text>
-                      <Text style={s.sub}>₹{formatInr(tot.service)}</Text>
+                      <Num style={s.sub}>₹{formatInr(tot.service)}</Num>
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
                       <Text style={s.sub}>GST (5%)</Text>
-                      <Text style={s.sub}>₹{formatInr(tot.gst)}</Text>
+                      <Num style={s.sub}>₹{formatInr(tot.gst)}</Num>
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, alignItems: "baseline" }}>
                       <Text style={[s.rowV, { flex: 0 }]}>Total</Text>
-                      <Text style={{ color: editorialGold(c), fontSize: 26, fontFamily: fonts.displayBold }}>₹{formatInr(tot.total)}</Text>
+                      <Num style={{ color: editorialGold(c), fontSize: 26, fontWeight: "600" }}>₹{formatInr(tot.total)}</Num>
                     </View>
-                    <Text style={{ color: editorialGold(c), marginTop: 12, fontSize: 16, fontFamily: fonts.display, lineHeight: 22 }} testID="advance-split">
+                    <NumText style={{ color: editorialGold(c), marginTop: 12, fontSize: 16, fontFamily: fonts.display, lineHeight: 22 }} testID="advance-split">
                       Pay 20% now: ₹{formatInr(tot.advance)}  ·  Balance ₹{formatInr(tot.balance)} on event day
-                    </Text>
+                    </NumText>
                     <Text style={{ color: c.textSubtle, marginTop: 6, fontSize: 13, lineHeight: 18 }}>
                       After the partner accepts, a 20% advance locks the date. The balance can be paid in the app or directly to the partner from the event date.
                     </Text>

@@ -97,6 +97,11 @@ export function _mutateColors(next: Palette) {
 export const spacing = { xs: 4, sm: 6, md: 10, lg: 14, xl: 18, xxl: 24, xxxl: 36 };
 export const radius = { sm: 6, md: 12, lg: 18, pill: 999 };
 export const fonts = { display: "CormorantGaramond_500Medium", displayBold: "CormorantGaramond_600SemiBold", text: "System" };
+/** Lining, even figures for every price, date, count and stat. Words stay on `fonts.display`. */
+export const numeric: TextStyle = {
+  fontFamily: fonts.text,
+  fontVariant: ["tabular-nums", "lining-nums"],
+};
 // Metallic gold of the THARA wordmark (brand template) per surface.
 export const brandGold = { dark: "#E2BE6E", light: "#8C6A26" };
 

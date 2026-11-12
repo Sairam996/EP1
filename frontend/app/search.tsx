@@ -11,7 +11,7 @@ import { AnimatedChip } from "@/src/components/AnimatedChips";
 import { Divider, EyebrowLabel, ImageTile, gutter } from "@/src/components/ui";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useAuth } from "@/src/context/AuthContext";
-import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, numeric, radius, spacing, useThemedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
 import { RotatingHint } from "@/src/components/RotatingHint";
 import { SAMPLE_VENDOR, SAMPLE_SERVICES } from "@/src/sampleVendor";
@@ -61,9 +61,9 @@ export default function Search() {
     card: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 12 },
     img: { width: 78, height: 78, borderRadius: 14, backgroundColor: c.surface3 },
     cardName: { color: c.text, fontSize: 20, lineHeight: 24, fontFamily: fonts.displayBold },
-    cardMeta: { color: c.textMuted, fontSize: 12, textTransform: "capitalize" },
+    cardMeta: { color: c.textMuted, fontSize: 12, textTransform: "capitalize", ...numeric },
     cardSvc: { color: c.textSubtle, fontSize: 12 },
-    cardPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 13.5, fontWeight: "700", marginTop: 4 },
+    cardPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 13.5, fontWeight: "700", marginTop: 4, ...numeric },
     secT: { marginBottom: 8, marginTop: spacing.xxl },
     chipWrap: { flexDirection: "row", flexWrap: "wrap" },
     sChip: { width: "50%", flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 },

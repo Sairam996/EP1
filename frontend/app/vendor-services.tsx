@@ -11,6 +11,7 @@ import { fonts, colors, radius, spacing, themedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
 import { SocialLinkFields } from "@/src/components/SocialLinkFields";
 import type { SocialFields } from "@/src/utils/socialLinks";
+import { Num } from "@/src/components/Num";
 
 const MAX_PHOTOS = 15;
 
@@ -162,7 +163,7 @@ export default function VendorServices() {
               <Text style={{ color: colors.text, fontWeight: "500" }} numberOfLines={1}>{s.title}</Text>
               <Text style={{ color: colors.textMuted, fontSize: 11 }} numberOfLines={1}>{s.description}</Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-                <Text style={{ color: colors.brand, fontWeight: "600", fontSize: 13 }}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
+                <Num style={{ color: colors.brand, fontWeight: "600", fontSize: 13 }}>₹{Number(s.price).toLocaleString("en-IN")}</Num>
                 {s.photos?.length > 0 && (
                   <View style={styles.photoBadge}>
                     <Ionicons name="images" size={10} color={colors.brand} />

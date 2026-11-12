@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { GoldButton, GhostButton } from "@/src/components/UI";
 import { fonts, press, spacing, type, useThemedStyles, useColors } from "@/src/theme";
 import { GoldGlow, editorialGold } from "@/src/components/ui";
+import { NumText } from "@/src/components/Num";
 
 /** Pressable with subtle opacity + scale feedback from theme.press tokens. */
 export function PressableScale({ style, children, ...rest }: Omit<PressableProps, "style"> & { style?: StyleProp<ViewStyle>; children?: ReactNode }) {
@@ -46,7 +47,7 @@ export function SoftChip({ icon, label }: { icon: keyof typeof Ionicons.glyphMap
   return (
     <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, paddingVertical: 6 }}>
       <Ionicons name={icon} size={13} color={c.textMuted} />
-      <Text style={{ ...type.caption, color: c.textMuted, fontStyle: "italic" }}>{label}</Text>
+      <NumText style={{ ...type.caption, color: c.textMuted, fontStyle: "italic" }}>{label}</NumText>
     </View>
   );
 }

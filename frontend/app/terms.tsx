@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fonts, spacing, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, SerifTitle, gutter } from "@/src/components/ui";
+import { NumText } from "@/src/components/Num";
 
 const SECTIONS: { title: string; body: string }[] = [
   {
@@ -58,11 +59,11 @@ export default function TermsScreen() {
       </Pressable>
       <EyebrowLabel>Legal</EyebrowLabel>
       <SerifTitle size={34} style={s.h}>Terms of use</SerifTitle>
-      <Text style={s.p}>Last updated 12 November 2026. These terms govern your use of the Thara app in India.</Text>
+      <NumText style={s.p}>Last updated 12 November 2026. These terms govern your use of the Thara app in India.</NumText>
       {SECTIONS.map((sec) => (
         <View key={sec.title}>
           <Text style={s.sec}>{sec.title}</Text>
-          <Text style={s.p}>{sec.body}</Text>
+          <NumText style={s.p}>{sec.body}</NumText>
         </View>
       ))}
       <Text style={s.foot}>Thara  ·  Indian events, timeless beauty.</Text>

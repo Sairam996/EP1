@@ -12,6 +12,7 @@ import { fonts, spacing, useColors, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, KeyValue, ListRow, Section, StatusText, TextLink, editorialGold, gutter } from "@/src/components/ui";
 import { formatInr } from "@/src/utils/price";
 import { PolicyInfo } from "@/src/components/PolicyInfo";
+import { NumText } from "@/src/components/Num";
 
 function prettyMethod(m?: string) {
   if (m === "in_app") return "Paid in the app";
@@ -126,19 +127,19 @@ export default function BookingDetail() {
         <KeyValue label="Total" value={`₹${formatInr(b.price_breakdown?.total ?? b.total_amount ?? b.amount)}`} emphasis valueColor={editorialGold(colors)} last />
         {b.notes ? <Text style={s.notes}>“{b.notes}”</Text> : null}
         {b.status === "pending" ? (
-          <Text style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
+          <NumText style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
             {isVendor ? "Accept this request so the customer can pay a 20% advance and lock the date." : "Waiting for the partner to accept. You’ll pay a 20% advance once they confirm."}
-          </Text>
+          </NumText>
         ) : null}
         {b.status === "confirmed" ? (
-          <Text style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
+          <NumText style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>
             {isVendor ? "Waiting for the customer to pay the 20% advance." : "The partner has accepted. Pay a 20% advance to lock this date."}
-          </Text>
+          </NumText>
         ) : null}
         {b.refund_status && b.refund_status !== "n/a" ? (
-          <Text style={[s.notes, { fontStyle: "normal" }]}>
+          <NumText style={[s.notes, { fontStyle: "normal" }]}>
             {b.refund_status === "refunded" ? `Refund of ₹${formatInr(b.refund_amount)} (${b.refund_percent}% of the advance) is being processed.` : "This booking was cancelled with no refund of the advance, as it was within 48 hours of the event."}
-          </Text>
+          </NumText>
         ) : null}
       </Section>
 
@@ -152,7 +153,7 @@ export default function BookingDetail() {
           return (
             <View key={line.key}>
               <KeyValue label={line.label} value={value} last={last && !line.at && !line.method} />
-              {line.at ? <Text style={s.when}>{line.status === "claimed_offline" ? "Claimed" : "Paid"} {new Date(line.at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" })}{line.method ? ` · ${prettyMethod(line.method)}` : ""}</Text> : null}
+              {line.at ? <NumText style={s.when}>{`${line.status === "claimed_offline" ? "Claimed" : "Paid"} ${new Date(line.at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric"})}${line.method ? ` · ${prettyMethod(line.method)}` : ""}`}</NumText> : null}
             </View>
           );
         })}
@@ -171,7 +172,7 @@ export default function BookingDetail() {
 
       {!isVendor && balancePayable ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>The remaining ₹{formatInr(b.balance_amount)} can be paid in the app or directly to the partner.</Text>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>The remaining ₹{formatInr(b.balance_amount)} can be paid in the app or directly to the partner.</NumText>
           <GoldButton testID="pay-balance" title={`Pay balance ₹${formatInr(b.balance_amount)}`} onPress={() => router.push(`/checkout/${b.id}?kind=balance`)} style={{ marginTop: spacing.lg }} />
           <View style={{ marginTop: spacing.md, alignItems: "center" }}>
             <TextLink testID="claim-offline" title="I paid the partner directly" onPress={() => act(() => api.post(`/bookings/${id}/balance/claim`), "Couldn’t record this")} />
@@ -181,15 +182,15 @@ export default function BookingDetail() {
 
       {!isVendor && b.status === "booked" && !settled && !b.event_reached ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }} testID="balance-due-on">
-            Due on {b.event_date}. You can pay in the app or directly to the partner from that day.
-          </Text>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }} testID="balance-due-on">
+            {`Due on ${b.event_date}. You can pay in the app or directly to the partner from that day.`}
+          </NumText>
         </Section>
       ) : null}
 
       {!isVendor && claimed ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>You’ve told us you paid the partner directly. Waiting for them to confirm they received ₹{formatInr(b.balance_amount)}.</Text>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>You’ve told us you paid the partner directly. Waiting for them to confirm they received ₹{formatInr(b.balance_amount)}.</NumText>
         </Section>
       ) : null}
 
@@ -204,9 +205,9 @@ export default function BookingDetail() {
 
       {vendorCanMarkBalance ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>
             {claimed ? "The customer says they paid you directly. Confirm if you received the balance." : `₹${formatInr(b.balance_amount)} is still outstanding. Confirm when you receive it, or the customer can pay in the app.`}
-          </Text>
+          </NumText>
           <GoldButton testID="mark-balance" title="Mark balance received" onPress={() => act(() => api.post(`/bookings/${id}/balance/confirm`), "Couldn’t update")} loading={acting} style={{ marginTop: spacing.lg }} />
         </Section>
       ) : null}
@@ -219,13 +220,13 @@ export default function BookingDetail() {
 
       {isVendor && b.status === "booked" && !settled && !b.event_reached ? (
         <Section eyebrow="Balance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>₹{formatInr(b.balance_amount)} is due on {b.event_date}.</Text>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>₹{formatInr(b.balance_amount)} is due on {b.event_date}.</NumText>
         </Section>
       ) : null}
 
       {isVendor && b.status === "confirmed" ? (
         <Section eyebrow="Advance">
-          <Text style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>Waiting for a 20% advance of ₹{formatInr(b.advance_amount)} to lock this date.</Text>
+          <NumText style={{ color: colors.textSubtle, fontSize: 14, lineHeight: 21 }}>Waiting for a 20% advance of ₹{formatInr(b.advance_amount)} to lock this date.</NumText>
         </Section>
       ) : null}
 
@@ -233,9 +234,9 @@ export default function BookingDetail() {
         <Section eyebrow="Cancellation">
           <PolicyInfo policy={b.cancel_preview?.policy} />
           {b.advance_paid ? (
-            <Text style={{ color: colors.text, marginTop: 10, fontSize: 14 }}>
-              If you cancel now, {b.cancel_preview.refund_percent === 0 ? "the advance will not be refunded." : `you’ll receive a ${b.cancel_preview.refund_percent}% refund of the advance (₹${formatInr(b.cancel_preview.refund_amount)}).`}
-            </Text>
+            <NumText style={{ color: colors.text, marginTop: 10, fontSize: 14 }}>
+              {`If you cancel now, ${b.cancel_preview.refund_percent === 0 ? "the advance will not be refunded." : "you’ll receive a " + b.cancel_preview.refund_percent + "% refund of the advance (₹" + formatInr(b.cancel_preview.refund_amount) + ")."}`}
+            </NumText>
           ) : (
             <Text style={{ color: colors.textSubtle, marginTop: 10, fontSize: 14 }}>This request is unpaid, so you can withdraw it at no charge.</Text>
           )}

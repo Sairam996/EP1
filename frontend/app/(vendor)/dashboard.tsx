@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
-import { colors, fonts, spacing, themedStyles } from "@/src/theme";
+import { colors, fonts, numeric, spacing, themedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, ListRow, Section, StatStrip, gutter } from "@/src/components/ui";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
@@ -116,7 +116,7 @@ export default function Dashboard() {
 }
 const styles = themedStyles((colors) => ({
   name: { color: colors.text, fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold, marginTop: 6 },
-  strengthPct: { color: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 44, lineHeight: 48, fontFamily: fonts.displayBold },
+  strengthPct: { color: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 44, lineHeight: 48, fontWeight: "600", ...numeric },
   barBg: { height: 2, borderRadius: 1, backgroundColor: colors.mode === "dark" ? "rgba(226,190,110,0.15)" : "rgba(140,106,38,0.15)", marginTop: 10, overflow: "hidden" },
   barFill: { height: 2, borderRadius: 1, backgroundColor: colors.mode === "dark" ? "#E2BE6E" : "#8C6A26" },
 }));

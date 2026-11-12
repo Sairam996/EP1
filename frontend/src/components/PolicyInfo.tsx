@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fonts, spacing, useColors } from "@/src/theme";
 import { TextLink, editorialGold, gutter } from "@/src/components/ui";
+import { NumText } from "@/src/components/Num";
 
 /** Fallback when the server has not yet returned cancellation_policy. Keep in sync with backend CANCELLATION_POLICY.summary. */
 export const DEFAULT_CANCELLATION_POLICY =
@@ -62,9 +63,9 @@ export function PolicyInfo({
             <Text style={{ color: colors.text, fontSize: 28, lineHeight: 34, fontFamily: fonts.displayBold, marginBottom: spacing.md }}>
               Cancellation policy
             </Text>
-            <Text testID="cancel-policy-text" style={{ color: colors.textSubtle, fontSize: 16, lineHeight: 24, fontFamily: fonts.display }}>
+            <NumText testID="cancel-policy-text" style={{ color: colors.textSubtle, fontSize: 16, lineHeight: 24, fontFamily: fonts.display }}>
               {text}
-            </Text>
+            </NumText>
             <View style={{ alignItems: "center", marginTop: spacing.xl }}>
               <TextLink title="Close" onPress={() => setOpen(false)} testID="policy-close" />
             </View>

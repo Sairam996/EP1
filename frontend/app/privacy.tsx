@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fonts, spacing, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, SerifTitle, gutter } from "@/src/components/ui";
+import { NumText } from "@/src/components/Num";
 
 const SECTIONS: { title: string; body: string }[] = [
   {
@@ -54,11 +55,11 @@ export default function PrivacyScreen() {
       </Pressable>
       <EyebrowLabel>Legal</EyebrowLabel>
       <SerifTitle size={34} style={s.h}>Privacy policy</SerifTitle>
-      <Text style={s.p}>Last updated 12 November 2026. This policy explains how Thara handles your information.</Text>
+      <NumText style={s.p}>Last updated 12 November 2026. This policy explains how Thara handles your information.</NumText>
       {SECTIONS.map((sec) => (
         <View key={sec.title}>
           <Text style={s.sec}>{sec.title}</Text>
-          <Text style={s.p}>{sec.body}</Text>
+          <NumText style={s.p}>{sec.body}</NumText>
         </View>
       ))}
       <Text style={s.foot}>Thara  ·  Indian events, timeless beauty.</Text>

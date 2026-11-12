@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet, ViewStyle, TextSt
 import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing, useThemedStyles, touch, press, type } from "../theme";
 import { useTheme } from "../context/ThemeContext";
+import { numeric } from "@/src/components/Num";
 
 export function GoldButton({ title, onPress, loading, disabled, testID, icon, style }:
   { title: string; onPress?: () => void; loading?: boolean; disabled?: boolean; testID?: string; icon?: string; style?: StyleProp<ViewStyle> }) {
@@ -12,7 +13,7 @@ export function GoldButton({ title, onPress, loading, disabled, testID, icon, st
       backgroundColor: c.brand, borderRadius: radius.pill, minHeight: 50, paddingVertical: 13, paddingHorizontal: 22, alignItems: "center", justifyContent: "center",
       shadowColor: c.brand, shadowOpacity: c.mode === "dark" ? 0.28 : 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 3,
     },
-    gBtnText: { color: c.onBrand, fontSize: 14, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase" },
+    gBtnText: { color: c.onBrand, fontSize: 14, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", ...numeric },
   }));
   return (
     <Pressable testID={testID} onPress={onPress} disabled={disabled || loading}
@@ -90,7 +91,7 @@ export function Rating({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       <Ionicons name="star" size={size} color={colors.brand} />
-      <Text style={{ color: colors.text, fontSize: size, fontWeight: "500" }}>{value.toFixed(1)}</Text>
+      <Text style={{ color: colors.text, fontSize: size, fontWeight: "500", ...numeric }}>{value.toFixed(1)}</Text>
     </View>
   );
 }

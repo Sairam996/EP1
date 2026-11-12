@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
 import { fonts, spacing, useThemedStyles } from "@/src/theme";
+import { numeric } from "@/src/components/Num";
 import { EmptyState } from "@/src/components/Polish";
 
 const LABELS: any = {
@@ -37,25 +38,25 @@ export default function Points() {
     tierEyebrow: { color: "rgba(255,255,255,0.85)", fontSize: 10, letterSpacing: 3, fontWeight: "600" },
     tierName: { color: "#fff", fontSize: 26, fontWeight: "700", letterSpacing: 1, marginTop: 2, textShadowColor: "rgba(0,0,0,0.4)", textShadowRadius: 6 },
     boostBadge: { paddingHorizontal: 0, paddingVertical: 5 },
-    boostText: { color: "#fff", fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
-    progressLbl: { color: "rgba(255,255,255,0.95)", fontSize: 12 },
+    boostText: { color: "#fff", fontSize: 11, fontWeight: "700", letterSpacing: 0.5, ...numeric },
+    progressLbl: { color: "rgba(255,255,255,0.95)", fontSize: 12, ...numeric },
     progressBar: { height: 6, backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 3, overflow: "hidden", marginTop: 6 },
     progressFill: { height: "100%", borderRadius: 3, backgroundColor: "#fff" },
-    lifeT: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 4, letterSpacing: 0.5 },
+    lifeT: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 4, letterSpacing: 0.5, ...numeric },
     perks: { marginTop: spacing.md, gap: 5 },
     perk: { flexDirection: "row", alignItems: "center", gap: 6 },
     perkText: { color: "rgba(255,255,255,0.94)", fontSize: 12 },
     balanceCard: { alignItems: "center", padding: spacing.lg, marginHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm, gap: 2 },
-    balance: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 48, lineHeight: 54, fontFamily: fonts.displayBold, marginTop: 2 },
+    balance: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 48, lineHeight: 54, fontWeight: "600", marginTop: 2, ...numeric },
     balanceLbl: { color: c.textSubtle, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
-    balanceSub: { color: c.textMuted, fontSize: 11, marginTop: 3 },
+    balanceSub: { color: c.textMuted, fontSize: 11, marginTop: 3, ...numeric },
     section: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 11, fontWeight: "600", letterSpacing: 2.4, textTransform: "uppercase", paddingHorizontal: spacing.xl, marginBottom: spacing.xs, marginTop: spacing.lg },
     row: { flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     boostTag: { paddingHorizontal: 0, paddingVertical: 1 },
-    boostTagT: { color: c.brand, fontSize: 9, fontWeight: "700" },
+    boostTagT: { color: c.brand, fontSize: 9, fontWeight: "700", ...numeric },
     rowTitle: { color: c.text, fontWeight: "600" },
-    rowMeta: { color: c.textMuted, fontSize: 12 },
-    delta: { fontWeight: "700", fontSize: 16 },
+    rowMeta: { color: c.textMuted, fontSize: 12, ...numeric },
+    delta: { fontWeight: "700", fontSize: 16, ...numeric },
     empty: { color: c.textMuted, textAlign: "center", marginTop: 30 },
   }));
 

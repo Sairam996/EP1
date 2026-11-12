@@ -8,6 +8,7 @@ import { colors, fonts, spacing, themedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, StatusText, TextLink, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
+import { NumText } from "@/src/components/Num";
 
 const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.warning, booked: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
 
@@ -59,14 +60,13 @@ export default function VendorBookings() {
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19 }}>{item.customer_name}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.event_type} • {item.event_date}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.guests} guests • ₹{(total || 0).toLocaleString("en-IN")}</Text>
+                  <NumText style={{ color: colors.textMuted, fontSize: 12 }}>{`${item.guests} guests • ₹${(total || 0).toLocaleString("en-IN")}`}</NumText>
                   {(item.status !== "cancelled" && item.status !== "rejected") && (item.status === "booked" || advPaid) ? (
-                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                      Advance {advPaid ? "received" : "due"} ₹{(item.advance_charged ?? adv).toLocaleString("en-IN")}
-                      {"  ·  "}Balance {settled ? "settled" : `outstanding ₹${bal.toLocaleString("en-IN")}`}
-                    </Text>
+                    <NumText style={{ color: colors.textMuted, fontSize: 12 }}>
+                      {`Advance ${advPaid ? "received" : "due"} ₹${(item.advance_charged ?? adv).toLocaleString("en-IN")}  ·  Balance ${settled ? "settled" : "outstanding ₹" + bal.toLocaleString("en-IN")}`}
+                    </NumText>
                   ) : item.status === "confirmed" ? (
-                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>Awaiting 20% advance ₹{adv.toLocaleString("en-IN")}</Text>
+                    <NumText style={{ color: colors.textMuted, fontSize: 12 }}>Awaiting 20% advance ₹{adv.toLocaleString("en-IN")}</NumText>
                   ) : null}
                 </View>
                 <StatusText status={item.display_status || item.status} color={STATUS_COLORS[item.status] || colors.textMuted} />

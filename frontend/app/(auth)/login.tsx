@@ -24,7 +24,7 @@ import { LaunchIntro } from "@/src/components/LaunchIntro";
 import { BokehBackground } from "@/src/components/BokehBackground";
 import { consumeLaunchIntro } from "@/src/launchGate";
 import { useCelebrate } from "@/src/components/Celebration";
-import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
+import { fonts, numeric, radius, spacing, useThemedStyles } from "@/src/theme";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -255,7 +255,7 @@ export default function Login() {
         backgroundColor: dark ? "rgba(255,255,255,0.07)" : "rgba(140,106,38,0.07)",
       },
       otpBoxActive: { borderBottomColor: c.brand, backgroundColor: dark ? "rgba(226,190,110,0.10)" : "rgba(140,106,38,0.10)" },
-      otpDigit: { color: c.text, fontSize: 22, fontWeight: "600" as const },
+      otpDigit: { color: c.text, fontSize: 22, fontWeight: "600" as const, ...numeric },
       hiddenOtp: { position: "absolute" as const, opacity: 0.01, width: 1, height: 1 },
       resendRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: spacing.lg },
       pills: { flexDirection: "row" as const, gap: 8 },

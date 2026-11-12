@@ -11,6 +11,7 @@ import { Divider, EyebrowLabel, StatusText, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
 import { GoldButton } from "@/src/components/UI";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
+import { NumText } from "@/src/components/Num";
 
 export default function Bookings() {
   const insets = useSafeAreaInsets();
@@ -70,7 +71,7 @@ export default function Bookings() {
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={styles.name} numberOfLines={1}>{item.vendor_name}</Text>
                   <Text style={styles.meta}>{item.event_type} • {item.event_date}</Text>
-                  <Text style={styles.meta}>{item.guests} guests • ₹{(total || 0).toLocaleString("en-IN")}</Text>
+                  <NumText style={styles.meta}>{`${item.guests} guests • ₹${(total || 0).toLocaleString("en-IN")}`}</NumText>
                   <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
                     <StatusText status={item.display_status || item.status} color={sc} />
                   </View>

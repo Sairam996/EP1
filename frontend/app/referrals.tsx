@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton, GhostButton } from "@/src/components/UI";
 import { fonts, colors, spacing, themedStyles } from "@/src/theme";
+import { NumText } from "@/src/components/Num";
 
 export default function Referrals() {
   const insets = useSafeAreaInsets();
@@ -57,8 +58,8 @@ export default function Referrals() {
       <View style={{ padding: spacing.xl }}>
         <View style={styles.hero}>
           <Ionicons name="gift" size={32} color={colors.brand} />
-          <Text style={styles.heroTitle}>Get ₹200 for every friend</Text>
-          <Text style={styles.heroSub}>You both earn 200 points (₹200 off) when they sign up with your code & complete a booking.</Text>
+          <NumText style={styles.heroTitle}>Get ₹200 for every friend</NumText>
+          <NumText style={styles.heroSub}>You both earn 200 points (₹200 off) when they sign up with your code & complete a booking.</NumText>
         </View>
         <Text style={styles.lbl}>Your Code</Text>
         <View style={styles.codeBox}>

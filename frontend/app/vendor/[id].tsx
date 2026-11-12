@@ -14,6 +14,7 @@ import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { Alert } from "react-native";
 import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from "@/src/sampleVendor";
 import { formatPrice, reviewCountLabel } from "@/src/utils/price";
+import { Num, NumText, numeric } from "@/src/components/Num";
 import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
 import { EyebrowLabel, ImageTile, SectionHeader, TextLink } from "@/src/components/ui";
 import { HeartPop, hapticLight } from "@/src/components/Celebration";
@@ -56,7 +57,7 @@ export default function VendorDetail() {
     facWrap: { flexDirection: "row", flexWrap: "wrap" },
     fac: { width: "50%", flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7, paddingRight: 8 },
     facText: { color: c.textSubtle, fontSize: 13.5, flexShrink: 1 },
-    priceBig: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 34, lineHeight: 40, fontFamily: fonts.displayBold },
+    priceBig: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 34, lineHeight: 40, fontWeight: "600", ...numeric },
     locCard: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     locName: { color: c.text, fontWeight: "600", fontSize: 14.5 },
     locDist: { color: c.textMuted, fontSize: 12, marginTop: 2 },
@@ -66,11 +67,11 @@ export default function VendorDetail() {
     simName: { color: c.text, fontWeight: "600" },
     cta: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 12, paddingHorizontal: spacing.xl, backgroundColor: c.surface, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)", flexDirection: "row", alignItems: "center", gap: 12 },
     ctaLabel: { color: c.textMuted, fontSize: 10.5, letterSpacing: 1.8, textTransform: "uppercase" },
-    ctaPrice: { color: c.text, fontSize: 24, lineHeight: 28, fontFamily: fonts.displayBold },
+    ctaPrice: { color: c.text, fontSize: 24, lineHeight: 28, fontWeight: "600", ...numeric },
     empty: { color: c.textMuted },
     pkgCard: { paddingVertical: spacing.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.mode === "dark" ? "rgba(226,190,110,0.18)" : "rgba(140,106,38,0.2)" },
     pkgTitle: { color: c.text, fontSize: 21, lineHeight: 25, fontFamily: fonts.displayBold },
-    pkgPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 21, fontFamily: fonts.displayBold },
+    pkgPrice: { color: c.mode === "dark" ? "#E2BE6E" : "#8C6A26", fontSize: 21, fontWeight: "600", ...numeric },
   }));
 
   useEffect(() => {
@@ -152,7 +153,7 @@ export default function VendorDetail() {
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
             {v.reviews_count > 0 ? <><Rating value={v.rating} size={14} />
-            <Text style={styles.muted}>({reviewCountLabel(v.reviews_count)})</Text></> : <Text style={styles.muted}>New on Thara</Text>}
+            <NumText style={styles.muted}>({reviewCountLabel(v.reviews_count)})</NumText></> : <Text style={styles.muted}>New on Thara</Text>}
             {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.muted}>•</Text>
             <Text style={styles.muted}>{v.distance_km} km</Text></>}
           </View>
@@ -184,7 +185,7 @@ export default function VendorDetail() {
               {reviews.length > 0 || v.reviews_count > 0 ? (
                 <View style={{ flexDirection: "row", gap: spacing.xl, alignItems: "center" }}>
                   <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: colors.text, fontSize: 44, lineHeight: 48, fontFamily: fonts.displayBold }}>{avg.toFixed(1)}</Text>
+                    <Num style={{ color: colors.text, fontSize: 44, lineHeight: 48, fontWeight: "600" }}>{avg.toFixed(1)}</Num>
                     <Rating value={avg} size={12} />
                     <Text style={styles.empty}>{reviewCountLabel(v.reviews_count || reviews.length)}</Text>
                   </View>

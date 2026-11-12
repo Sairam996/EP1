@@ -11,7 +11,8 @@ import { View, Text, Pressable, ScrollView, StyleSheet, StyleProp, ViewStyle, Te
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { fonts, press, spacing, useColors, type Palette } from "../../theme";
+import { fonts, numeric, press, spacing, useColors, type Palette } from "../../theme";
+import { Num, NumText } from "@/src/components/Num";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -112,8 +113,8 @@ export function ListRow({ icon, title, subtitle, trailing, soon, onPress, testID
         style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 16, minHeight: 58, paddingVertical: 12 }, pressed && { opacity: 0.55 }]}>
         {icon ? <Ionicons name={icon} size={20} color={destructive ? c.error : iconColor || gold} style={{ width: 22, textAlign: "center" }} /> : null}
         <View style={{ flex: 1 }}>
-          <Text style={[{ color: destructive ? c.error : c.text, fontSize: 16, fontWeight: "500", letterSpacing: 0.1 }, titleStyle]} numberOfLines={1}>{title}</Text>
-          {subtitle ? <Text style={{ color: c.textMuted, fontSize: 12.5, marginTop: 2 }} numberOfLines={2}>{subtitle}</Text> : null}
+          <NumText style={[{ color: destructive ? c.error : c.text, fontSize: 16, fontWeight: "500", letterSpacing: 0.1 }, titleStyle]} numberOfLines={1}>{title}</NumText>
+          {subtitle ? <NumText style={{ color: c.textMuted, fontSize: 12.5, marginTop: 2 }} numberOfLines={2}>{subtitle}</NumText> : null}
         </View>
         {soon ? <Text style={{ color: gold, opacity: 0.75, fontSize: 12, fontStyle: "italic", fontFamily: fonts.display }}>soon</Text> : null}
         {trailing}
@@ -125,7 +126,7 @@ export function ListRow({ icon, title, subtitle, trailing, soon, onPress, testID
 }
 
 export type Stat = { id: string; value?: string | number | null; label: string; icon?: IconName; onPress?: () => void };
-/** Borderless stats strip — serif numbers over tracked labels, split by vertical hairlines. */
+/** Borderless stats strip — lining figures over tracked labels, split by vertical hairlines. */
 export function StatStrip({ items, style }: { items: Stat[]; style?: StyleProp<ViewStyle> }) {
   const c = useColors();
   const gold = editorialGold(c);
@@ -137,7 +138,7 @@ export function StatStrip({ items, style }: { items: Stat[]; style?: StyleProp<V
           <Pressable testID={it.id} onPress={it.onPress} disabled={!it.onPress} accessibilityRole="button" accessibilityLabel={`${it.value ?? ""} ${it.label}`}
             style={({ pressed }) => [{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 6, gap: 4 }, pressed && { opacity: 0.55 }]}>
             {it.value !== undefined && it.value !== null
-              ? <Text style={{ color: c.text, fontFamily: fonts.displayBold, fontSize: 28, lineHeight: 32 }}>{it.value}</Text>
+              ? <Num style={{ color: c.text, fontSize: 28, lineHeight: 32, fontWeight: "600" }}>{it.value}</Num>
               : it.icon ? <Ionicons name={it.icon} size={22} color={gold} style={{ height: 32, lineHeight: 32 }} /> : null}
             <Text style={{ color: c.textMuted, fontSize: 10.5, fontWeight: "600", letterSpacing: 1.8, textTransform: "uppercase" }}>{it.label}</Text>
           </Pressable>
@@ -165,7 +166,7 @@ export function ImageTile({ uri, title, subtitle, eyebrow, width, height = 220, 
         <View style={{ flex: 1 }}>
           {eyebrow ? <Text style={{ color: "#E2BE6E", fontSize: 10, fontWeight: "700", letterSpacing: 2, textTransform: "uppercase", marginBottom: 3 }} numberOfLines={1}>{eyebrow}</Text> : null}
           {title ? <Text style={{ color: "#FFF8EB", fontFamily: fonts.displayBold, fontSize: height > 180 ? 24 : 18, lineHeight: height > 180 ? 28 : 22 }} numberOfLines={2}>{title}</Text> : null}
-          {subtitle ? <Text style={{ color: "rgba(255,248,235,0.82)", fontSize: 12, marginTop: 3 }} numberOfLines={1}>{subtitle}</Text> : null}
+          {subtitle ? <NumText style={{ color: "rgba(255,248,235,0.82)", fontSize: 12, marginTop: 3 }} numberOfLines={1}>{subtitle}</NumText> : null}
         </View>
         {bottomRight}
       </View>
@@ -201,7 +202,7 @@ export function KeyValue({ label, value, last, emphasis, valueColor }: { label: 
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: 12 }}>
         <Text style={{ color: emphasis ? c.text : c.textMuted, fontSize: emphasis ? 15 : 13.5, fontWeight: emphasis ? "700" : "400" }}>{label}</Text>
         {typeof value === "string" || typeof value === "number"
-          ? <Text style={{ color: valueColor || c.text, fontSize: emphasis ? 22 : 14, fontFamily: emphasis ? fonts.displayBold : undefined, fontWeight: emphasis ? undefined : "600", flexShrink: 1, textAlign: "right" }}>{value}</Text>
+          ? <Num style={{ color: valueColor || c.text, fontSize: emphasis ? 22 : 14, fontWeight: "600", flexShrink: 1, textAlign: "right" }}>{value}</Num>
           : value}
       </View>
       {last ? null : <Divider />}
