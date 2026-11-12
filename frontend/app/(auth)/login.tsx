@@ -9,7 +9,6 @@ import {
   ScrollView,
   Modal,
   FlatList,
-  Linking,
   StyleSheet,
 } from "react-native";
 import Constants from "expo-constants";
@@ -44,7 +43,7 @@ const CITIES = ["Hyderabad", "Mumbai", "Delhi", "Bangalore", "Chennai", "Pune"];
 
 export default function Login() {
   const insets = useSafeAreaInsets();
-  const { sendOtp, verifyOtp, completeProfile } = useAuth();
+  const { sendOtp, verifyOtp, completeProfile, signIn } = useAuth();
   const celebrate = useCelebrate();
   const { colors, isDark } = useTheme();
   const [step, setStep] = useState<Step>("phone");
@@ -62,6 +61,9 @@ export default function Login() {
   const [playIntro] = useState(() => consumeLaunchIntro());
   const [resendIn, setResendIn] = useState(0);
   const [channel, setChannel] = useState<"sms" | "whatsapp">("sms");
+  const [useEmail, setUseEmail] = useState(false);
+  const [emailLogin, setEmailLogin] = useState("");
+  const [passwordLogin, setPasswordLogin] = useState("");
   const otpRef = useRef<any>(null);
   const verifyingRef = useRef(false);
 
@@ -384,6 +386,18 @@ export default function Login() {
     );
   };
 
+  const onEmailSignIn = async () => {
+    setErr(null);
+    if (!emailLogin.trim() || !passwordLogin) { setErr("Enter your email and password"); return; }
+    setLoading(true);
+    try {
+      const u = await signIn({ email: emailLogin.trim().toLowerCase() }, passwordLogin);
+      celebrate({ intensity: "light", title: `Welcome back${u.name ? `, ${u.name.split(" ")[0]}` : ""}`, icon: "sparkles" });
+      routeHome(u.role);
+    } catch (e: any) { setErr(e.message || "Couldn’t sign in"); }
+    finally { setLoading(false); }
+  };
+
   const body = (
     <View style={styles.root}>
       <BokehBackground mode={isDark ? "dark" : "light"} />
@@ -410,7 +424,7 @@ export default function Login() {
           <View style={styles.cardWrap}>
             <View>
               <View style={styles.cardInner}>
-                {step === "phone" ? (
+                {step === "phone" && !useEmail ? (
                   <>
                     <Text style={styles.heading}>Login or Signup</Text>
                     <View style={styles.phoneRow}>
@@ -443,9 +457,9 @@ export default function Login() {
                     />
                     <Text style={styles.terms}>
                       By continuing, you agree to our{" "}
-                      <Text style={styles.termsLink} onPress={() => Linking.openURL("https://thara.app/terms")}>Terms of use</Text>
+                      <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms of use</Text>
                       {" & "}
-                      <Text style={styles.termsLink} onPress={() => Linking.openURL("https://thara.app/privacy")}>Privacy Policy</Text>
+                      <Text style={styles.termsLink} onPress={() => router.push("/privacy" as any)}>Privacy Policy</Text>
                     </Text>
                   </>
                 ) : null}
@@ -597,6 +611,41 @@ export default function Login() {
                         <Text style={styles.socialText}>Apple</Text>
                       </Pressable>
                     </View>
+                    <Pressable testID="login-use-email" onPress={() => { setUseEmail((v) => !v); setErr(null); }} style={{ marginTop: 16, alignItems: "center" }}>
+                      <Text style={styles.changeLink}>{useEmail ? "Use phone OTP instead" : "Use email instead"}</Text>
+                    </Pressable>
+                    {useEmail && step === "phone" ? (
+                      <View style={{ marginTop: 14 }}>
+                        <TextInput
+                          testID="login-email"
+                          value={emailLogin}
+                          onChangeText={setEmailLogin}
+                          placeholder="Email"
+                          placeholderTextColor={colors.textMuted}
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          style={styles.input}
+                        />
+                        <TextInput
+                          testID="login-password"
+                          value={passwordLogin}
+                          onChangeText={setPasswordLogin}
+                          placeholder="Password"
+                          placeholderTextColor={colors.textMuted}
+                          secureTextEntry
+                          style={[styles.input, { marginTop: 10 }]}
+                        />
+                        {err && useEmail ? <Text style={[styles.err, { marginTop: 8 }]}>{err}</Text> : null}
+                        <GoldButton testID="login-email-submit" title="Sign in with email" onPress={onEmailSignIn} loading={loading} style={{ marginTop: 14, minHeight: 52 }} />
+                        <Pressable testID="login-create-account" onPress={() => router.push("/(auth)/signup")} style={{ marginTop: 14, alignItems: "center" }}>
+                          <Text style={styles.changeLink}>Create an account</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Pressable testID="login-create-account" onPress={() => router.push("/(auth)/signup")} style={{ marginTop: 10, alignItems: "center" }}>
+                        <Text style={[styles.terms, { marginTop: 0 }]}>New here? <Text style={styles.changeLink}>Create an account</Text></Text>
+                      </Pressable>
+                    )}
                   </>
                 ) : null}
               </View>

@@ -33,6 +33,7 @@ export const SAMPLE_VENDOR = {
   description:
     "A heritage-style banquet in Jubilee Hills with a 600-guest pillarless hall, open-air lawn for haldi & mehendi, and an in-house décor team. Sample listing — shows how vendor details appear on Thara.",
   starting_price: 250000,
+  price_unit: "per_event",
   rating: 4.8,
   reviews_count: 3,
   verified: true,

@@ -8,6 +8,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { fonts, spacing, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, ImageTile, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
+import { formatFromPrice } from "@/src/utils/price";
 
 export default function Favorites() {
   const insets = useSafeAreaInsets();
@@ -38,7 +39,7 @@ export default function Favorites() {
         renderItem={({ item }) => (
           <ImageTile onPress={() => router.push(`/vendor/${item.id}`)} uri={item.cover} height={240} radius={0} testID={`fav-${item.id}`}
             eyebrow={item.category} title={item.name}
-            subtitle={[item.reviews_count > 0 || item.rating ? `★ ${Number(item.rating || 0).toFixed(1)}` : null, Number(item.starting_price) > 0 ? `from ₹${Number(item.starting_price).toLocaleString("en-IN")}` : null].filter(Boolean).join("   ·   ")}
+            subtitle={[item.reviews_count > 0 || item.rating ? `★ ${Number(item.rating || 0).toFixed(1)}` : null, Number(item.starting_price) > 0 ? formatFromPrice(item.starting_price, item.price_unit) : null].filter(Boolean).join("   ·   ")}
             topRight={<Ionicons name="heart" size={20} color="#E2BE6E" />} />
         )}
       />

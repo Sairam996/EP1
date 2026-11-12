@@ -7,6 +7,7 @@ import { Calendar } from "react-native-calendars";
 import { api, resolveImg } from "@/src/api";
 import { Image } from "expo-image";
 import { GoldButton, GhostButton, Pill } from "@/src/components/UI";
+import { formatPrice } from "@/src/utils/price";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
 import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
 import { editorialGold } from "@/src/components/ui";
@@ -76,7 +77,7 @@ export default function BookingForm() {
         vendor_id: vendorId, event_type: eventType, event_date: date,
         guests: parseInt(guests || "1", 10), notes, amount, service_id: serviceId || undefined,
       });
-      router.replace(`/checkout/${b.id}`);
+      router.replace(`/booking-detail/${b.id}`);
     } catch (e: any) { setErr(e.message); }
     finally { setLoading(false); }
   };
@@ -130,7 +131,7 @@ export default function BookingForm() {
           <Text style={s.title}>Book {vendor?.name ?? ""}</Text>
           <Text style={s.sub}>Step {stepIdx + 1} of {steps.length}</Text>
         </View>
-        <Text style={{ color: editorialGold(c), fontFamily: fonts.displayBold, fontSize: 19 }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
+        <Text style={{ color: editorialGold(c), fontFamily: fonts.displayBold, fontSize: 19 }}>{amount > 0 ? formatPrice(amount, selected?.price_unit || vendor?.price_unit) : "Price on request"}</Text>
       </View>
       <View style={s.progTrack}>
         {steps.map((k, i) => <View key={k} style={[s.seg, i <= stepIdx && { backgroundColor: c.brand }]} />)}
@@ -154,7 +155,7 @@ export default function BookingForm() {
                       {sv.description ? <Text style={{ color: c.textMuted, fontSize: 12 }} numberOfLines={2}>{sv.description}</Text> : null}
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={{ color: c.text, fontWeight: "600" }}>₹{Number(sv.price).toLocaleString("en-IN")}</Text>
+                      <Text style={{ color: c.text, fontWeight: "600" }}>{formatPrice(sv.price, sv.price_unit || vendor?.price_unit)}</Text>
                       <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={18} color={on ? c.brand : c.textMuted} />
                     </View>
                   </PressableScale>
@@ -235,7 +236,7 @@ export default function BookingForm() {
             <View style={[s.row, { borderBottomWidth: 0 }]}>
               <Ionicons name="wallet-outline" size={18} color={c.brand} />
               <Text style={[s.rowV, { flex: 1 }]}>Total</Text>
-              <Text style={{ color: editorialGold(c), fontSize: 28, fontFamily: fonts.displayBold }}>{amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : "Price on request"}</Text>
+              <Text style={{ color: editorialGold(c), fontSize: 28, fontFamily: fonts.displayBold }}>{amount > 0 ? formatPrice(amount, selected?.price_unit || vendor?.price_unit) : "Price on request"}</Text>
             </View>
           </>)}
           {err ? <View style={{ flexDirection: "row", gap: 6, marginTop: spacing.md }}><Ionicons name="alert-circle" size={16} color={c.error} /><Text style={{ color: c.error, flex: 1 }}>{err}</Text></View> : null}
@@ -246,7 +247,7 @@ export default function BookingForm() {
         {stepIdx > 0 && <GhostButton title="Back" onPress={() => go(-1)} style={{ flex: 1 }} />}
         <View style={{ flex: 2 }}>
           {step === "review"
-            ? <GoldButton testID="submit-booking" title="Continue to Payment" onPress={submit} loading={loading} disabled={!date} />
+            ? <GoldButton testID="submit-booking" title="Send request" onPress={submit} loading={loading} disabled={!date} />
             : <GoldButton testID="booking-next" title={step === "package" && !serviceId ? "Skip" : step === "notes" && !notes ? "Skip" : "Next"} onPress={() => go(1)} disabled={!valid(step)} />}
         </View>
       </View>

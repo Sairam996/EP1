@@ -13,6 +13,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { Alert } from "react-native";
 import { SAMPLE_VENDOR, SAMPLE_VENDOR_ID, SAMPLE_REVIEWS, SAMPLE_SERVICES } from "@/src/sampleVendor";
+import { formatPrice, reviewCountLabel } from "@/src/utils/price";
 import { AvailabilityCalendar } from "@/src/components/AvailabilityCalendar";
 import { EyebrowLabel, ImageTile, SectionHeader, TextLink } from "@/src/components/ui";
 import { HeartPop, hapticLight } from "@/src/components/Celebration";
@@ -107,7 +108,7 @@ export default function VendorDetail() {
   const gallery: string[] = v.gallery || [];
   const facilities: string[] = v.facilities || [];
   const team: any[] = Array.isArray(v.team) ? v.team : Array.isArray(v.team_members) ? v.team_members : [];
-  const avg = reviews.length ? reviews.reduce((a, x) => a + (Number(x.rating) || 0), 0) / reviews.length : Number(v.rating) || 0;
+  const avg = Number(v.rating) || 0;
   const dist = [5, 4, 3, 2, 1].map((n) => reviews.filter((x) => Math.round(Number(x.rating)) === n).length);
   const startPrice = Number(v.starting_price || 0);
 
@@ -150,7 +151,7 @@ export default function VendorDetail() {
           <Text style={styles.name}>{v.name}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
             {v.reviews_count > 0 ? <><Rating value={v.rating} size={14} />
-            <Text style={styles.muted}>({v.reviews_count} reviews)</Text></> : <Text style={styles.muted}>New on Thara</Text>}
+            <Text style={styles.muted}>({reviewCountLabel(v.reviews_count)})</Text></> : <Text style={styles.muted}>New on Thara</Text>}
             {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.muted}>•</Text>
             <Text style={styles.muted}>{v.distance_km} km</Text></>}
           </View>
@@ -167,13 +168,13 @@ export default function VendorDetail() {
 
         {tab === "about" && (
           <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg }}>
-            {services[0] ? (
+            {v.description ? <Text style={styles.body}>{v.description}</Text> : <SoftChip icon="document-text-outline" label="Description not listed yet" />}
+            {services[0] && (services[0].title || (services[0].description && services[0].description.trim() !== (v.description || "").trim())) ? (
               <View style={{ marginTop: spacing.sm }}>
-                <Text style={styles.pkgTitle}>{services[0].title}</Text>
-                {services[0].description ? <Text style={styles.reviewText} numberOfLines={3}>{services[0].description}</Text> : null}
+                {services[0].title ? <Text style={styles.pkgTitle}>{services[0].title}</Text> : null}
+                {services[0].description && services[0].description.trim() !== (v.description || "").trim() ? <Text style={styles.reviewText} numberOfLines={3}>{services[0].description}</Text> : null}
               </View>
             ) : null}
-            {v.description ? <Text style={styles.body}>{v.description}</Text> : <SoftChip icon="document-text-outline" label="Description not listed yet" />}
 
             <SeeTheirWork vendor={v} service={services[0]} />
 
@@ -184,7 +185,7 @@ export default function VendorDetail() {
                   <View style={{ alignItems: "center" }}>
                     <Text style={{ color: colors.text, fontSize: 44, lineHeight: 48, fontFamily: fonts.displayBold }}>{avg.toFixed(1)}</Text>
                     <Rating value={avg} size={12} />
-                    <Text style={styles.empty}>{v.reviews_count || reviews.length} reviews</Text>
+                    <Text style={styles.empty}>{reviewCountLabel(v.reviews_count || reviews.length)}</Text>
                   </View>
                   {reviews.length > 0 && <View style={{ flex: 1, gap: 4 }}>
                     {dist.map((n, i) => (
@@ -231,7 +232,7 @@ export default function VendorDetail() {
             {Array.isArray(v.blocked_dates) ? <AvailabilityCalendar blocked={v.blocked_dates} /> : null}
             <View>
               <EyebrowLabel style={{ marginBottom: 4 }}>Starting at</EyebrowLabel>
-              <Text style={styles.priceBig}>₹{startPrice.toLocaleString("en-IN")}</Text>
+              <Text style={styles.priceBig}>{startPrice > 0 ? formatPrice(startPrice, v.price_unit) : "Price on request"}</Text>
               <Text style={styles.empty}>Pick an available date on the next step.</Text>
             </View>
             {v.lat != null && v.lng != null && (
@@ -271,7 +272,7 @@ export default function VendorDetail() {
                       <Text style={styles.pkgTitle}>{s.title}</Text>
                       {s.description ? <Text style={styles.reviewText}>{s.description}</Text> : null}
                     </View>
-                    <Text style={styles.pkgPrice}>₹{Number(s.price).toLocaleString("en-IN")}</Text>
+                    <Text style={styles.pkgPrice}>{formatPrice(s.price, s.price_unit || v.price_unit)}</Text>
                   </View>
                   <TextLink testID={`pkg-book-${s.id}`} title="Select & Book" arrow style={{ marginTop: 8 }} onPress={() => book(`/booking-form/${v.id}?serviceId=${s.id}`)} />
                 </View>
@@ -319,7 +320,7 @@ export default function VendorDetail() {
       <View style={[styles.cta, { paddingBottom: insets.bottom + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.ctaLabel}>Starting</Text>
-          <Text style={styles.ctaPrice}>₹{startPrice.toLocaleString("en-IN")}</Text>
+          <Text style={styles.ctaPrice}>{startPrice > 0 ? formatPrice(startPrice, v.price_unit) : "Price on request"}</Text>
         </View>
         <GoldButton testID="book-now-btn" title="Book Now" onPress={() => book(`/booking-form/${v.id}`)} style={{ minWidth: 160 }} />
       </View>

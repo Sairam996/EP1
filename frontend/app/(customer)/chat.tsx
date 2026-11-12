@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
+import { useAuth } from "@/src/context/AuthContext";
 import { fonts, spacing, useThemedStyles } from "@/src/theme";
 import { Divider, EyebrowLabel, gutter } from "@/src/components/ui";
 import { EmptyState } from "@/src/components/Polish";
@@ -14,6 +15,7 @@ import { useOnReconnect } from "@/src/hooks/use-reconnect";
 export default function ChatList() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(false);
@@ -27,6 +29,7 @@ export default function ChatList() {
     last: { color: c.textMuted, fontSize: 13 },
     empty: { color: c.textMuted },
     emptyMuted: { color: c.textMuted, fontSize: 12 },
+    closedHint: { color: c.textMuted, fontSize: 11, marginTop: 2, letterSpacing: 0.6, textTransform: "uppercase" as const },
   }));
 
   const load = useCallback(async () => {
@@ -45,7 +48,7 @@ export default function ChatList() {
       </View>
       {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: 30 }} /> : (
         <FlatList initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7} showsVerticalScrollIndicator={false}
-          data={items}
+          data={items.filter((it) => it.status !== "rejected" && it.status !== "cancelled")}
           keyExtractor={(it) => it.booking_id}
           contentContainerStyle={{ paddingHorizontal: gutter, paddingBottom: 100 }}
           ItemSeparatorComponent={() => <Divider inset={70} />}
@@ -55,16 +58,42 @@ export default function ChatList() {
               <EmptyState icon="chatbubbles-outline" title="No conversations yet" message="Book a vendor to start chatting." />
             </View>
           }
-          renderItem={({ item }) => (
+          ListFooterComponent={(() => {
+            const closed = items.filter((it) => it.status === "rejected" || it.status === "cancelled");
+            if (!closed.length) return <View />;
+            const party = (it: any) => (user?.role === "vendor" ? it.customer_name : it.vendor_name);
+            return (
+              <View style={{ marginTop: spacing.xl, paddingBottom: spacing.lg }}>
+                <EyebrowLabel style={{ marginBottom: 8 }}>Closed</EyebrowLabel>
+                {closed.map((item, i) => (
+                  <View key={item.booking_id}>
+                    {i > 0 ? <Divider inset={70} /> : null}
+                    <View testID={`thread-closed-${item.booking_id}`} style={[styles.row, { opacity: 0.55 }]}>
+                      <Image source={{ uri: item.vendor_cover }} style={styles.av} contentFit="cover" />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.name} numberOfLines={1}>{party(item)}</Text>
+                        <Text style={styles.last} numberOfLines={1}>{item.last_message}</Text>
+                        <Text style={styles.closedHint}>{item.status}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+          renderItem={({ item }) => {
+            const name = user?.role === "vendor" ? item.customer_name : item.vendor_name;
+            return (
             <Pressable testID={`thread-${item.booking_id}`} onPress={() => router.push(`/chat/${item.booking_id}`)} style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
               <Image source={{ uri: item.vendor_cover }} style={styles.av} contentFit="cover" />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.name} numberOfLines={1}>{item.vendor_name}</Text>
+                <Text style={styles.name} numberOfLines={1}>{name}</Text>
                 <Text style={styles.last} numberOfLines={1}>{item.last_message}</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />
             </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </View>

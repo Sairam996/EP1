@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import List, Optional, Literal
 
 import math
+import hmac
+import hashlib
 import re
 import secrets
 import string
@@ -51,7 +53,41 @@ ENABLE_DEMO_SEED = os.environ.get("ENABLE_DEMO_SEED", "false").lower() == "true"
 CORS_ORIGINS = [o.strip() for o in os.environ.get(
     "CORS_ORIGINS", "http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006"
 ).split(",") if o.strip() and o.strip() != "*"]
-_fernet = Fernet(KYC_ENCRYPTION_KEY.encode()) if KYC_ENCRYPTION_KEY else None
+GST_RATE = 0.05
+CANCELLATION_POLICY = {
+    "full_refund_after_hours": 7 * 24,   # > 7 days before event
+    "half_refund_after_hours": 48,       # 2–7 days
+    "summary": "Full refund if you cancel more than 7 days before the event. "
+               "50% refund between 2 and 7 days. No refund within 48 hours of the event. "
+               "Unpaid requests can be withdrawn at any time.",
+}
+
+def _is_dev_mode() -> bool:
+    return ENABLE_DEMO_SEED or (PAYMENT_MODE or "mock") == "mock"
+
+def _init_kyc_fernet():
+    """Use KYC_ENCRYPTION_KEY when set. In demo/mock, auto-generate and persist a local dev key.
+    Production (non-mock, demo seed off) stays strict: no key means KYC submit is unavailable."""
+    key = (KYC_ENCRYPTION_KEY or "").strip()
+    if key:
+        return Fernet(key.encode())
+    if not _is_dev_mode():
+        return None
+    key_path = ROOT_DIR / ".kyc_dev_key"
+    try:
+        if key_path.exists():
+            stored = key_path.read_text().strip()
+            if stored:
+                return Fernet(stored.encode())
+        generated = Fernet.generate_key().decode()
+        key_path.write_text(generated + "\n")
+        logger.info("Generated dev KYC encryption key at %s", key_path)
+        return Fernet(generated.encode())
+    except Exception as e:
+        logger.warning("Could not persist dev KYC key (%s); using an in-process key", e)
+        return Fernet(Fernet.generate_key())
+
+_fernet = _init_kyc_fernet()
 KYC_SECRET_FIELDS = ("pan_number", "gst_number", "document_url")
 
 def kyc_encrypt(val: str) -> str:
@@ -344,6 +380,9 @@ def gen_referral_code() -> str:
 @api.get("/")
 async def root(): return {"ok": True, "service": "Thara API"}
 
+@api.get("/health")
+async def health(): return {"ok": True, "service": "Thara API"}
+
 @api.get("/event-types") 
 async def get_event_types(): return EVENT_TYPES
 
@@ -466,7 +505,7 @@ async def complete_profile(body: CompleteProfileIn, u: dict = Depends(get_curren
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
             "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
-            "rating": 0.0, "reviews_count": 0, "verified": False,
+            "rating": 0.0, "reviews_count": 0, "seed_rating": 0.0, "seed_reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": u.get("phone", ""), "lat": clat, "lng": clng,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -477,6 +516,7 @@ async def complete_profile(body: CompleteProfileIn, u: dict = Depends(get_curren
         "id": fresh["id"], "name": fresh["name"], "email": fresh["email"], "phone": fresh["phone"],
         "role": fresh["role"], "city": fresh.get("city"), "vendor_id": fresh.get("vendor_id"),
         "avatar": fresh.get("avatar"),
+        "profile_complete": bool(fresh.get("profile_complete", True)),
     }
 
 @api.post("/auth/register", response_model=AuthOut)
@@ -504,7 +544,7 @@ async def register(body: RegisterIn, request: Request):
             "cover": "https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg",
             "gallery": ["https://images.pexels.com/photos/33852486/pexels-photo-33852486.jpeg"],
             "description": "New vendor on Thara.", "starting_price": 50000, "cover_is_placeholder": True,
-            "rating": 0.0, "reviews_count": 0, "verified": False,
+            "rating": 0.0, "reviews_count": 0, "seed_rating": 0.0, "seed_reviews_count": 0, "verified": False,
             "facilities": [], "event_types": ["wedding"], "address": body.city or "",
             "phone": body.phone, "lat": clat, "lng": clng,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -646,12 +686,13 @@ def apply_social_links(upd: dict) -> dict:
     return upd
 
 
-def _service_pub(s: dict) -> dict:
+def _service_pub(s: dict, category: str = "") -> dict:
     if not s: return s
     out = dict(s)
     out.pop("_id", None)
     for f in ("instagram_url", "facebook_url", "website_url"):
         out[f] = out.get(f) or ""
+    out["price_unit"] = s.get("price_unit") or price_unit_for(category)
     return out
 
 def _demo_social_links(name: str, i: int) -> dict:
@@ -667,6 +708,85 @@ def _demo_social_links(name: str, i: int) -> dict:
     if i % 5 == 4:
         links.pop("facebook_url", None)
     return links
+
+def price_unit_for(category: Optional[str]) -> str:
+    return "per_plate" if category == "catering" else "per_event"
+
+
+def _merged_rating(v: dict, real_revs: Optional[List[dict]] = None) -> tuple:
+    """Blend seeded baseline rating/count with real reviews so a first review cannot jump 4.8/33 → 5.0/1."""
+    seed_n = int(v.get("seed_reviews_count") or 0)
+    seed_r = float(v.get("seed_rating") if v.get("seed_rating") is not None else 0)
+    revs = real_revs if real_revs is not None else []
+    real_n = len(revs)
+    real_sum = sum(float(r.get("rating") or 0) for r in revs)
+    total_n = seed_n + real_n
+    if total_n <= 0:
+        return 0.0, 0
+    avg = (seed_r * seed_n + real_sum) / total_n
+    return round(avg, 1), total_n
+
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _hours_until_event(event_date: str) -> float:
+    ev = datetime.strptime(event_date, "%Y-%m-%d").replace(tzinfo=IST)
+    return (ev - datetime.now(IST)).total_seconds() / 3600.0
+
+
+def cancel_refund_preview(b: dict) -> dict:
+    hours = _hours_until_event(b.get("event_date") or "2099-01-01")
+    if hours > 7 * 24:
+        pct = 100
+        band = "full"
+    elif hours >= 48:
+        pct = 50
+        band = "half"
+    else:
+        pct = 0
+        band = "none"
+    paid = b.get("payment_status") == "paid"
+    paid_amt = int(b.get("final_amount", b.get("amount") or 0)) if paid else 0
+    refund = int(round(paid_amt * pct / 100.0)) if paid else 0
+    cancellable = b.get("status") in ("pending", "confirmed")
+    return {
+        "cancellable": cancellable,
+        "hours_until_event": round(hours, 1),
+        "refund_percent": pct if paid and cancellable else (100 if (cancellable and not paid) else 0),
+        "refund_amount": refund if cancellable else 0,
+        "band": band,
+        "paid": paid,
+        "policy": CANCELLATION_POLICY["summary"],
+    }
+
+
+def compute_price_breakdown(service_amount: int, redeem_requested: int, available_points: int,
+                            lifetime_points: int = 0) -> dict:
+    service = max(0, int(service_amount or 0))
+    gst = int(round(service * GST_RATE))
+    subtotal = service + gst
+    max_redeem = min(max(0, int(available_points or 0)), int(service * 0.20))
+    redeemed = min(max(0, int(redeem_requested or 0)), max_redeem)
+    total = max(0, subtotal - redeemed)
+    tier = compute_tier(int(lifetime_points or 0))
+    earn = int(round(total * 0.05 * (1.0 + tier["boost"])))
+    return {
+        "service": service,
+        "gst_rate": GST_RATE,
+        "gst": gst,
+        "subtotal": subtotal,
+        "points_available": int(available_points or 0),
+        "max_redeem": max_redeem,
+        "points_redeemed": redeemed,
+        "total": total,
+        "currency": "INR",
+        "earn_estimate": earn,
+        "tier": tier["name"],
+        "boost_pct": int(tier["boost"] * 100),
+        "cancellation_policy": CANCELLATION_POLICY["summary"],
+    }
+
 
 # --- Vendors ---
 def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float] = None, user_lng: Optional[float] = None) -> dict:
@@ -684,8 +804,10 @@ def _vendor_pub(v: dict, user_city: str = "Hyderabad", user_lat: Optional[float]
     return {
         "id": v["id"], "name": v["name"], "category": v["category"], "city": v["city"],
         "cover": v["cover"], "gallery": v.get("gallery", []), "description": v["description"],
-        "starting_price": v["starting_price"], "rating": round(v.get("rating", 0), 1),
-        "reviews_count": v.get("reviews_count", 0), "distance_km": round(dist, 1) if dist is not None else None,
+        "starting_price": v["starting_price"],
+        "price_unit": v.get("price_unit") or price_unit_for(v.get("category")),
+        "rating": round(float(v.get("rating") or 0), 1),
+        "reviews_count": int(v.get("reviews_count") or 0), "distance_km": round(dist, 1) if dist is not None else None,
         "verified": v.get("verified", False), "facilities": v.get("facilities", []),
         "event_types": v.get("event_types", []), "address": v.get("address", ""),
         "phone": v.get("phone", ""), "owner_id": v.get("owner_id"),
@@ -707,11 +829,30 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
     if category: query["category"] = category
     if event_type: query["event_types"] = event_type
     limit = max(1, min(int(limit), 50))
-    if q: query["name"] = {"$regex": re.escape(q[:100]), "$options": "i"}
-    cursor = db.vendors.find(query, {"_id": 0}).limit(limit)
+    # Text search is applied in Python so we can match name, category, description,
+    # event types, facilities and package titles — not just vendor name.
+    fetch_limit = 200 if q else limit
+    cursor = db.vendors.find(query, {"_id": 0})
     if trending:
-        cursor = db.vendors.find(query, {"_id": 0}).sort("rating", -1).limit(limit)
-    items = await cursor.to_list(limit)
+        cursor = cursor.sort("rating", -1)
+    items = await cursor.to_list(fetch_limit)
+    if q:
+        terms = [t for t in re.split(r"\s+", q.strip().lower()[:100]) if t]
+        vids = [v["id"] for v in items]
+        svcs = await db.services.find(
+            {"vendor_id": {"$in": vids}}, {"_id": 0, "vendor_id": 1, "title": 1, "description": 1}
+        ).to_list(2000) if vids else []
+        by_v: dict = {}
+        for s in svcs:
+            by_v.setdefault(s["vendor_id"], []).append(s)
+        def _haystack(v: dict) -> str:
+            parts = [v.get("name"), v.get("category"), v.get("city"), v.get("description"),
+                     *(v.get("facilities") or []), *(v.get("event_types") or [])]
+            for s in by_v.get(v["id"], []):
+                parts += [s.get("title"), s.get("description")]
+            return " ".join(str(x) for x in parts if x).lower()
+        items = [v for v in items if all(term in _haystack(v) for term in terms)]
+    items = items[:limit]
     svc_counts = await _service_counts([v["id"] for v in items])
     items = [v for v in items if profile_completeness(v, svc_counts.get(v["id"], 0))["listable"]]
     return [_vendor_pub(v, city or "Hyderabad", lat, lng) for v in items]
@@ -727,8 +868,10 @@ async def get_vendor(vendor_id: str, lat: Optional[float] = None, lng: Optional[
 
 @api.get("/vendors/{vendor_id}/services")
 async def public_vendor_services(vendor_id: str):
+    vend = await db.vendors.find_one({"id": vendor_id}, {"_id": 0, "category": 1})
+    cat = (vend or {}).get("category") or ""
     items = await db.services.find({"vendor_id": vendor_id}, {"_id": 0}).sort("price", 1).to_list(100)
-    return [_service_pub(x) for x in items]
+    return [_service_pub(x, cat) for x in items]
 
 @api.get("/vendors/{vendor_id}/availability")
 async def public_vendor_availability(vendor_id: str):
@@ -739,7 +882,7 @@ async def similar_vendors(vendor_id: str):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not v: return []
     items = await db.vendors.find(
-        {"category": v["category"], "id": {"$ne": vendor_id}, "verified": True}, {"_id": 0}
+        {"category": v["category"], "city": v.get("city"), "id": {"$ne": vendor_id}, "verified": True}, {"_id": 0}
     ).limit(6).to_list(6)
     return [_vendor_pub(x, v.get("city", "Hyderabad")) for x in items]
 
@@ -769,11 +912,24 @@ async def toggle_fav(vendor_id: str, u: dict = Depends(get_current_user)):
 
 # --- Bookings ---
 async def _enrich_booking(b: dict) -> dict:
-    v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "cover": 1})
-    c = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "name": 1})
-    return {**b, "vendor_name": v["name"] if v else "Vendor",
+    v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "cover": 1, "category": 1})
+    c = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "name": 1, "points": 1, "lifetime_points": 1})
+    available = int((c or {}).get("points") or 0)
+    lifetime = int((c or {}).get("lifetime_points") or 0)
+    stored_redeem = int(b.get("points_redeemed") or 0)
+    # Paid bookings show the locked-in redemption; unpaid show a 0-redeem quote plus max.
+    redeem_for_quote = stored_redeem if b.get("payment_status") == "paid" else 0
+    breakdown = compute_price_breakdown(int(b.get("amount") or 0), redeem_for_quote, available, lifetime)
+    if b.get("payment_status") == "paid" and b.get("final_amount") is not None:
+        breakdown["total"] = int(b["final_amount"])
+        breakdown["points_redeemed"] = stored_redeem
+    return {**b,
+            "vendor_name": v["name"] if v else "Vendor",
             "vendor_cover": v["cover"] if v else "",
-            "customer_name": c["name"] if c else "Customer"}
+            "customer_name": c["name"] if c else "Customer",
+            "price_unit": price_unit_for((v or {}).get("category")),
+            "price_breakdown": breakdown,
+            "cancel_preview": cancel_refund_preview(b)}
 
 @api.post("/bookings")
 async def create_booking(body: BookingIn, u: dict = Depends(require_role("customer"))):
@@ -862,6 +1018,44 @@ async def update_booking_status(bid: str, status_val: str, u: dict = Depends(req
     except Exception as e: logger.warning(f"status notify failed: {e}")
     return await _enrich_booking(b)
 
+@api.post("/bookings/{bid}/cancel")
+async def cancel_booking(bid: str, u: dict = Depends(require_role("customer"))):
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0})
+    if not b or b["customer_id"] != u["id"]:
+        raise HTTPException(404, "Booking not found")
+    preview = cancel_refund_preview(b)
+    if not preview["cancellable"]:
+        raise HTTPException(409, "This booking can no longer be cancelled")
+    refund_amount = preview["refund_amount"]
+    refund_percent = preview["refund_percent"] if preview["paid"] else 0
+    upd = {
+        "status": "cancelled",
+        "cancelled_at": datetime.now(timezone.utc).isoformat(),
+        "cancelled_by": "customer",
+        "refund_percent": refund_percent,
+        "refund_amount": refund_amount,
+        "refund_status": "refunded" if refund_amount > 0 else ("n/a" if not preview["paid"] else "none"),
+    }
+    if refund_amount > 0:
+        # Mock refund — no Razorpay refund call in mock/dev. Live refunds need Razorpay Refunds API + keys.
+        upd["payment_status"] = "refunded"
+    await db.bookings.update_one({"id": bid}, {"$set": upd})
+    b.update(upd)
+    try:
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+        owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "email": 1, "name": 1, "id": 1}) if v else None
+        if v:
+            await send_push([u["id"]], "Booking cancelled",
+                (f"₹{refund_amount:,} will be refunded ({refund_percent}%)." if refund_amount else f"Your booking with {v['name']} is cancelled."),
+                action_url=f"/booking-detail/{bid}")
+        if owner:
+            await send_push([owner["id"]], f"{u.get('name') or 'Customer'} cancelled a booking",
+                f"{b.get('event_type', 'Event')} on {b.get('event_date')}" + (f" · refund ₹{refund_amount:,}" if refund_amount else ""),
+                action_url="/(vendor)/bookings")
+    except Exception as e:
+        logger.warning(f"cancel notify failed: {e}")
+    return await _enrich_booking(b)
+
 # --- Reviews ---
 @api.post("/reviews")
 async def add_review(body: ReviewIn, u: dict = Depends(require_role("customer"))):
@@ -878,12 +1072,12 @@ async def add_review(body: ReviewIn, u: dict = Depends(require_role("customer"))
            "rating": body.rating, "comment": body.comment,
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.reviews.insert_one(doc.copy())
-    # recompute vendor rating
+    # Merge real reviews with the seeded baseline so ratings don't jump from 4.8/33 to 5.0/1.
+    vend = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
     revs = await db.reviews.find({"vendor_id": body.vendor_id}, {"_id": 0}).to_list(1000)
-    if revs:
-        avg = sum(r["rating"] for r in revs) / len(revs)
-        await db.vendors.update_one({"id": body.vendor_id},
-                                    {"$set": {"rating": avg, "reviews_count": len(revs)}})
+    avg, count = _merged_rating(vend or {}, revs)
+    await db.vendors.update_one({"id": body.vendor_id},
+                                {"$set": {"rating": avg, "reviews_count": count}})
     # Notify vendor
     try:
         v = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0, "owner_id": 1, "name": 1})
@@ -931,6 +1125,8 @@ async def send_message(body: ChatMsgIn, u: dict = Depends(get_current_user)):
     is_cust = u["role"] == "customer" and b["customer_id"] == u["id"]
     is_vend = u["role"] == "vendor" and b["vendor_id"] == u.get("vendor_id")
     if not (is_cust or is_vend): raise HTTPException(403, "Not a participant of this booking")
+    if b.get("status") in ("rejected", "cancelled"):
+        raise HTTPException(409, "This conversation is closed")
     doc = {"id": str(uuid.uuid4()), "booking_id": body.booking_id, "sender_id": u["id"],
            "sender_role": u["role"], "sender_name": u["name"], "text": body.text,
            "created_at": datetime.now(timezone.utc).isoformat()}
@@ -974,18 +1170,52 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
                                               "updated_at": datetime.now(timezone.utc).isoformat()})
     return {"conversation_id": cid, "reply": reply}
 
+def _verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
+    if not RAZORPAY_KEY_SECRET:
+        return False
+    digest = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{order_id}|{payment_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(digest, (signature or "").strip())
+
+
 # --- Payments (Razorpay or mock) + Loyalty redeem ---
+@api.post("/payments/quote")
+async def quote_payment(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
+    b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
+    if not b: raise HTTPException(404, "Booking not found")
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1, "lifetime_points": 1})
+    available = int((user or {}).get("points") or 0)
+    lifetime = int((user or {}).get("lifetime_points") or 0)
+    bd = compute_price_breakdown(int(b.get("amount") or 0), body.redeem_points or 0, available, lifetime)
+    return {
+        "booking_id": b["id"],
+        "status": b.get("status"),
+        "payment_status": b.get("payment_status"),
+        "payable": b.get("status") == "confirmed" and b.get("payment_status") != "paid",
+        "mode": PAYMENT_MODE,
+        **bd,
+    }
+
 @api.post("/payments/order")
 async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
     if not b: raise HTTPException(404, "Booking not found")
-    # Redeem points: 1 pt = 1 INR, max 20% of amount and not more than user balance
-    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1})
-    available = int(user.get("points", 0)) if user else 0
-    max_redeem = min(available, body.redeem_points or 0, int(b["amount"] * 0.20))
-    final_amount = max(0, b["amount"] - max_redeem)
-    amount_paise = final_amount * 100
-    if PAYMENT_MODE == "live" and RAZORPAY_KEY_ID:
+    if b.get("payment_status") == "paid":
+        raise HTTPException(409, "Booking is already paid")
+    if b.get("status") != "confirmed":
+        raise HTTPException(409, "Payment is only available after the vendor confirms this booking")
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1, "lifetime_points": 1})
+    available = int((user or {}).get("points") or 0)
+    lifetime = int((user or {}).get("lifetime_points") or 0)
+    bd = compute_price_breakdown(int(b.get("amount") or 0), body.redeem_points or 0, available, lifetime)
+    amount_paise = bd["total"] * 100
+    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+    if PAYMENT_MODE == "live" and not live:
+        raise HTTPException(503, "Razorpay is not configured (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)")
+    if live:
         import razorpay
         rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         order = rzp.order.create({"amount": amount_paise, "currency": "INR",
@@ -994,11 +1224,14 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
     else:
         oid = f"order_mock_{uuid.uuid4().hex[:14]}"
     await db.bookings.update_one({"id": b["id"]}, {"$set": {
-        "razorpay_order_id": oid, "points_redeemed": max_redeem, "final_amount": final_amount}})
+        "razorpay_order_id": oid, "points_redeemed": bd["points_redeemed"],
+        "final_amount": bd["total"], "gst_amount": bd["gst"]}})
     return {"order_id": oid, "amount": amount_paise, "currency": "INR",
-            "razorpay_key_id": RAZORPAY_KEY_ID or "rzp_test_mock",
-            "mode": PAYMENT_MODE, "points_redeemed": max_redeem,
-            "final_amount": final_amount}
+            "razorpay_key_id": RAZORPAY_KEY_ID if live else (RAZORPAY_KEY_ID or "rzp_test_mock"),
+            "mode": "live" if live else "mock",
+            "name": "Thara", "description": f"Booking {b['id'][:8]}",
+            "prefill": {"email": u.get("email") or "", "contact": u.get("phone") or ""},
+            **bd}
 
 @api.post("/payments/verify")
 async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("customer"))):
@@ -1010,19 +1243,21 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
                 "earned_points": int(b.get("points_earned", 0)),
                 "redeemed_points": int(b.get("points_redeemed", 0)),
                 "already_paid": True}
-    if PAYMENT_MODE == "live" and RAZORPAY_KEY_ID:
-        import razorpay
-        rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        try:
-            rzp.utility.verify_payment_signature({
-                "razorpay_order_id": body.razorpay_order_id,
-                "razorpay_payment_id": body.razorpay_payment_id,
-                "razorpay_signature": body.razorpay_signature,
-            })
-        except Exception:
+    if b.get("status") != "confirmed":
+        raise HTTPException(409, "Payment is only available after the vendor confirms this booking")
+    stored_oid = b.get("razorpay_order_id")
+    if stored_oid and body.razorpay_order_id != stored_oid:
+        raise HTTPException(400, "Order id does not match this booking")
+    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+    if live:
+        if not body.razorpay_payment_id or not body.razorpay_signature:
+            raise HTTPException(400, "Payment signature is required")
+        if not _verify_razorpay_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
             raise HTTPException(400, "Signature mismatch")
+    elif PAYMENT_MODE == "live":
+        raise HTTPException(503, "Razorpay is not configured")
     await db.bookings.update_one({"id": body.booking_id}, {"$set": {
-        "payment_status": "paid", "status": "confirmed",
+        "payment_status": "paid",
         "razorpay_payment_id": body.razorpay_payment_id}})
     # Burn redeemed points
     redeemed = int(b.get("points_redeemed", 0))
@@ -1261,26 +1496,33 @@ async def set_availability(body: AvailabilityIn, u: dict = Depends(require_role(
 
 @api.get("/vendor/services")
 async def list_services(u: dict = Depends(require_role("vendor"))):
+    vend = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0, "category": 1})
+    cat = (vend or {}).get("category") or ""
     items = await db.services.find({"vendor_id": u["vendor_id"]}, {"_id": 0}).to_list(100)
-    return [_service_pub(x) for x in items]
+    return [_service_pub(x, cat) for x in items]
 
 @api.post("/vendor/services")
 async def add_service(body: ServiceIn, u: dict = Depends(require_role("vendor"))):
+    vend = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0, "category": 1})
+    cat = (vend or {}).get("category") or ""
     payload = apply_social_links(body.dict())
+    payload["price_unit"] = payload.get("price_unit") or price_unit_for(cat)
     doc = {"id": str(uuid.uuid4()), "vendor_id": u["vendor_id"], **payload,
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.services.insert_one(doc.copy())
-    return _service_pub(doc)
+    return _service_pub(doc, cat)
 
 @api.patch("/vendor/services/{sid}")
 async def update_service(sid: str, body: ServicePatch, u: dict = Depends(require_role("vendor"))):
+    vend = await db.vendors.find_one({"id": u["vendor_id"]}, {"_id": 0, "category": 1})
+    cat = (vend or {}).get("category") or ""
     upd = body.dict(exclude_none=True)
     apply_social_links(upd)
     if not upd: raise HTTPException(400, "Nothing to update")
     upd["updated_at"] = datetime.now(timezone.utc).isoformat()
     r = await db.services.update_one({"id": sid, "vendor_id": u["vendor_id"]}, {"$set": upd})
     if r.matched_count == 0: raise HTTPException(404, "Service not found")
-    return _service_pub(await db.services.find_one({"id": sid}, {"_id": 0}))
+    return _service_pub(await db.services.find_one({"id": sid}, {"_id": 0}), cat)
 
 @api.delete("/vendor/services/{sid}")
 async def delete_service(sid: str, u: dict = Depends(require_role("vendor"))):
@@ -1462,7 +1704,10 @@ async def seed():
             "id": vid, "owner_id": owner_id, "name": name, "category": cat, "city": city,
             "cover": imgs[0], "gallery": imgs,
             "description": desc, "starting_price": price, "rating": rating,
-            "reviews_count": (hash(name) % 80) + 12, "verified": True,
+            "reviews_count": (hash(name) % 80) + 12,
+            "seed_rating": rating, "seed_reviews_count": (hash(name) % 80) + 12,
+            "price_unit": price_unit_for(cat),
+            "verified": True,
             "facilities": facilities,
             "event_types": ["wedding", "sangeet", "reception"] if cat in ("venues","decor","music") else ["wedding","corporate","birthday"],
             "address": f"{name}, {city}", "phone": f"+9199{10000000+i}",
@@ -1500,6 +1745,7 @@ async def _seed_services(vendors: List[dict]):
             await db.services.insert_one({"id": str(uuid.uuid4()), "vendor_id": v["id"],
                 "title": "Signature Package", "description": v["description"],
                 "price": v["starting_price"], "photos": v.get("gallery", [])[:3],
+                "price_unit": price_unit_for(v.get("category")),
                 "created_at": datetime.now(timezone.utc).isoformat()})
 
 @app.on_event("startup")
@@ -1544,7 +1790,9 @@ mgr = ConnMgr()
 
 @app.websocket("/api/ws/chat/{booking_id}")
 async def ws_chat(websocket: WebSocket, booking_id: str, token: str = ""):
-    # Auth via query token
+    # Accept first so we can send RFC close codes (4401/4403/4404). Closing before
+    # accept is rewritten as a generic HTTP 403 by the ASGI server.
+    await websocket.accept()
     try:
         data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
         user = await db.users.find_one({"id": data["sub"]}, {"_id": 0, "password_hash": 0})
@@ -1552,7 +1800,6 @@ async def ws_chat(websocket: WebSocket, booking_id: str, token: str = ""):
     except Exception:
         await websocket.close(code=4401)
         return
-    # Authorize: customer or vendor on this booking
     b = await db.bookings.find_one({"id": booking_id})
     if not b:
         await websocket.close(code=4404); return
@@ -1560,7 +1807,6 @@ async def ws_chat(websocket: WebSocket, booking_id: str, token: str = ""):
         await websocket.close(code=4403); return
     if user["role"] == "vendor" and b["vendor_id"] != user.get("vendor_id"):
         await websocket.close(code=4403); return
-    await websocket.accept()
     await mgr.join(booking_id, websocket)
     try:
         while True:

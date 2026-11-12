@@ -92,3 +92,7 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 !.env.example
 !backend/.env.example
+
+# Dev-only KYC encryption key (auto-generated in demo/mock)
+backend/.kyc_dev_key
+.kyc_dev_key

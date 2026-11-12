@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -9,6 +9,7 @@ import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
 import { fonts, spacing, useColors, useThemedStyles } from "@/src/theme";
 import { EyebrowLabel, KeyValue, ListRow, Section, StatusText, editorialGold, gutter } from "@/src/components/ui";
+import { formatInr } from "@/src/utils/price";
 
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,6 +19,7 @@ export default function BookingDetail() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const s = useThemedStyles((c) => ({
     root: { flex: 1, backgroundColor: c.surface },
     cover: { width: "100%", height: 300 },
@@ -35,6 +37,28 @@ export default function BookingDetail() {
     try { await api.post("/reviews", { vendor_id: b.vendor_id, booking_id: b.id, rating, comment }); alert("Thanks for your review!"); setComment(""); }
     catch (e: any) { alert(e.message); }
     finally { setSubmitting(false); }
+  };
+
+  const confirmCancel = () => {
+    const preview = b?.cancel_preview || {};
+    const msg = b?.payment_status === "paid"
+      ? (preview.refund_percent === 0
+          ? "This is within 48 hours of the event, so no refund will be issued. Cancel anyway?"
+          : `You’ll receive a ${preview.refund_percent}% refund (₹${formatInr(preview.refund_amount)}). Cancel this booking?`)
+      : "Withdraw this unpaid request? The vendor will be notified.";
+    Alert.alert("Cancel booking?", msg, [
+      { text: "Keep booking", style: "cancel" },
+      { text: "Yes, cancel", style: "destructive", onPress: doCancel },
+    ]);
+  };
+
+  const doCancel = async () => {
+    setCancelling(true);
+    try {
+      const updated = await api.post(`/bookings/${id}/cancel`);
+      setB(updated);
+    } catch (e: any) { Alert.alert("Couldn’t cancel", e.message); }
+    finally { setCancelling(false); }
   };
 
   if (!b) return <View style={[s.root, { justifyContent: "center" }]}><ActivityIndicator color={colors.brand} /></View>;
@@ -57,13 +81,44 @@ export default function BookingDetail() {
         <KeyValue label="Date" value={b.event_date} />
         <KeyValue label="Guests" value={String(b.guests)} />
         <KeyValue label="Payment" value={<StatusText status={b.payment_status} />} />
-        <KeyValue label="Amount" value={`₹${b.amount.toLocaleString("en-IN")}`} emphasis valueColor={editorialGold(colors)} last />
+        <KeyValue label="Service" value={`₹${formatInr(b.price_breakdown?.service ?? b.amount)}`} />
+        {b.price_breakdown ? <KeyValue label="GST (5%)" value={`₹${formatInr(b.price_breakdown.gst)}`} /> : null}
+        <KeyValue label="Total" value={`₹${formatInr(b.price_breakdown?.total ?? b.amount)}`} emphasis valueColor={editorialGold(colors)} last />
         {b.notes ? <Text style={s.notes}>“{b.notes}”</Text> : null}
+        {b.status === "pending" && b.payment_status !== "paid" ? (
+          <Text style={[s.notes, { fontStyle: "normal", marginTop: spacing.md }]}>Waiting for the vendor to confirm. You can pay once they accept.</Text>
+        ) : null}
+        {b.refund_status && b.refund_status !== "n/a" ? (
+          <Text style={[s.notes, { fontStyle: "normal" }]}>
+            {b.refund_status === "refunded" ? `Refund of ₹${formatInr(b.refund_amount)} (${b.refund_percent}%) is being processed.` : "This paid booking was cancelled with no refund, as it was within 48 hours of the event."}
+          </Text>
+        ) : null}
       </Section>
 
       <View style={{ paddingHorizontal: gutter, marginTop: spacing.lg }}>
-        <ListRow icon="chatbubbles-outline" title="Message Vendor" subtitle="Chat about your event details" onPress={() => router.push(`/chat/${b.id}`)} last />
+        {b.status !== "rejected" && b.status !== "cancelled" ? (
+          <ListRow icon="chatbubbles-outline" title="Message Vendor" subtitle="Chat about your event details" onPress={() => router.push(`/chat/${b.id}`)} />
+        ) : (
+          <ListRow icon="chatbubbles-outline" title="Conversation closed" subtitle="This booking is no longer active" last />
+        )}
+        {b.status === "confirmed" && b.payment_status !== "paid" && b.payment_status !== "refunded" ? (
+          <ListRow icon="card-outline" title="Pay now" subtitle={`₹${formatInr(b.price_breakdown?.total ?? b.amount)} including GST`} onPress={() => router.push(`/checkout/${b.id}`)} testID="pay-now" last={!b.cancel_preview?.cancellable} />
+        ) : null}
       </View>
+
+      {b.cancel_preview?.cancellable ? (
+        <Section eyebrow="Cancellation">
+          <Text style={{ color: colors.textSubtle, fontSize: 13, lineHeight: 20 }} testID="cancel-policy">{b.cancel_preview.policy}</Text>
+          {b.payment_status === "paid" ? (
+            <Text style={{ color: colors.text, marginTop: 10, fontSize: 14 }}>
+              If you cancel now, {b.cancel_preview.refund_percent === 0 ? "no refund will be issued." : `you’ll receive a ${b.cancel_preview.refund_percent}% refund (₹${formatInr(b.cancel_preview.refund_amount)}).`}
+            </Text>
+          ) : (
+            <Text style={{ color: colors.textSubtle, marginTop: 10, fontSize: 14 }}>This request is unpaid, so you can withdraw it at no charge.</Text>
+          )}
+          <GoldButton testID="cancel-booking" title={b.payment_status === "paid" ? "Cancel booking" : "Withdraw request"} onPress={confirmCancel} loading={cancelling} style={{ marginTop: spacing.lg }} />
+        </Section>
+      ) : null}
 
       {b.status === "completed" && (
         <Section eyebrow="Share your experience" title="Leave a Review">

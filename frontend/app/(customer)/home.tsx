@@ -10,6 +10,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { api, resolveImg } from "@/src/api";
 import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { SAMPLE_VENDOR } from "@/src/sampleVendor";
+import { formatInr, formatPrice } from "@/src/utils/price";
 import { Rating } from "@/src/components/UI";
 import { TharaLogo } from "@/src/components/TharaLogo";
 import { AnimatedChip, AnimatedEventTile } from "@/src/components/AnimatedChips";
@@ -21,8 +22,6 @@ import { useOnReconnect } from "@/src/hooks/use-reconnect";
 const { width } = Dimensions.get("window");
 const HERO_W = width - spacing.xl * 2;
 const HERO_GAP = spacing.md;
-const inr = (n: unknown) => { const v = Number(n); return Number.isFinite(v) ? v.toLocaleString("en-IN") : null; };
-
 // Combos have no detail route: open vendor if linked, else search filtered by the event type the combo is for.
 const openCombo = (cb: any) => {
   if (cb?.vendor_id) return router.push(`/vendor/${cb.vendor_id}`);
@@ -284,7 +283,7 @@ export default function Home() {
                     {v.distance_km != null && v.distance_km > 0 && <><Text style={styles.vDot}>•</Text>
                     <Text style={styles.vMuted}>{v.distance_km} km</Text></>}
                   </View>
-                  {Number(v.starting_price) > 0 ? <Text style={styles.vPrice}>₹{inr(v.starting_price)}+</Text> : null}
+                  {Number(v.starting_price) > 0 ? <Text style={styles.vPrice}>{formatPrice(v.starting_price, v.price_unit, { plus: true })}</Text> : null}
                 </View>
               </Pressable>
             ))}
@@ -305,9 +304,9 @@ export default function Home() {
                 <Text style={styles.comboTitle}>{cb.name}</Text>
                 <Text style={styles.comboDesc} numberOfLines={2}>{cb.description}</Text>
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4 }}>
-                  {Number(cb.price) > 0 ? <Text style={styles.comboPrice}>₹{inr(cb.price)}</Text> : null}
-                  {Number(cb.original_price) > Number(cb.price) && Number(cb.original_price) > 0 ? <Text style={styles.comboOrig}>₹{inr(cb.original_price)}</Text> : null}
-                  {Number(cb.savings) > 0 ? <Text style={styles.comboSave}>Save ₹{inr(cb.savings)}</Text> : null}
+                  {Number(cb.price) > 0 ? <Text style={styles.comboPrice}>₹{formatInr(cb.price)}</Text> : null}
+                  {Number(cb.original_price) > Number(cb.price) && Number(cb.original_price) > 0 ? <Text style={styles.comboOrig}>₹{formatInr(cb.original_price)}</Text> : null}
+                  {Number(cb.savings) > 0 ? <Text style={styles.comboSave}>Save ₹{formatInr(cb.savings)}</Text> : null}
                 </View>
               </View>
             </Pressable>

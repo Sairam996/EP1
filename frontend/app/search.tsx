@@ -15,6 +15,7 @@ import { fonts, radius, spacing, useThemedStyles } from "@/src/theme";
 import { EmptyState } from "@/src/components/Polish";
 import { RotatingHint } from "@/src/components/RotatingHint";
 import { SAMPLE_VENDOR, SAMPLE_SERVICES } from "@/src/sampleVendor";
+import { formatFromPrice, formatPrice } from "@/src/utils/price";
 
 const MIN_CHARS = 2;
 const RECENT_KEY = "thara.recentSearches";
@@ -139,7 +140,7 @@ export default function Search() {
       return (
         <ImageTile testID={`result-${item.id}`} onPress={() => openVendor(item.id)} uri={resolveImg(item.cover)} height={230} radius={0}
           eyebrow={`${item.category || ""}${item.is_sample ? " · Sample" : ""}`} title={item.name}
-          subtitle={[item.reviews_count > 0 ? `★ ${Number(item.rating).toFixed(1)}` : "New", item.city, price0 > 0 ? `from ₹${price0.toLocaleString("en-IN")}` : null].filter(Boolean).join("   ·   ")} />
+          subtitle={[item.reviews_count > 0 ? `★ ${Number(item.rating).toFixed(1)}` : "New", item.city, price0 > 0 ? formatFromPrice(price0, item.price_unit) : null].filter(Boolean).join("   ·   ")} />
       );
     }
     const svc = active ? (item.services || []).find((s: any) => matches({ name: s.title, description: s.description }, term)) : null;
@@ -156,7 +157,7 @@ export default function Search() {
             {item.reviews_count > 0 ? <Rating value={item.rating} size={12} /> : <Text style={styles.cardMeta}>New</Text>}
             {item.distance_km != null && item.distance_km > 0 && <Text style={styles.cardMeta}>• {item.distance_km} km</Text>}
           </View>
-          {price > 0 ? <Text style={styles.cardPrice}>₹{price.toLocaleString("en-IN")}+</Text> : null}
+          {price > 0 ? <Text style={styles.cardPrice}>{formatPrice(price, item.price_unit, { plus: true })}</Text> : null}
         </View>
         <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />
        </View>
