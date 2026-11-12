@@ -54,11 +54,13 @@ CORS_ORIGINS = [o.strip() for o in os.environ.get(
     "CORS_ORIGINS", "http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006"
 ).split(",") if o.strip() and o.strip() != "*"]
 GST_RATE = 0.05
+ADVANCE_RATE = 0.20
 CANCELLATION_POLICY = {
     "full_refund_after_hours": 7 * 24,   # > 7 days before event
     "half_refund_after_hours": 48,       # 2–7 days
-    "summary": "Full refund if you cancel more than 7 days before the event. "
-               "50% refund between 2 and 7 days. No refund within 48 hours of the event. "
+    "summary": "The 20% advance is refunded in full if you cancel more than 7 days before the event. "
+               "50% of the advance is refunded between 2 and 7 days. No refund of the advance within 48 hours of the event. "
+               "The remaining 80% is due on the event date, in the app or directly to the vendor. "
                "Unpaid requests can be withdrawn at any time.",
 }
 
@@ -269,6 +271,7 @@ class AIChatIn(BaseModel):
 class PayOrderIn(BaseModel):
     booking_id: str
     redeem_points: int = 0
+    kind: Literal["advance", "balance"] = "advance"
 
 class ApplyReferralIn(BaseModel):
     code: str
@@ -278,6 +281,7 @@ class PayVerifyIn(BaseModel):
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+    kind: Literal["advance", "balance"] = "advance"
 
 class KycIn(BaseModel):
     business_name: str
@@ -735,6 +739,117 @@ def _hours_until_event(event_date: str) -> float:
     return (ev - datetime.now(IST)).total_seconds() / 3600.0
 
 
+def compute_totals(service_amount: int) -> dict:
+    """Service + 5% GST; advance is 20% of that total, rounded to the nearest rupee."""
+    service = max(0, int(service_amount or 0))
+    gst = int(round(service * GST_RATE))
+    total = service + gst
+    advance = int(round(total * ADVANCE_RATE))
+    balance = max(0, total - advance)
+    return {
+        "service": service, "gst_rate": GST_RATE, "gst": gst,
+        "subtotal": total, "total": total,
+        "advance_amount": advance, "balance_amount": balance,
+        "currency": "INR",
+    }
+
+
+def compute_price_breakdown(service_amount: int, redeem_requested: int, available_points: int,
+                            lifetime_points: int = 0, kind: str = "advance") -> dict:
+    totals = compute_totals(service_amount)
+    service, advance, total = totals["service"], totals["advance_amount"], totals["total"]
+    kind = "balance" if kind == "balance" else "advance"
+    if kind == "balance":
+        max_redeem = 0
+        redeemed = 0
+        charge = totals["balance_amount"]
+    else:
+        # Points apply to the advance only: cap at advance and at 20% of service.
+        max_redeem = min(max(0, int(available_points or 0)), int(service * 0.20), advance)
+        redeemed = min(max(0, int(redeem_requested or 0)), max_redeem)
+        charge = max(0, advance - redeemed)
+    tier = compute_tier(int(lifetime_points or 0))
+    earn = int(round(charge * 0.05 * (1.0 + tier["boost"])))
+    return {
+        **totals,
+        "kind": kind,
+        "points_available": int(available_points or 0),
+        "max_redeem": max_redeem,
+        "points_redeemed": redeemed,
+        "charge": charge,
+        "advance_due": charge if kind == "advance" else advance,
+        "earn_estimate": earn,
+        "tier": tier["name"],
+        "boost_pct": int(tier["boost"] * 100),
+        "cancellation_policy": CANCELLATION_POLICY["summary"],
+    }
+
+
+def _event_reached(event_date: str) -> bool:
+    return _hours_until_event(event_date or "2099-01-01") <= 0
+
+
+def _advance_is_paid(b: dict) -> bool:
+    return bool(b.get("advance_paid")) or b.get("status") == "booked" or b.get("payment_status") in ("advance_paid", "paid")
+
+
+def _balance_settled(b: dict) -> bool:
+    return b.get("balance_status") in ("paid_in_app", "paid_offline")
+
+
+def _display_status(b: dict) -> str:
+    st = b.get("status")
+    if st == "pending":
+        return "Awaiting vendor"
+    if st == "confirmed":
+        return "Awaiting advance"
+    if st == "booked":
+        if _balance_settled(b):
+            return "Booked"
+        if b.get("balance_status") == "claimed_offline":
+            return "Balance claimed"
+        return "Booked · balance due"
+    if st == "completed":
+        return "Completed"
+    if st == "cancelled":
+        return "Cancelled"
+    if st == "rejected":
+        return "Declined"
+    return (st or "").replace("_", " ").title()
+
+
+def apply_booking_payments(b: dict) -> dict:
+    """Fill advance/balance fields; migrate legacy fully-paid bookings."""
+    totals = compute_totals(int(b.get("amount") or 0))
+    b.setdefault("gst_amount", totals["gst"])
+    b.setdefault("total_amount", totals["total"])
+    b.setdefault("advance_amount", totals["advance_amount"])
+    b.setdefault("balance_amount", totals["balance_amount"])
+    if b.get("advance_paid") is None:
+        legacy_paid = b.get("payment_status") == "paid"
+        if legacy_paid:
+            charged = int(b.get("final_amount") or totals["total"])
+            b["advance_paid"] = True
+            b.setdefault("advance_paid_at", b.get("created_at"))
+            b.setdefault("advance_charged", min(charged, int(b["advance_amount"])))
+            # Old checkout collected the full GST-inclusive total in one payment.
+            if charged >= max(0, totals["total"] - int(b.get("points_redeemed") or 0)) or b.get("status") == "completed":
+                b.setdefault("balance_status", "paid_in_app")
+                b.setdefault("balance_paid_at", b.get("created_at"))
+                b.setdefault("payment_method_balance", "in_app")
+            else:
+                b.setdefault("balance_status", "due")
+            if b.get("status") == "confirmed":
+                b["status"] = "booked"
+            b["payment_status"] = "paid" if _balance_settled(b) else "advance_paid"
+            b.setdefault("payment_method_advance", "in_app")
+        else:
+            b["advance_paid"] = False
+            b.setdefault("balance_status", "due")
+    b.setdefault("balance_status", "due")
+    return b
+
+
 def cancel_refund_preview(b: dict) -> dict:
     hours = _hours_until_event(b.get("event_date") or "2099-01-01")
     if hours > 7 * 24:
@@ -746,10 +861,10 @@ def cancel_refund_preview(b: dict) -> dict:
     else:
         pct = 0
         band = "none"
-    paid = b.get("payment_status") == "paid"
-    paid_amt = int(b.get("final_amount", b.get("amount") or 0)) if paid else 0
+    paid = _advance_is_paid(b)
+    paid_amt = int(b.get("advance_charged") or 0) if paid else 0
     refund = int(round(paid_amt * pct / 100.0)) if paid else 0
-    cancellable = b.get("status") in ("pending", "confirmed")
+    cancellable = b.get("status") in ("pending", "confirmed", "booked") and not _balance_settled(b)
     return {
         "cancellable": cancellable,
         "hours_until_event": round(hours, 1),
@@ -757,34 +872,8 @@ def cancel_refund_preview(b: dict) -> dict:
         "refund_amount": refund if cancellable else 0,
         "band": band,
         "paid": paid,
+        "applies_to": "advance",
         "policy": CANCELLATION_POLICY["summary"],
-    }
-
-
-def compute_price_breakdown(service_amount: int, redeem_requested: int, available_points: int,
-                            lifetime_points: int = 0) -> dict:
-    service = max(0, int(service_amount or 0))
-    gst = int(round(service * GST_RATE))
-    subtotal = service + gst
-    max_redeem = min(max(0, int(available_points or 0)), int(service * 0.20))
-    redeemed = min(max(0, int(redeem_requested or 0)), max_redeem)
-    total = max(0, subtotal - redeemed)
-    tier = compute_tier(int(lifetime_points or 0))
-    earn = int(round(total * 0.05 * (1.0 + tier["boost"])))
-    return {
-        "service": service,
-        "gst_rate": GST_RATE,
-        "gst": gst,
-        "subtotal": subtotal,
-        "points_available": int(available_points or 0),
-        "max_redeem": max_redeem,
-        "points_redeemed": redeemed,
-        "total": total,
-        "currency": "INR",
-        "earn_estimate": earn,
-        "tier": tier["name"],
-        "boost_pct": int(tier["boost"] * 100),
-        "cancellation_policy": CANCELLATION_POLICY["summary"],
     }
 
 
@@ -912,24 +1001,60 @@ async def toggle_fav(vendor_id: str, u: dict = Depends(get_current_user)):
 
 # --- Bookings ---
 async def _enrich_booking(b: dict) -> dict:
+    b = apply_booking_payments(dict(b))
     v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "cover": 1, "category": 1})
     c = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "name": 1, "points": 1, "lifetime_points": 1})
     available = int((c or {}).get("points") or 0)
     lifetime = int((c or {}).get("lifetime_points") or 0)
     stored_redeem = int(b.get("points_redeemed") or 0)
-    # Paid bookings show the locked-in redemption; unpaid show a 0-redeem quote plus max.
-    redeem_for_quote = stored_redeem if b.get("payment_status") == "paid" else 0
-    breakdown = compute_price_breakdown(int(b.get("amount") or 0), redeem_for_quote, available, lifetime)
-    if b.get("payment_status") == "paid" and b.get("final_amount") is not None:
-        breakdown["total"] = int(b["final_amount"])
+    kind = "balance" if _advance_is_paid(b) and not _balance_settled(b) else "advance"
+    redeem_for_quote = stored_redeem if _advance_is_paid(b) else 0
+    breakdown = compute_price_breakdown(int(b.get("amount") or 0), redeem_for_quote, available, lifetime, kind=kind)
+    # Always expose the contractual total (service+GST), not a points-discounted figure.
+    breakdown["total"] = int(b.get("total_amount") or breakdown["total"])
+    breakdown["advance_amount"] = int(b.get("advance_amount") or breakdown["advance_amount"])
+    breakdown["balance_amount"] = int(b.get("balance_amount") or breakdown["balance_amount"])
+    if _advance_is_paid(b):
         breakdown["points_redeemed"] = stored_redeem
+        breakdown["advance_due"] = 0
+        breakdown["charge"] = int(b.get("advance_charged") or 0) if kind == "advance" else breakdown["balance_amount"]
+    event_reached = _event_reached(b.get("event_date") or "2099-01-01")
+    advance_payable = b.get("status") == "confirmed" and not _advance_is_paid(b)
+    balance_payable = b.get("status") == "booked" and b.get("balance_status") == "due" and event_reached
+    timeline = [
+        {
+            "key": "advance",
+            "label": "Advance (20%)",
+            "amount": int(b.get("advance_amount") or 0),
+            "charged": int(b.get("advance_charged") or 0) if _advance_is_paid(b) else None,
+            "status": "paid" if _advance_is_paid(b) else ("due" if b.get("status") == "confirmed" else "pending"),
+            "at": b.get("advance_paid_at"),
+            "method": b.get("payment_method_advance"),
+        },
+        {
+            "key": "balance",
+            "label": "Balance (80%)",
+            "amount": int(b.get("balance_amount") or 0),
+            "status": b.get("balance_status") or "due",
+            "at": b.get("balance_paid_at") or b.get("balance_claimed_at"),
+            "method": b.get("payment_method_balance"),
+            "due_on": b.get("event_date"),
+            "unlocked": event_reached,
+        },
+    ]
     return {**b,
             "vendor_name": v["name"] if v else "Vendor",
             "vendor_cover": v["cover"] if v else "",
             "customer_name": c["name"] if c else "Customer",
             "price_unit": price_unit_for((v or {}).get("category")),
             "price_breakdown": breakdown,
-            "cancel_preview": cancel_refund_preview(b)}
+            "cancel_preview": cancel_refund_preview(b),
+            "display_status": _display_status(b),
+            "event_reached": event_reached,
+            "advance_payable": advance_payable,
+            "balance_payable": balance_payable,
+            "balance_settled": _balance_settled(b),
+            "payment_timeline": timeline}
 
 @api.post("/bookings")
 async def create_booking(body: BookingIn, u: dict = Depends(require_role("customer"))):
@@ -950,11 +1075,15 @@ async def create_booking(body: BookingIn, u: dict = Depends(require_role("custom
         amount = int(v.get("starting_price", 0))
     body.amount = amount
     bid = str(uuid.uuid4())
+    totals = compute_totals(int(body.amount or 0))
     doc = {"id": bid, "vendor_id": body.vendor_id, "customer_id": u["id"],
            "event_type": body.event_type, "event_date": body.event_date,
            "guests": body.guests, "notes": body.notes, "amount": body.amount,
            "service_id": body.service_id, "service_title": service_title,
            "status": "pending", "payment_status": "unpaid",
+           "gst_amount": totals["gst"], "total_amount": totals["total"],
+           "advance_amount": totals["advance_amount"], "advance_paid": False,
+           "balance_amount": totals["balance_amount"], "balance_status": "due",
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.bookings.insert_one(doc.copy())
     # Notify customer + vendor owner
@@ -962,17 +1091,17 @@ async def create_booking(body: BookingIn, u: dict = Depends(require_role("custom
         v = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0, "name": 1, "owner_id": 1})
         owner = await db.users.find_one({"id": v.get("owner_id")}, {"_id": 0, "email": 1, "name": 1, "id": 1}) if v else None
         # Customer confirmation
-        subj, html, prev = tpl_booking_created_customer(u["name"], v["name"], body.event_type, body.event_date, body.amount)
+        subj, html, prev = tpl_booking_created_customer(u["name"], v["name"], body.event_type, body.event_date, totals["total"])
         await send_email(u["email"], subj, html, prev)
         await send_push([u["id"]], "Booking request sent",
-            f"Waiting for {v['name']} to confirm your {body.event_type} on {body.event_date}.",
+            f"Waiting for {v['name']} to confirm. A 20% advance (₹{totals['advance_amount']:,}) locks the date.",
             action_url=f"/booking-detail/{bid}")
         # Vendor new-inquiry
         if owner:
-            subj2, html2, prev2 = tpl_booking_new_vendor(owner["name"], u["name"], body.event_type, body.event_date, body.amount)
+            subj2, html2, prev2 = tpl_booking_new_vendor(owner["name"], u["name"], body.event_type, body.event_date, totals["total"])
             await send_email(owner["email"], subj2, html2, prev2)
             await send_push([owner["id"]], f"New inquiry — {u['name']}",
-                f"{body.event_type.title()} on {body.event_date} · ₹{body.amount:,}",
+                f"{body.event_type.title()} on {body.event_date} · ₹{totals['total']:,} (20% advance to lock)",
                 action_url="/(vendor)/bookings")
     except Exception as e: logger.warning(f"booking notify failed: {e}")
     return await _enrich_booking(doc)
@@ -1003,18 +1132,33 @@ async def update_booking_status(bid: str, status_val: str, u: dict = Depends(req
     b = await db.bookings.find_one({"id": bid}, {"_id": 0})
     if not b or b["vendor_id"] != u.get("vendor_id"):
         raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    if status_val == "confirmed" and b.get("status") not in ("pending", "confirmed"):
+        raise HTTPException(409, "This booking can no longer be accepted")
+    if status_val == "rejected" and b.get("status") not in ("pending", "confirmed"):
+        raise HTTPException(409, "This booking can no longer be declined")
+    if status_val == "completed":
+        # Cleanest: the event is only complete once the 80% balance is settled.
+        if b.get("status") != "booked" or not _balance_settled(b):
+            raise HTTPException(409, "Mark the balance as received (or have the customer pay it in the app) before completing this booking")
     await db.bookings.update_one({"id": bid}, {"$set": {"status": status_val}})
     b["status"] = status_val
-    # Notify customer of status change
     try:
         cust = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "name": 1, "email": 1, "id": 1})
         v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
         if cust and v and status_val in ("confirmed", "rejected", "completed"):
-            subj, html, prev = tpl_booking_status(cust["name"], v["name"], status_val, b["event_date"])
+            adv = int(b.get("advance_amount") or 0)
+            bal = int(b.get("balance_amount") or 0)
+            subj, html, prev = tpl_booking_status(cust["name"], v["name"], status_val, b["event_date"],
+                                                  advance=adv, balance=bal)
             await send_email(cust["email"], subj, html, prev)
-            verb = {"confirmed": "confirmed 🎉", "rejected": "declined", "completed": "marked completed ✓"}[status_val]
-            await send_push([cust["id"]], f"Your booking is {verb}",
-                f"{v['name']} · {b['event_date']}", action_url=f"/booking-detail/{bid}")
+            if status_val == "confirmed":
+                push_title, push_msg = "Your booking is accepted", f"Pay a 20% advance of ₹{adv:,} to lock {b['event_date']} with {v['name']}."
+            elif status_val == "rejected":
+                push_title, push_msg = "Your booking was declined", f"{v['name']} · {b['event_date']}"
+            else:
+                push_title, push_msg = "Your booking is marked completed ✓", f"{v['name']} · {b['event_date']}"
+            await send_push([cust["id"]], push_title, push_msg, action_url=f"/booking-detail/{bid}")
     except Exception as e: logger.warning(f"status notify failed: {e}")
     return await _enrich_booking(b)
 
@@ -1054,6 +1198,76 @@ async def cancel_booking(bid: str, u: dict = Depends(require_role("customer"))):
                 action_url="/(vendor)/bookings")
     except Exception as e:
         logger.warning(f"cancel notify failed: {e}")
+    return await _enrich_booking(b)
+
+
+@api.post("/bookings/{bid}/balance/claim")
+async def claim_balance_offline(bid: str, u: dict = Depends(require_role("customer"))):
+    """Customer attests they paid the vendor directly (cash/UPI/bank). Vendor must confirm."""
+    b = await db.bookings.find_one({"id": bid, "customer_id": u["id"]}, {"_id": 0})
+    if not b: raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    if b.get("status") != "booked" or not _advance_is_paid(b):
+        raise HTTPException(409, "The advance must be paid before the balance can be settled")
+    if _balance_settled(b):
+        return await _enrich_booking(b)
+    if not _event_reached(b.get("event_date") or "2099-01-01"):
+        raise HTTPException(409, f"The balance can be settled from {b.get('event_date')} onwards")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.bookings.update_one({"id": bid}, {"$set": {
+        "balance_status": "claimed_offline",
+        "balance_claimed_at": now,
+        "balance_claimed_by": "customer",
+    }})
+    try:
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+        owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1, "name": 1}) if v else None
+        if owner:
+            await send_push([owner["id"]], f"{u.get('name') or 'Customer'} says the balance is paid",
+                f"Confirm if you received ₹{int(b.get('balance_amount') or 0):,} for {b.get('event_date')}.",
+                action_url="/(vendor)/bookings")
+    except Exception as e:
+        logger.warning(f"balance claim notify failed: {e}")
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0})
+    return await _enrich_booking(b)
+
+
+@api.post("/bookings/{bid}/balance/confirm")
+async def confirm_balance_offline(bid: str, u: dict = Depends(require_role("vendor"))):
+    """Vendor marks the 80% balance received offline. Allowed with or without a customer claim."""
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0})
+    if not b or b["vendor_id"] != u.get("vendor_id"):
+        raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    if b.get("status") != "booked" or not _advance_is_paid(b):
+        raise HTTPException(409, "The advance must be paid before the balance can be settled")
+    if _balance_settled(b):
+        return await _enrich_booking(b)
+    if not _event_reached(b.get("event_date") or "2099-01-01"):
+        raise HTTPException(409, f"The balance can be settled from {b.get('event_date')} onwards")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.bookings.update_one({"id": bid}, {"$set": {
+        "balance_status": "paid_offline",
+        "balance_paid_at": now,
+        "payment_method_balance": "offline",
+        "payment_status": "paid",
+        "balance_confirmed_by": "vendor",
+    }})
+    await db.payments.insert_one({
+        "id": str(uuid.uuid4()), "booking_id": bid, "kind": "balance",
+        "amount": int(b.get("balance_amount") or 0), "method": "offline",
+        "status": "paid", "at": now, "confirmed_by": "vendor",
+    })
+    try:
+        cust = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "id": 1, "name": 1, "email": 1})
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
+        if cust:
+            await send_push([cust["id"]], "Balance received",
+                f"{(v or {}).get('name') or 'The vendor'} confirmed your balance of ₹{int(b.get('balance_amount') or 0):,}.",
+                action_url=f"/booking-detail/{bid}")
+    except Exception as e:
+        logger.warning(f"balance confirm notify failed: {e}")
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0})
     return await _enrich_booking(b)
 
 # --- Reviews ---
@@ -1182,70 +1396,169 @@ def _verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -
 
 
 # --- Payments (Razorpay or mock) + Loyalty redeem ---
+def _infer_pay_kind(b: dict, requested: str | None = None) -> str:
+    if requested in ("advance", "balance"):
+        return requested
+    if _advance_is_paid(b) and not _balance_settled(b):
+        return "balance"
+    return "advance"
+
+
+async def _open_razorpay_order(amount_paise: int, receipt: str) -> tuple[str, bool]:
+    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+    if PAYMENT_MODE == "live" and not live:
+        raise HTTPException(503, "Razorpay is not configured (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)")
+    if live and amount_paise > 0:
+        import razorpay
+        rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        order = rzp.order.create({"amount": amount_paise, "currency": "INR",
+                                  "receipt": receipt, "payment_capture": 1})
+        return order["id"], True
+    return f"order_mock_{uuid.uuid4().hex[:14]}", False
+
+
+async def _award_points(user_id: str, booking_id: str, paid_amt: int) -> tuple[int, dict, bool, int]:
+    if paid_amt <= 0:
+        cur = await db.users.find_one({"id": user_id}, {"_id": 0, "lifetime_points": 1})
+        lifetime = int((cur or {}).get("lifetime_points") or 0)
+        tier = compute_tier(lifetime)
+        return 0, tier, False, int(tier["boost"] * 100)
+    cur_user = await db.users.find_one({"id": user_id}, {"_id": 0, "lifetime_points": 1})
+    lifetime_before = int((cur_user or {}).get("lifetime_points", 0))
+    tier = compute_tier(lifetime_before)
+    earn = int(round(paid_amt * 0.05 * (1.0 + tier["boost"])))
+    if earn > 0:
+        await db.users.update_one({"id": user_id}, {"$inc": {"points": earn, "lifetime_points": earn}})
+        await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": user_id,
+            "delta": earn, "reason": "earn", "booking_id": booking_id,
+            "tier": tier["name"], "boost_pct": int(tier["boost"] * 100),
+            "at": datetime.now(timezone.utc).isoformat()})
+    new_tier = compute_tier(lifetime_before + earn)
+    return earn, new_tier, new_tier["name"] != tier["name"], int(tier["boost"] * 100)
+
+
 @api.post("/payments/quote")
 async def quote_payment(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
     if not b: raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    kind = _infer_pay_kind(b, body.kind)
     user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1, "lifetime_points": 1})
     available = int((user or {}).get("points") or 0)
     lifetime = int((user or {}).get("lifetime_points") or 0)
-    bd = compute_price_breakdown(int(b.get("amount") or 0), body.redeem_points or 0, available, lifetime)
+    redeem = 0 if kind == "balance" else (body.redeem_points or 0)
+    bd = compute_price_breakdown(int(b.get("amount") or 0), redeem, available, lifetime, kind=kind)
+    event_reached = _event_reached(b.get("event_date") or "2099-01-01")
+    if kind == "advance":
+        payable = b.get("status") == "confirmed" and not _advance_is_paid(b)
+        blocked = None if payable else (
+            "Payment of the advance opens after the vendor confirms this booking"
+            if b.get("status") != "confirmed" else "The advance has already been paid")
+    else:
+        payable = b.get("status") == "booked" and b.get("balance_status") == "due" and event_reached
+        if payable:
+            blocked = None
+        elif not _advance_is_paid(b):
+            blocked = "Pay the 20% advance first"
+        elif _balance_settled(b):
+            blocked = "The balance has already been settled"
+        elif b.get("balance_status") == "claimed_offline":
+            blocked = "Waiting for the vendor to confirm they received the balance"
+        elif not event_reached:
+            blocked = f"Due on {b.get('event_date')}"
+        else:
+            blocked = "Balance is not payable yet"
     return {
         "booking_id": b["id"],
         "status": b.get("status"),
         "payment_status": b.get("payment_status"),
-        "payable": b.get("status") == "confirmed" and b.get("payment_status") != "paid",
+        "display_status": _display_status(b),
+        "kind": kind,
+        "payable": payable,
+        "blocked_reason": blocked,
+        "event_date": b.get("event_date"),
+        "event_reached": event_reached,
         "mode": PAYMENT_MODE,
         **bd,
     }
+
 
 @api.post("/payments/order")
 async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
     if not b: raise HTTPException(404, "Booking not found")
-    if b.get("payment_status") == "paid":
-        raise HTTPException(409, "Booking is already paid")
-    if b.get("status") != "confirmed":
-        raise HTTPException(409, "Payment is only available after the vendor confirms this booking")
+    b = apply_booking_payments(b)
+    kind = _infer_pay_kind(b, body.kind)
+    if kind == "advance":
+        if _advance_is_paid(b):
+            raise HTTPException(409, "The advance has already been paid")
+        if b.get("status") != "confirmed":
+            raise HTTPException(409, "The 20% advance can be paid after the vendor confirms this booking")
+    else:
+        if _balance_settled(b):
+            raise HTTPException(409, "The balance has already been settled")
+        if not _advance_is_paid(b) or b.get("status") != "booked":
+            raise HTTPException(409, "Pay the 20% advance first")
+        if b.get("balance_status") == "claimed_offline":
+            raise HTTPException(409, "Waiting for the vendor to confirm they received the balance")
+        if not _event_reached(b.get("event_date") or "2099-01-01"):
+            raise HTTPException(409, f"The balance is due on {b.get('event_date')}")
     user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "points": 1, "lifetime_points": 1})
     available = int((user or {}).get("points") or 0)
     lifetime = int((user or {}).get("lifetime_points") or 0)
-    bd = compute_price_breakdown(int(b.get("amount") or 0), body.redeem_points or 0, available, lifetime)
-    amount_paise = bd["total"] * 100
-    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
-    if PAYMENT_MODE == "live" and not live:
-        raise HTTPException(503, "Razorpay is not configured (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)")
-    if live:
-        import razorpay
-        rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        order = rzp.order.create({"amount": amount_paise, "currency": "INR",
-                                  "receipt": b["id"], "payment_capture": 1})
-        oid = order["id"]
+    redeem = 0 if kind == "balance" else (body.redeem_points or 0)
+    bd = compute_price_breakdown(int(b.get("amount") or 0), redeem, available, lifetime, kind=kind)
+    amount_paise = int(bd["charge"]) * 100
+    oid, live = await _open_razorpay_order(amount_paise, f"{kind[:3]}_{b['id']}")
+    now = datetime.now(timezone.utc).isoformat()
+    upd = {
+        "gst_amount": bd["gst"],
+        "total_amount": bd["total"],
+        "advance_amount": bd["advance_amount"],
+        "balance_amount": bd["balance_amount"],
+    }
+    if kind == "advance":
+        upd.update({
+            "razorpay_order_id": oid,
+            "razorpay_advance_order_id": oid,
+            "points_redeemed": bd["points_redeemed"],
+            "advance_charged": bd["charge"],
+        })
     else:
-        oid = f"order_mock_{uuid.uuid4().hex[:14]}"
-    await db.bookings.update_one({"id": b["id"]}, {"$set": {
-        "razorpay_order_id": oid, "points_redeemed": bd["points_redeemed"],
-        "final_amount": bd["total"], "gst_amount": bd["gst"]}})
+        upd["razorpay_balance_order_id"] = oid
+    await db.bookings.update_one({"id": b["id"]}, {"$set": upd})
+    await db.payments.insert_one({
+        "id": str(uuid.uuid4()), "booking_id": b["id"], "kind": kind,
+        "amount": bd["charge"], "points_redeemed": bd["points_redeemed"],
+        "razorpay_order_id": oid, "method": "in_app", "status": "created",
+        "at": now,
+    })
+    label = "Advance" if kind == "advance" else "Balance"
     return {"order_id": oid, "amount": amount_paise, "currency": "INR",
             "razorpay_key_id": RAZORPAY_KEY_ID if live else (RAZORPAY_KEY_ID or "rzp_test_mock"),
             "mode": "live" if live else "mock",
-            "name": "Thara", "description": f"Booking {b['id'][:8]}",
+            "name": "Thara", "description": f"{label} for booking {b['id'][:8]}",
             "prefill": {"email": u.get("email") or "", "contact": u.get("phone") or ""},
             **bd}
+
 
 @api.post("/payments/verify")
 async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]})
     if not b: raise HTTPException(404)
-    # Idempotency: if already paid, return previously-stored result
-    if b.get("payment_status") == "paid":
-        return {"success": True,
-                "earned_points": int(b.get("points_earned", 0)),
-                "redeemed_points": int(b.get("points_redeemed", 0)),
-                "already_paid": True}
-    if b.get("status") != "confirmed":
-        raise HTTPException(409, "Payment is only available after the vendor confirms this booking")
-    stored_oid = b.get("razorpay_order_id")
+    b = apply_booking_payments({k: v for k, v in b.items() if k != "_id"})
+    kind = _infer_pay_kind(b, body.kind)
+    # Idempotency
+    if kind == "advance" and _advance_is_paid(b):
+        return {"success": True, "kind": "advance", "already_paid": True,
+                "earned_points": int(b.get("points_earned_advance") or b.get("points_earned") or 0),
+                "redeemed_points": int(b.get("points_redeemed") or 0)}
+    if kind == "balance" and _balance_settled(b):
+        return {"success": True, "kind": "balance", "already_paid": True,
+                "earned_points": int(b.get("points_earned_balance") or 0),
+                "redeemed_points": 0}
+    stored_oid = b.get("razorpay_advance_order_id") if kind == "advance" else b.get("razorpay_balance_order_id")
+    stored_oid = stored_oid or (b.get("razorpay_order_id") if kind == "advance" else None)
     if stored_oid and body.razorpay_order_id != stored_oid:
         raise HTTPException(400, "Order id does not match this booking")
     live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
@@ -1256,45 +1569,97 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
             raise HTTPException(400, "Signature mismatch")
     elif PAYMENT_MODE == "live":
         raise HTTPException(503, "Razorpay is not configured")
+    if kind == "advance":
+        if b.get("status") != "confirmed":
+            raise HTTPException(409, "The 20% advance can be paid after the vendor confirms this booking")
+    else:
+        if b.get("status") != "booked" or not _advance_is_paid(b):
+            raise HTTPException(409, "Pay the 20% advance first")
+        if b.get("balance_status") == "claimed_offline":
+            raise HTTPException(409, "Waiting for the vendor to confirm they received the balance")
+        if not _event_reached(b.get("event_date") or "2099-01-01"):
+            raise HTTPException(409, f"The balance is due on {b.get('event_date')}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if kind == "advance":
+        redeemed = int(b.get("points_redeemed") or 0)
+        paid_amt = int(b.get("advance_charged") if b.get("advance_charged") is not None else (b.get("advance_amount") or 0) - redeemed)
+        if redeemed > 0:
+            await db.users.update_one({"id": u["id"]}, {"$inc": {"points": -redeemed}})
+            await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
+                "delta": -redeemed, "reason": "redeem", "booking_id": body.booking_id,
+                "at": now})
+        earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], body.booking_id, paid_amt)
+        await db.bookings.update_one({"id": body.booking_id}, {"$set": {
+            "status": "booked",
+            "advance_paid": True,
+            "advance_paid_at": now,
+            "advance_charged": paid_amt,
+            "payment_status": "advance_paid",
+            "payment_method_advance": "in_app",
+            "razorpay_payment_id": body.razorpay_payment_id,
+            "razorpay_advance_payment_id": body.razorpay_payment_id,
+            "points_earned": earn,
+            "points_earned_advance": earn,
+        }})
+        await db.payments.update_many(
+            {"booking_id": body.booking_id, "kind": "advance", "razorpay_order_id": body.razorpay_order_id},
+            {"$set": {"status": "paid", "razorpay_payment_id": body.razorpay_payment_id,
+                      "points_earned": earn, "paid_at": now}})
+        try:
+            v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+            subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn, kind="advance")
+            await send_email(u["email"], subj, html, prev)
+            await send_push([u["id"]], "Advance paid — date locked",
+                f"₹{paid_amt:,} advance paid to {v['name'] if v else 'vendor'}. Balance ₹{int(b.get('balance_amount') or 0):,} is due on {b.get('event_date')}."
+                + (f" +{earn} points!" if earn else ""),
+                action_url=f"/booking-detail/{body.booking_id}")
+            owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
+            if owner:
+                await send_push([owner["id"]], "Advance received",
+                    f"{u.get('name') or 'A customer'} paid ₹{paid_amt:,} to lock {b.get('event_date')}.",
+                    action_url="/(vendor)/bookings")
+        except Exception as e:
+            logger.warning(f"advance payment notify failed: {e}")
+        return {"success": True, "kind": "advance", "earned_points": earn, "redeemed_points": redeemed,
+                "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
+                "status": "booked", "balance_amount": int(b.get("balance_amount") or 0),
+                "event_date": b.get("event_date")}
+
+    # Balance in-app
+    paid_amt = int(b.get("balance_amount") or 0)
+    earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], body.booking_id, paid_amt)
     await db.bookings.update_one({"id": body.booking_id}, {"$set": {
+        "balance_status": "paid_in_app",
+        "balance_paid_at": now,
+        "payment_method_balance": "in_app",
         "payment_status": "paid",
-        "razorpay_payment_id": body.razorpay_payment_id}})
-    # Burn redeemed points
-    redeemed = int(b.get("points_redeemed", 0))
-    if redeemed > 0:
-        await db.users.update_one({"id": u["id"]}, {"$inc": {"points": -redeemed}})
-        await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
-            "delta": -redeemed, "reason": "redeem", "booking_id": body.booking_id,
-            "at": datetime.now(timezone.utc).isoformat()})
-    # Award loyalty: 5% of final paid amount + tier boost
-    paid_amt = int(b.get("final_amount", b["amount"]))
-    cur_user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "lifetime_points": 1})
-    lifetime_before = int((cur_user or {}).get("lifetime_points", 0))
-    tier = compute_tier(lifetime_before)
-    base = paid_amt * 0.05
-    earn = int(round(base * (1.0 + tier["boost"])))
-    if earn > 0:
-        await db.users.update_one({"id": u["id"]},
-            {"$inc": {"points": earn, "lifetime_points": earn}})
-        await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
-            "delta": earn, "reason": "earn", "booking_id": body.booking_id,
-            "tier": tier["name"], "boost_pct": int(tier["boost"] * 100),
-            "at": datetime.now(timezone.utc).isoformat()})
-    # Check tier-up
-    new_lifetime = lifetime_before + earn
-    new_tier = compute_tier(new_lifetime)
-    tier_up = new_tier["name"] != tier["name"]
-    await db.bookings.update_one({"id": body.booking_id}, {"$set": {"points_earned": earn}})
-    # Payment receipt email + push
+        "razorpay_balance_payment_id": body.razorpay_payment_id,
+        "points_earned_balance": earn,
+    }})
+    await db.payments.update_many(
+        {"booking_id": body.booking_id, "kind": "balance", "razorpay_order_id": body.razorpay_order_id},
+        {"$set": {"status": "paid", "razorpay_payment_id": body.razorpay_payment_id,
+                  "points_earned": earn, "paid_at": now}})
     try:
-        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1})
-        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn)
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "vendor", paid_amt, earn, kind="balance")
         await send_email(u["email"], subj, html, prev)
-        await send_push([u["id"]], "Payment successful ✓",
-            f"₹{paid_amt:,} paid to {v['name'] if v else 'vendor'}." + (f" +{earn} points!" if earn else ""))
-    except Exception as e: logger.warning(f"payment notify failed: {e}")
-    return {"success": True, "earned_points": earn, "redeemed_points": redeemed,
-            "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": int(tier["boost"] * 100)}
+        await send_push([u["id"]], "Balance paid",
+            f"₹{paid_amt:,} balance paid to {v['name'] if v else 'vendor'}."
+            + (f" +{earn} points!" if earn else ""),
+            action_url=f"/booking-detail/{body.booking_id}")
+        owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
+        if owner:
+            await send_push([owner["id"]], "Balance received",
+                f"{u.get('name') or 'A customer'} paid the remaining ₹{paid_amt:,} in the app.",
+                action_url="/(vendor)/bookings")
+    except Exception as e:
+        logger.warning(f"balance payment notify failed: {e}")
+    return {"success": True, "kind": "balance", "earned_points": earn, "redeemed_points": 0,
+            "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
+            "status": "booked", "payment_status": "paid"}
+
 
 # --- Referrals & Loyalty ---
 @api.get("/me/referral")
@@ -1455,14 +1820,19 @@ async def update_my_vendor(body: VendorPatch, u: dict = Depends(require_role("ve
 @api.get("/vendor/dashboard")
 async def vendor_dashboard(u: dict = Depends(require_role("vendor"))):
     vid = u["vendor_id"]
-    total = await db.bookings.count_documents({"vendor_id": vid})
-    pending = await db.bookings.count_documents({"vendor_id": vid, "status": "pending"})
-    confirmed = await db.bookings.count_documents({"vendor_id": vid, "status": "confirmed"})
-    completed = await db.bookings.count_documents({"vendor_id": vid, "status": "completed"})
-    pipeline = [{"$match": {"vendor_id": vid, "payment_status": "paid"}},
-                {"$group": {"_id": None, "sum": {"$sum": "$amount"}}}]
-    agg = await db.bookings.aggregate(pipeline).to_list(1)
-    revenue = agg[0]["sum"] if agg else 0
+    rows = [apply_booking_payments(x) for x in await db.bookings.find({"vendor_id": vid}, {"_id": 0}).to_list(1000)]
+    total = len(rows)
+    pending = sum(1 for b in rows if b.get("status") == "pending")
+    confirmed = sum(1 for b in rows if b.get("status") == "confirmed")
+    booked = sum(1 for b in rows if b.get("status") == "booked")
+    completed = sum(1 for b in rows if b.get("status") == "completed")
+    advances_collected = sum(int(b.get("advance_charged") or b.get("advance_amount") or 0)
+                             for b in rows if _advance_is_paid(b) and b.get("status") not in ("cancelled", "rejected"))
+    balances_pending = sum(int(b.get("balance_amount") or 0)
+                           for b in rows if b.get("status") == "booked" and not _balance_settled(b))
+    balances_collected = sum(int(b.get("balance_amount") or 0)
+                             for b in rows if _balance_settled(b) and b.get("status") in ("booked", "completed"))
+    revenue = advances_collected + balances_collected
     v = await db.vendors.find_one({"id": vid}, {"_id": 0})
     svc = await db.services.count_documents({"vendor_id": vid})
     has_avail = bool(await db.availability.find_one({"vendor_id": vid}))
@@ -1472,7 +1842,10 @@ async def vendor_dashboard(u: dict = Depends(require_role("vendor"))):
     chats = await db.chat_messages.distinct("booking_id", {"booking_id": {"$in": [
         b["id"] for b in await db.bookings.find({"vendor_id": vid}, {"_id": 0, "id": 1}).to_list(500)]}})
     return {"total_bookings": total, "pending": pending, "confirmed": confirmed,
-            "completed": completed, "revenue": revenue,
+            "booked": booked, "completed": completed, "revenue": revenue,
+            "advances_collected": advances_collected,
+            "balances_pending": balances_pending,
+            "balances_collected": balances_collected,
             "views": int((v or {}).get("views", 0)), "inquiries": len(chats) + pending,
             "kyc_status": kyc_status, "completeness": completeness,
             "services_count": svc, "founding_vendor": bool((v or {}).get("founding_vendor")),
@@ -1597,12 +1970,11 @@ def _is_iso_date(d: str) -> bool:
     except Exception: return False
 
 async def _availability_summary(vendor_id: str) -> dict:
-    """Blocked dates set by vendor + dates where confirmed/paid bookings reached max_per_day."""
+    """Blocked dates set by vendor + dates where booked (advance paid) or completed bookings reached max_per_day."""
     a = await db.availability.find_one({"vendor_id": vendor_id}, {"_id": 0}) or {}
     max_pd = int(a.get("max_per_day", 1) or 1)
     rows = await db.bookings.aggregate([
-        {"$match": {"vendor_id": vendor_id, "$or": [{"status": {"$in": ["confirmed", "completed"]}},
-                                                     {"payment_status": "paid"}]}},
+        {"$match": {"vendor_id": vendor_id, "status": {"$in": ["booked", "completed"]}}},
         {"$group": {"_id": "$event_date", "n": {"$sum": 1}}}]).to_list(2000)
     full = sorted(r["_id"] for r in rows if r["n"] >= max_pd)
     return {"vendor_id": vendor_id, "blocked_dates": sorted(a.get("blocked_dates", [])),
@@ -1748,6 +2120,21 @@ async def _seed_services(vendors: List[dict]):
                 "price_unit": price_unit_for(v.get("category")),
                 "created_at": datetime.now(timezone.utc).isoformat()})
 
+async def _migrate_booking_payments():
+    """Backfill advance/balance fields on existing bookings (in-memory or persistent)."""
+    rows = await db.bookings.find({}).to_list(5000)
+    for raw in rows:
+        bid = raw.get("id")
+        if not bid:
+            continue
+        patched = apply_booking_payments({k: v for k, v in raw.items() if k != "_id"})
+        fields = {k: patched[k] for k in (
+            "gst_amount", "total_amount", "advance_amount", "advance_paid", "advance_charged",
+            "advance_paid_at", "balance_amount", "balance_status", "balance_paid_at",
+            "payment_status", "status", "payment_method_advance", "payment_method_balance",
+        ) if k in patched and patched[k] is not None}
+        await db.bookings.update_one({"id": bid}, {"$set": fields})
+
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
@@ -1755,6 +2142,7 @@ async def on_startup():
     await db.bookings.create_index("customer_id")
     await db.bookings.create_index("vendor_id")
     await seed()
+    await _migrate_booking_payments()
     if not ENABLE_DEMO_SEED: return
     # Backfill: existing seeded demo vendors get a package so they remain listed.
     demo_owners = [x["id"] for x in await db.users.find(

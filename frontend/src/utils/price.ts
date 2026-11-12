@@ -26,3 +26,16 @@ export function reviewCountLabel(n: unknown): string {
   const c = Number(n) || 0;
   return c === 1 ? "1 review" : `${c} reviews`;
 }
+
+export const GST_RATE = 0.05;
+export const ADVANCE_RATE = 0.20;
+
+/** Client-side preview of server totals (service + 5% GST, 20% advance). */
+export function previewTotals(serviceAmount: unknown) {
+  const service = Math.max(0, Math.round(Number(serviceAmount) || 0));
+  const gst = Math.round(service * GST_RATE);
+  const total = service + gst;
+  const advance = Math.round(total * ADVANCE_RATE);
+  const balance = Math.max(0, total - advance);
+  return { service, gst, total, advance, balance };
+}

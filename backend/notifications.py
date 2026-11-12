@@ -105,37 +105,50 @@ def tpl_login_alert(name: str) -> tuple:
 def tpl_booking_created_customer(name: str, vendor: str, event_type: str, date: str, amount: int) -> tuple:
     return (f"Booking request sent to {vendor}",
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>Booking submitted 🎉</h2>"
-        f"<p>Hi {name.split()[0]}, your booking request has been sent to <b>{vendor}</b>. They'll respond shortly.</p>"
+        f"<p>Hi {name.split()[0]}, your booking request has been sent to <b>{vendor}</b>. They'll respond shortly. After they accept, a 20% advance locks the date; the balance is due on the event day.</p>"
         f"<table cellpadding='8' style='margin-top:14px;background:#0B0C10;border-radius:10px;border:1px solid #262A33;width:100%'>"
         f"<tr><td style='color:#A1A1AA'>Event</td><td style='color:#F3F4F6'>{event_type.title()}</td></tr>"
         f"<tr><td style='color:#A1A1AA'>Date</td><td style='color:#F3F4F6'>{date}</td></tr>"
-        f"<tr><td style='color:#A1A1AA'>Amount</td><td style='color:{_BRAND};font-weight:600'>₹{amount:,}</td></tr></table>",
+        f"<tr><td style='color:#A1A1AA'>Total (incl. GST)</td><td style='color:{_BRAND};font-weight:600'>₹{amount:,}</td></tr></table>",
         f"Booking with {vendor} on {date}.")
 
 def tpl_booking_new_vendor(vendor_name: str, customer: str, event_type: str, date: str, amount: int) -> tuple:
     return (f"New inquiry — {customer}, {date}",
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>New booking inquiry ✨</h2>"
         f"<p>Hi {vendor_name.split()[0]}, <b>{customer}</b> has requested a booking for a {event_type} on <b>{date}</b>.</p>"
-        f"<p style='color:{_BRAND};font-weight:600;font-size:16px'>Amount: ₹{amount:,}</p>"
+        f"<p style='color:{_BRAND};font-weight:600;font-size:16px'>Total (incl. GST): ₹{amount:,}</p>"
+        f"<p>A 20% advance after you accept locks the date. The balance is due on the event day.</p>"
         f"<p>Open the {APP_NAME} vendor dashboard to accept or decline.</p>",
         f"{customer} wants to book you.")
 
-def tpl_booking_status(name: str, vendor: str, status: str, date: str) -> tuple:
+def tpl_booking_status(name: str, vendor: str, status: str, date: str,
+                       advance: int | None = None, balance: int | None = None) -> tuple:
     icon = "🎉" if status == "confirmed" else "😔" if status == "rejected" else "✅"
-    verb = {"confirmed": "confirmed", "rejected": "declined", "completed": "marked as completed"}.get(status, status)
+    verb = {"confirmed": "accepted", "rejected": "declined", "completed": "marked as completed"}.get(status, status)
+    extra = ""
+    if status == "confirmed" and advance is not None:
+        extra = (f"<p>Pay a 20% advance of <b style='color:{_BRAND}'>₹{advance:,}</b> to lock your date. "
+                 f"The balance of ₹{(balance or 0):,} is due on {date}, in the app or directly to the vendor.</p>")
+    elif status == "confirmed":
+        extra = "<p>Pay a 20% advance in the app to lock your date. The balance is due on the event day.</p>"
+    elif status == "rejected":
+        extra = f"<p>Don't worry — plenty more premium vendors on {APP_NAME}.</p>"
+    elif status == "completed":
+        extra = "<p>Loved the experience? Leave them a review.</p>"
     return (f"Your booking is {verb}",
         f"<h2 style='color:#F3F4F6;margin:0 0 12px'>{icon} Booking {verb}</h2>"
-        f"<p>Hi {name.split()[0]}, <b>{vendor}</b> has {verb} your booking for {date}.</p>"
-        + ("<p>Get ready — your event is on!</p>" if status == "confirmed" else
-           f"<p>Don't worry — plenty more premium vendors on {APP_NAME}.</p>" if status == "rejected" else
-           "<p>Loved the experience? Leave them a review.</p>"),
+        f"<p>Hi {name.split()[0]}, <b>{vendor}</b> has {verb} your booking for {date}.</p>" + extra,
         f"Your booking is {verb}.")
 
-def tpl_payment_receipt(name: str, vendor: str, amount: int, earned: int) -> tuple:
-    return (f"Payment receipt — ₹{amount:,}",
-        f"<h2 style='color:#F3F4F6;margin:0 0 12px'>Payment received ✓</h2>"
-        f"<p>Hi {name.split()[0]}, your payment of <b style='color:{_BRAND}'>₹{amount:,}</b> to {vendor} is confirmed.</p>"
-        + (f"<p style='color:{_BRAND}'>🎁 You earned <b>+{earned} Thara Points</b> on this booking.</p>" if earned else ""),
+def tpl_payment_receipt(name: str, vendor: str, amount: int, earned: int, kind: str = "advance") -> tuple:
+    label = "Advance payment" if kind == "advance" else "Balance payment"
+    subject = f"{'Advance' if kind == 'advance' else 'Balance'} receipt — ₹{amount:,}"
+    tail = (" The remaining balance is due on the event date, in the app or directly to the vendor."
+            if kind == "advance" else " Your booking is fully settled.")
+    return (subject,
+        f"<h2 style='color:#F3F4F6;margin:0 0 12px'>{label} received ✓</h2>"
+        f"<p>Hi {name.split()[0]}, your {label.lower()} of <b style='color:{_BRAND}'>₹{amount:,}</b> to {vendor} is confirmed.{tail}</p>"
+        + (f"<p style='color:{_BRAND}'>🎁 You earned <b>+{earned} Thara Points</b> on this payment.</p>" if earned else ""),
         f"Paid ₹{amount:,} to {vendor}.")
 
 def tpl_review_received(vendor_name: str, reviewer: str, rating: int, comment: str) -> tuple:

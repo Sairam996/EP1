@@ -7,7 +7,7 @@ import { Calendar } from "react-native-calendars";
 import { api, resolveImg } from "@/src/api";
 import { Image } from "expo-image";
 import { GoldButton, GhostButton, Pill } from "@/src/components/UI";
-import { formatPrice } from "@/src/utils/price";
+import { formatInr, formatPrice, previewTotals } from "@/src/utils/price";
 import { PressableScale, SoftChip } from "@/src/components/Polish";
 import { fonts, spacing, type, press, useThemedStyles, useColors } from "@/src/theme";
 import { editorialGold } from "@/src/components/ui";
@@ -233,10 +233,34 @@ export default function BookingForm() {
             <Review icon="calendar-outline" label="Date" value={prettyDate(date) || "Not chosen"} to="date" />
             <Review icon="people-outline" label="Guests" value={guests || "—"} to="guests" />
             <Review icon="document-text-outline" label="Notes" value={notes || "None"} to="notes" />
-            <View style={[s.row, { borderBottomWidth: 0 }]}>
-              <Ionicons name="wallet-outline" size={18} color={c.brand} />
-              <Text style={[s.rowV, { flex: 1 }]}>Total</Text>
-              <Text style={{ color: editorialGold(c), fontSize: 28, fontFamily: fonts.displayBold }}>{amount > 0 ? formatPrice(amount, selected?.price_unit || vendor?.price_unit) : "Price on request"}</Text>
+            <View style={[s.row, { borderBottomWidth: 0, flexDirection: "column", alignItems: "stretch", gap: 6 }]}>
+              {amount > 0 ? (() => {
+                const tot = previewTotals(amount);
+                return (
+                  <View testID="advance-preview">
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={[s.rowV, { flex: 0 }]}>Service</Text>
+                      <Text style={s.sub}>₹{formatInr(tot.service)}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                      <Text style={s.sub}>GST (5%)</Text>
+                      <Text style={s.sub}>₹{formatInr(tot.gst)}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, alignItems: "baseline" }}>
+                      <Text style={[s.rowV, { flex: 0 }]}>Total</Text>
+                      <Text style={{ color: editorialGold(c), fontSize: 26, fontFamily: fonts.displayBold }}>₹{formatInr(tot.total)}</Text>
+                    </View>
+                    <Text style={{ color: editorialGold(c), marginTop: 12, fontSize: 16, fontFamily: fonts.display, lineHeight: 22 }} testID="advance-split">
+                      Pay 20% now: ₹{formatInr(tot.advance)}  ·  Balance ₹{formatInr(tot.balance)} on event day
+                    </Text>
+                    <Text style={{ color: c.textSubtle, marginTop: 6, fontSize: 13, lineHeight: 18 }}>
+                      After the vendor accepts, a 20% advance locks the date. The balance can be paid in the app or directly to the vendor from the event date.
+                    </Text>
+                  </View>
+                );
+              })() : (
+                <Text style={{ color: editorialGold(c), fontSize: 24, fontFamily: fonts.displayBold }}>Price on request</Text>
+              )}
             </View>
           </>)}
           {err ? <View style={{ flexDirection: "row", gap: 6, marginTop: spacing.md }}><Ionicons name="alert-circle" size={16} color={c.error} /><Text style={{ color: c.error, flex: 1 }}>{err}</Text></View> : null}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, ScrollView, TextInput, StyleSheet } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, ScrollView, TextInput } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,58 +16,74 @@ type Breakdown = {
   gst: number;
   gst_rate: number;
   subtotal: number;
+  total: number;
+  advance_amount: number;
+  balance_amount: number;
+  charge: number;
   points_available: number;
   max_redeem: number;
   points_redeemed: number;
-  total: number;
   earn_estimate: number;
   cancellation_policy?: string;
   payable?: boolean;
+  blocked_reason?: string | null;
   status?: string;
   payment_status?: string;
+  display_status?: string;
+  kind?: "advance" | "balance";
   mode?: string;
+  event_date?: string;
+  event_reached?: boolean;
 };
 
 export default function Checkout() {
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const { bookingId, kind: kindParam } = useLocalSearchParams<{ bookingId: string; kind?: string }>();
   const insets = useSafeAreaInsets();
   const colors = useColors();
+  const requestedKind = kindParam === "balance" ? "balance" : kindParam === "advance" ? "advance" : undefined;
   const [booking, setBooking] = useState<any>(null);
   const [quote, setQuote] = useState<Breakdown | null>(null);
   const [redeemInput, setRedeemInput] = useState("0");
   const [paying, setPaying] = useState(false);
   const [liveOrder, setLiveOrder] = useState<RazorpayOrder | null>(null);
-  const [done, setDone] = useState<{ earned: number; redeemed: number; tier?: string; tier_up?: boolean; boost_pct?: number } | null>(null);
+  const [done, setDone] = useState<{ kind: string; earned: number; redeemed: number; tier?: string; tier_up?: boolean; boost_pct?: number; balance_amount?: number; event_date?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const celebrate = useCelebrate();
 
   const load = useCallback(async (redeem = 0) => {
+    const payload: any = { booking_id: bookingId, redeem_points: redeem };
+    if (requestedKind) payload.kind = requestedKind;
     const [b, q] = await Promise.all([
       api.get(`/bookings/${bookingId}`),
-      api.post("/payments/quote", { booking_id: bookingId, redeem_points: redeem }),
+      api.post("/payments/quote", payload),
     ]);
     setBooking(b);
     setQuote(q);
-  }, [bookingId]);
+  }, [bookingId, requestedKind]);
 
   useEffect(() => { load(0).catch((e) => setErr(e.message)); }, [load]);
 
   const refreshQuote = async (raw: string) => {
     setRedeemInput(raw);
     const n = Math.max(0, parseInt(raw || "0", 10) || 0);
-    try { setQuote(await api.post("/payments/quote", { booking_id: bookingId, redeem_points: n })); }
-    catch { /* keep last quote */ }
+    try {
+      const payload: any = { booking_id: bookingId, redeem_points: n, kind: requestedKind || quote?.kind || "advance" };
+      setQuote(await api.post("/payments/quote", payload));
+    } catch { /* keep last quote */ }
   };
 
   const finishSuccess = (verify: any) => {
     setDone({
+      kind: verify.kind || quote?.kind || "advance",
       earned: verify.earned_points || 0,
       redeemed: verify.redeemed_points || 0,
       tier: verify.tier,
       tier_up: verify.tier_up,
       boost_pct: verify.boost_pct,
+      balance_amount: verify.balance_amount ?? quote?.balance_amount,
+      event_date: verify.event_date || booking?.event_date,
     });
-    celebrate({ intensity: "big" });
+    celebrate({ intensity: verify.kind === "balance" ? "light" : "big" });
     if (verify.tier_up) {
       setTimeout(() => celebrate({
         intensity: "light",
@@ -85,6 +101,7 @@ export default function Checkout() {
       razorpay_order_id: order.order_id,
       razorpay_payment_id: payment.razorpay_payment_id,
       razorpay_signature: payment.razorpay_signature,
+      kind: order.kind || quote?.kind || "advance",
     });
     if (verify.success) finishSuccess(verify);
     else setErr("Payment could not be verified");
@@ -94,12 +111,12 @@ export default function Checkout() {
     setPaying(true); setErr(null);
     try {
       const redeem = Math.max(0, parseInt(redeemInput || "0", 10) || 0);
-      const order = await api.post("/payments/order", { booking_id: bookingId, redeem_points: redeem });
+      const kind = quote?.kind || requestedKind || "advance";
+      const order = await api.post("/payments/order", { booking_id: bookingId, redeem_points: redeem, kind });
       if (order.mode === "live") {
         setLiveOrder(order);
-        return; // verify runs from the Checkout.js callback only
+        return;
       }
-      // Mock mode: server accepts a mock signature. Never used when mode is live.
       await verifyOrder(order, {
         razorpay_payment_id: `pay_mock_${Date.now()}`,
         razorpay_signature: "mock_signature",
@@ -122,12 +139,19 @@ export default function Checkout() {
     return <View style={{ flex: 1, backgroundColor: colors.surface, justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>;
   }
 
+  const kind = quote.kind || "advance";
+  const isAdvance = kind === "advance";
+
   if (done) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: spacing.xl }}>
         <SuccessSeal testID="booking-success-seal" />
-        <Text style={styles.successTitle}>Booking Confirmed</Text>
-        <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>Your booking with {booking.vendor_name} is confirmed and paid.</Text>
+        <Text style={styles.successTitle}>{done.kind === "balance" ? "Balance settled" : "Date locked"}</Text>
+        <Text style={{ color: colors.textSubtle, textAlign: "center", marginTop: 8 }}>
+          {done.kind === "balance"
+            ? `The remaining balance with ${booking.vendor_name} is paid.`
+            : `Your 20% advance with ${booking.vendor_name} is paid. The balance of ₹${formatInr(done.balance_amount || 0)} is due on ${done.event_date} — pay in the app or directly to the vendor.`}
+        </Text>
         {done.earned > 0 && (
           <View style={styles.earnedCard} testID="earned-card">
             <Ionicons name="sparkles-outline" size={18} color={colors.brand} />
@@ -143,14 +167,13 @@ export default function Checkout() {
             <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19 }}>You&apos;ve leveled up to {done.tier}</Text>
           </View>
         )}
-        {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off)</Text>}
+        {done.redeemed > 0 && <Text style={{ color: colors.textMuted, marginTop: 8 }}>Used {done.redeemed} points (₹{done.redeemed} off the advance)</Text>}
         <GoldButton testID="done-btn" title="View My Bookings" onPress={() => router.dismissTo("/(customer)/bookings")} style={{ marginTop: spacing.xl, minWidth: 240 }} />
       </View>
     );
   }
 
-  const awaitingVendor = booking.status === "pending" && booking.payment_status !== "paid";
-  const alreadyPaid = booking.payment_status === "paid";
+  const awaitingVendor = booking.status === "pending";
   const canPay = quote.payable === true;
   const policy = quote.cancellation_policy || booking.cancel_preview?.policy;
 
@@ -160,7 +183,7 @@ export default function Checkout() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => ({ opacity: pressed ? press.opacity - 0.25 : 1 })}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Checkout</Text>
+        <Text style={styles.title}>{isAdvance ? "Pay advance" : "Pay balance"}</Text>
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         <View style={{ paddingHorizontal: gutter, marginTop: spacing.md }}>
@@ -174,16 +197,22 @@ export default function Checkout() {
         {awaitingVendor ? (
           <Section eyebrow="Waiting for confirmation">
             <Text style={{ color: colors.textSubtle, fontSize: 15, lineHeight: 22 }}>
-              Your request has been sent. Payment opens after {booking.vendor_name} confirms the date.
+              Your request has been sent. The 20% advance opens after {booking.vendor_name} accepts the date.
             </Text>
           </Section>
         ) : null}
 
-        {canPay && (quote.points_available || 0) > 0 && (
+        {!canPay && quote.blocked_reason ? (
+          <Section eyebrow={booking.display_status || "Status"}>
+            <Text style={{ color: colors.textSubtle, fontSize: 15, lineHeight: 22 }}>{quote.blocked_reason}</Text>
+          </Section>
+        ) : null}
+
+        {canPay && isAdvance && (quote.points_available || 0) > 0 && (
           <Section eyebrow="Thara Points">
             <Text style={{ color: colors.textSubtle, fontSize: 13 }}>
               Available <Text style={{ color: editorialGold(colors), fontWeight: "700" }}>{quote.points_available}</Text>
-              {"  ·  "}up to {quote.max_redeem} usable (20% of service)
+              {"  ·  "}up to {quote.max_redeem} usable on the advance
             </Text>
             <View style={{ flexDirection: "row", gap: 14, marginTop: 10, alignItems: "center" }}>
               <TextInput testID="redeem-input" value={redeemInput} onChangeText={refreshQuote} keyboardType="number-pad"
@@ -196,11 +225,20 @@ export default function Checkout() {
         <Section eyebrow="Price breakdown">
           <KeyValue label="Service" value={`₹${formatInr(quote.service)}`} />
           <KeyValue label={`GST (${Math.round((quote.gst_rate || 0.05) * 100)}%)`} value={`₹${formatInr(quote.gst)}`} />
-          {quote.points_redeemed > 0 && <KeyValue label={`Points (−${quote.points_redeemed})`} value={`−₹${formatInr(quote.points_redeemed)}`} valueColor={colors.success} />}
-          <KeyValue label="Total" value={`₹${formatInr(quote.total)}`} emphasis valueColor={editorialGold(colors)} last />
+          <KeyValue label="Total" value={`₹${formatInr(quote.total)}`} emphasis />
+          <KeyValue label="Advance (20%)" value={`₹${formatInr(quote.advance_amount)}`} />
+          {isAdvance && quote.points_redeemed > 0 && <KeyValue label={`Points (−${quote.points_redeemed})`} value={`−₹${formatInr(quote.points_redeemed)}`} valueColor={colors.success} />}
+          {isAdvance
+            ? <KeyValue label="Pay now" value={`₹${formatInr(quote.charge)}`} emphasis valueColor={editorialGold(colors)} />
+            : <KeyValue label="Pay now (balance)" value={`₹${formatInr(quote.charge)}`} emphasis valueColor={editorialGold(colors)} />}
+          <KeyValue
+            label={isAdvance ? "Balance later" : "Balance"}
+            value={isAdvance ? `₹${formatInr(quote.balance_amount)} on ${booking.event_date}` : `₹${formatInr(quote.balance_amount)}`}
+            last
+          />
           {canPay && quote.earn_estimate > 0 && (
             <Text style={{ color: colors.success, fontSize: 12, marginTop: 2 }}>
-              You&apos;ll earn ~{quote.earn_estimate} points on this booking
+              You&apos;ll earn ~{quote.earn_estimate} points on this payment
             </Text>
           )}
         </Section>
@@ -220,11 +258,16 @@ export default function Checkout() {
           </Text>
         </View>
         {err && <Text style={{ color: colors.error, marginTop: 8, paddingHorizontal: gutter }}>{err}</Text>}
-        {alreadyPaid && <Text style={{ color: colors.success, marginTop: 8, paddingHorizontal: gutter }}>This booking is already paid.</Text>}
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         {canPay ? (
-          <GoldButton testID="pay-btn" title={`Pay ₹${formatInr(quote.total)} via UPI`} icon="card" onPress={pay} loading={paying} />
+          <GoldButton
+            testID="pay-btn"
+            title={isAdvance ? `Pay advance ₹${formatInr(quote.charge)}` : `Pay balance ₹${formatInr(quote.charge)}`}
+            icon="card"
+            onPress={pay}
+            loading={paying}
+          />
         ) : (
           <GoldButton testID="back-bookings-btn" title={awaitingVendor ? "View booking" : "Back to bookings"} onPress={() => router.dismissTo("/(customer)/bookings")} />
         )}

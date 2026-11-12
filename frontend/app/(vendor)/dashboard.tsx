@@ -54,8 +54,8 @@ export default function Dashboard() {
   const tiles = [
     { lbl: "Views", val: data.views, icon: "eye" },
     { lbl: "Inquiries", val: data.inquiries, icon: "chatbubble" },
-    { lbl: "Bookings", val: data.total_bookings, icon: "calendar" },
-    { lbl: "Revenue", val: formatINRShort(data.revenue), icon: "trending-up" },
+    { lbl: "Advances", val: formatINRShort(data.advances_collected ?? 0), icon: "trending-up" },
+    { lbl: "Balance due", val: formatINRShort(data.balances_pending ?? 0), icon: "wallet" },
   ];
 
   return (
@@ -78,7 +78,8 @@ export default function Dashboard() {
       <Divider style={{ marginHorizontal: gutter }} />
       <StatStrip style={{ marginHorizontal: gutter }} items={[
         { id: "st-pending", value: data.pending ?? 0, label: "Pending", onPress: () => router.push("/(vendor)/bookings") },
-        { id: "st-confirmed", value: data.confirmed ?? 0, label: "Confirmed", onPress: () => router.push("/(vendor)/bookings") },
+        { id: "st-confirmed", value: data.confirmed ?? 0, label: "Awaiting advance", onPress: () => router.push("/(vendor)/bookings") },
+        { id: "st-booked", value: data.booked ?? 0, label: "Booked", onPress: () => router.push("/(vendor)/bookings") },
         { id: "st-completed", value: data.completed ?? 0, label: "Completed", onPress: () => router.push("/(vendor)/bookings") },
       ]} />
       <Divider style={{ marginHorizontal: gutter }} />

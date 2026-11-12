@@ -30,8 +30,8 @@ export default function Bookings() {
   }));
 
   const statusColor = (s: string) => ({
-    pending: colors.warning, confirmed: colors.success, rejected: colors.error,
-    completed: colors.info, cancelled: colors.textMuted,
+    pending: colors.warning, confirmed: colors.warning, booked: colors.success,
+    rejected: colors.error, completed: colors.info, cancelled: colors.textMuted,
   } as any)[s] || colors.textMuted;
 
   const load = useCallback(async () => {
@@ -63,17 +63,16 @@ export default function Bookings() {
           }
           renderItem={({ item }) => {
             const sc = statusColor(item.status);
-            const paid = item.payment_status === "paid";
+            const total = item.total_amount ?? item.price_breakdown?.total ?? item.amount;
             return (
               <Pressable testID={`booking-${item.id}`} onPress={() => router.push(`/booking-detail/${item.id}`)} style={({ pressed }) => [styles.card, pressed && { opacity: 0.6 }]}>
                 <Image source={{ uri: item.vendor_cover }} style={styles.img} contentFit="cover" />
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={styles.name} numberOfLines={1}>{item.vendor_name}</Text>
                   <Text style={styles.meta}>{item.event_type} • {item.event_date}</Text>
-                  <Text style={styles.meta}>{item.guests} guests • ₹{item.amount.toLocaleString("en-IN")}</Text>
+                  <Text style={styles.meta}>{item.guests} guests • ₹{(total || 0).toLocaleString("en-IN")}</Text>
                   <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
-                    <StatusText status={item.status} color={sc} />
-                    <StatusText status={item.payment_status} color={paid ? colors.success : colors.textMuted} />
+                    <StatusText status={item.display_status || item.status} color={sc} />
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />

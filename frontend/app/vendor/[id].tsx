@@ -233,7 +233,7 @@ export default function VendorDetail() {
             <View>
               <EyebrowLabel style={{ marginBottom: 4 }}>Starting at</EyebrowLabel>
               <Text style={styles.priceBig}>{startPrice > 0 ? formatPrice(startPrice, v.price_unit) : "Price on request"}</Text>
-              <Text style={styles.empty}>Pick an available date on the next step.</Text>
+              <Text style={styles.empty}>Reserve with 20% advance. Balance is due on the event day.</Text>
             </View>
             {v.lat != null && v.lng != null && (
               <View>
@@ -274,6 +274,7 @@ export default function VendorDetail() {
                     </View>
                     <Text style={styles.pkgPrice}>{formatPrice(s.price, s.price_unit || v.price_unit)}</Text>
                   </View>
+                  <Text style={[styles.empty, { marginTop: 4 }]}>Reserve with 20% advance</Text>
                   <TextLink testID={`pkg-book-${s.id}`} title="Select & Book" arrow style={{ marginTop: 8 }} onPress={() => book(`/booking-form/${v.id}?serviceId=${s.id}`)} />
                 </View>
               ))}
@@ -319,7 +320,7 @@ export default function VendorDetail() {
 
       <View style={[styles.cta, { paddingBottom: insets.bottom + 12 }]}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.ctaLabel}>Starting</Text>
+          <Text style={styles.ctaLabel}>Reserve with 20% advance</Text>
           <Text style={styles.ctaPrice}>{startPrice > 0 ? formatPrice(startPrice, v.price_unit) : "Price on request"}</Text>
         </View>
         <GoldButton testID="book-now-btn" title="Book Now" onPress={() => book(`/booking-form/${v.id}`)} style={{ minWidth: 160 }} />

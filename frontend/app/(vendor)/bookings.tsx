@@ -9,7 +9,7 @@ import { Divider, EyebrowLabel, StatusText, TextLink, gutter } from "@/src/compo
 import { EmptyState } from "@/src/components/Polish";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
 
-const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
+const STATUS_COLORS: any = { pending: colors.warning, confirmed: colors.warning, booked: colors.success, rejected: colors.error, completed: colors.info, cancelled: colors.textMuted };
 
 export default function VendorBookings() {
   const insets = useSafeAreaInsets();
@@ -28,6 +28,9 @@ export default function VendorBookings() {
   const updateStatus = async (id: string, status: string) => {
     try { await api.patch(`/bookings/${id}/status?status_val=${status}`); load(); } catch (e: any) { alert(e.message); }
   };
+  const markBalance = async (id: string) => {
+    try { await api.post(`/bookings/${id}/balance/confirm`); load(); } catch (e: any) { alert(e.message); }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + 8 }}>
@@ -43,32 +46,51 @@ export default function VendorBookings() {
           ItemSeparatorComponent={() => <Divider />}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={() => { setRefresh(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={<EmptyState icon="calendar-outline" title="No bookings yet" message="New requests from customers will appear here." />}
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const total = item.total_amount ?? item.price_breakdown?.total ?? item.amount;
+            const adv = item.advance_amount ?? 0;
+            const bal = item.balance_amount ?? 0;
+            const settled = !!item.balance_settled;
+            const advPaid = !!item.advance_paid;
+            return (
             <View style={styles.card} testID={`vb-${item.id}`}>
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <Image source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(item.customer_name)}&background=D4AF37&color=0B0C10` }} style={styles.av} contentFit="cover" />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ color: colors.text, fontFamily: fonts.displayBold, fontSize: 19 }}>{item.customer_name}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.event_type} • {item.event_date}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.guests} guests • ₹{item.amount.toLocaleString("en-IN")}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.guests} guests • ₹{(total || 0).toLocaleString("en-IN")}</Text>
+                  {(item.status !== "cancelled" && item.status !== "rejected") && (item.status === "booked" || advPaid) ? (
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                      Advance {advPaid ? "received" : "due"} ₹{(item.advance_charged ?? adv).toLocaleString("en-IN")}
+                      {"  ·  "}Balance {settled ? "settled" : `outstanding ₹${bal.toLocaleString("en-IN")}`}
+                    </Text>
+                  ) : item.status === "confirmed" ? (
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>Awaiting 20% advance ₹{adv.toLocaleString("en-IN")}</Text>
+                  ) : null}
                 </View>
-                <StatusText status={item.status} color={STATUS_COLORS[item.status]} />
+                <StatusText status={item.display_status || item.status} color={STATUS_COLORS[item.status] || colors.textMuted} />
               </View>
               {item.notes ? <Text style={styles.notes}>&quot;{item.notes}&quot;</Text> : null}
-              <View style={{ flexDirection: "row", gap: 22, marginTop: spacing.sm, paddingLeft: 62 }}>
+              <View style={{ flexDirection: "row", gap: 22, marginTop: spacing.sm, paddingLeft: 62, flexWrap: "wrap" }}>
                 {item.status === "pending" && (
                   <>
                     <TextLink testID={`accept-${item.id}`} title="Accept" icon="checkmark" onPress={() => updateStatus(item.id, "confirmed")} />
                     <TextLink testID={`reject-${item.id}`} title="Reject" color={colors.error} onPress={() => updateStatus(item.id, "rejected")} />
                   </>
                 )}
-                {item.status === "confirmed" && (
-                  <TextLink testID={`complete-${item.id}`} title="Mark Completed" icon="checkmark-done" onPress={() => updateStatus(item.id, "completed")} />
+                {item.status === "booked" && !settled && item.event_reached && (
+                  <TextLink testID={`balance-${item.id}`} title="Mark balance received" icon="cash-outline" onPress={() => markBalance(item.id)} />
+                )}
+                {item.status === "booked" && settled && (
+                  <TextLink testID={`complete-${item.id}`} title="Mark completed" icon="checkmark-done" onPress={() => updateStatus(item.id, "completed")} />
                 )}
                 <TextLink testID={`chat-${item.id}`} title="Chat" icon="chatbubble-outline" color={colors.textMuted} onPress={() => router.push(`/chat/${item.id}`)} />
+                <TextLink title="Details" color={colors.textMuted} onPress={() => router.push(`/booking-detail/${item.id}`)} />
               </View>
             </View>
-          )}
+            );
+          }}
         />
       )}
     </View>

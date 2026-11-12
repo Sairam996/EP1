@@ -16,15 +16,15 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: "3. Bookings",
-    body: "A booking request is a request, not a confirmed reservation, until the vendor accepts it. After confirmation, payment is due through Thara checkout. Vendors set their own availability, packages and starting prices. Details on a listing (photos, capacity, inclusions) are provided by the vendor.",
+    body: "A booking request is a request, not a reservation, until the vendor accepts it. After they accept, you pay a 20% advance in the app to lock the date (status becomes booked). The remaining 80% is due on the event date, either in the app or directly to the vendor (the vendor must confirm an offline payment). Vendors set their own availability, packages and starting prices. Details on a listing (photos, capacity, inclusions) are provided by the vendor.",
   },
   {
     title: "4. Payments and GST",
-    body: "Prices are shown in Indian Rupees. A 5% GST is added to the service amount at checkout. The total you pay is calculated on the server and is the amount charged. Thara Points may be redeemed for up to 20% of the service amount. In live mode, payments are collected via Razorpay.",
+    body: "Prices are shown in Indian Rupees. A 5% GST is added to the service amount. The total (service + GST) is calculated on the server. You pay 20% of that total as an advance to lock the booking; the balance is due on the event date. Thara Points may be redeemed against the advance only, up to the advance amount or 20% of the service amount, whichever is lower. Points are earned on amounts paid in the app. In live mode, in-app payments are collected via Razorpay.",
   },
   {
     title: "5. Cancellation and refunds",
-    body: "You may cancel a pending or confirmed booking from the booking details screen. Unpaid requests can be withdrawn at any time with no charge. For paid bookings: a full refund if you cancel more than 7 days before the event date; a 50% refund between 2 and 7 days; no refund within 48 hours of the event. Refunds are returned to the original payment method. The vendor may also decline a request before it is paid.",
+    body: "You may cancel a request or a booked date from the booking details screen, until the balance has been settled. Unpaid requests can be withdrawn at any time with no charge. Refunds apply to the 20% advance only: a full refund of the advance if you cancel more than 7 days before the event; 50% of the advance between 2 and 7 days; no refund of the advance within 48 hours of the event. Refunds are returned to the original payment method. The vendor may decline a request before the advance is paid.",
   },
   {
     title: "6. Conduct",
