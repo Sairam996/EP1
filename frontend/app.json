@@ -14,7 +14,8 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundImage": "./assets/images/adaptive-icon-bg.png",
+        "backgroundColor": "#D6B26C"
       },
       "package": "com.emergent.proeventsindia.jp8i3g",
       "softwareKeyboardLayoutMode": "resize",
@@ -32,7 +33,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-image.png",
-          "imageWidth": 200,
+          "imageWidth": 160,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }
