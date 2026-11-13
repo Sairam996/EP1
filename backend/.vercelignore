@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+uploads/
+tests/
+__pycache__/
+.kyc_dev_key
+requirements-dev.txt

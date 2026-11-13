@@ -117,12 +117,18 @@ def _ip(request) -> str:
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "").rstrip("/")
 UPLOAD_DIR = ROOT_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    if not os.access(UPLOAD_DIR, os.W_OK): raise OSError("read-only")
+except OSError:
+    # Serverless (e.g. Vercel) bundles are read-only; use /tmp as a local cache.
+    # The durable copy of every upload lives in Mongo (db.media), see upload_image.
+    UPLOAD_DIR = Path("/tmp/thara-uploads"); UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_MAX_BYTES = 5 * 1024 * 1024
 UPLOAD_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 # ── DB ───────────────────────────────────────────────────────────────────────
-mongo = AsyncIOMotorClient(MONGO_URL)
+mongo = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=int(os.environ.get("MONGO_TIMEOUT_MS", "10000")))
 db = mongo[DB_NAME]
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -335,9 +341,26 @@ class AvailabilityIn(BaseModel):
 app = FastAPI(title="Thara API")
 api = APIRouter(prefix="/api")
 
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Uploaded images: served from local disk when present, else from Mongo (db.media),
+# so they survive serverless instances that don't share a filesystem.
+async def _serve_media(name: str):
+    from fastapi.responses import FileResponse, Response
+    if not re.fullmatch(r"[0-9a-f]{32}\.(jpg|png|webp)", name or ""):
+        raise HTTPException(404, "Not found")
+    f = UPLOAD_DIR / name
+    if f.is_file():
+        return FileResponse(str(f))
+    doc = await db.media.find_one({"file": name}, {"_id": 0, "data": 1, "content_type": 1})
+    if not doc: raise HTTPException(404, "Not found")
+    return Response(content=bytes(doc["data"]), media_type=doc.get("content_type") or "image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+@app.get("/uploads/{name}", include_in_schema=False)
+async def media_legacy(name: str): return await _serve_media(name)
+
 # Also reachable under /api/media/* for ingress setups that only route /api to the backend.
-app.mount("/api/media", StaticFiles(directory=str(UPLOAD_DIR)), name="api-media")
+@app.get("/api/media/{name}", include_in_schema=False)
+async def media_api(name: str): return await _serve_media(name)
 
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
@@ -387,6 +410,15 @@ async def root(): return {"ok": True, "service": "Thara API"}
 @api.get("/health")
 async def health(): return {"ok": True, "service": "Thara API"}
 
+@api.get("/health/db")
+async def health_db():
+    try:
+        await db.command("ping")
+        return {"ok": True, "db": "connected"}
+    except Exception as e:
+        logger.error(f"DB ping failed: {type(e).__name__}")
+        raise HTTPException(503, f"Database unreachable ({type(e).__name__})")
+
 @api.get("/event-types") 
 async def get_event_types(): return EVENT_TYPES
 
@@ -402,8 +434,10 @@ async def api_register_push(body: RegisterPushIn, u: dict = Depends(get_current_
     return {"status": "registered"}
 
 # --- Auth ---
-# In-memory OTP store (dev/mock SMS). Production would use Twilio/MSG91.
-_otp_store: dict = {}
+# OTP store in Mongo (db.otp_codes) so send/verify work across serverless instances.
+# Mock SMS for now; production would use Twilio/MSG91.
+def _otp_hash(phone: str, code: str) -> str:
+    return hmac.new(JWT_SECRET.encode(), f"{phone}:{code}".encode(), hashlib.sha256).hexdigest()
 
 def _norm_phone(phone: str) -> str:
     digits = "".join(ch for ch in phone if ch.isdigit())
@@ -420,11 +454,10 @@ async def otp_send(body: OtpSendIn, request: Request):
     rate_limit(f"otp-send:{_ip(request)}", 5)
     phone = _norm_phone(body.phone)
     code = f"{secrets.randbelow(1_000_000):06d}"
-    _otp_store[phone] = {
-        "code": code,
-        "expires": time.monotonic() + 300,
-        "attempts": 0,
-    }
+    await db.otp_codes.update_one({"phone": phone}, {"$set": {
+        "phone": phone, "code_hash": _otp_hash(phone, code),
+        "expires": time.time() + 300, "attempts": 0,
+    }}, upsert=True)
     # Mock SMS — log OTP; no Twilio wired yet.
     logger.info(f"[OTP mock] phone={phone} code={code}")
     out = {"status": "sent", "phone": phone, "expires_in": 300}
@@ -437,17 +470,17 @@ async def otp_send(body: OtpSendIn, request: Request):
 async def otp_verify(body: OtpVerifyIn, request: Request):
     rate_limit(f"otp-verify:{_ip(request)}", 10)
     phone = _norm_phone(body.phone)
-    entry = _otp_store.get(phone)
-    if not entry or time.monotonic() > entry["expires"]:
-        _otp_store.pop(phone, None)
+    entry = await db.otp_codes.find_one({"phone": phone})
+    if not entry or time.time() > entry["expires"]:
+        await db.otp_codes.delete_many({"phone": phone})
         raise HTTPException(400, "OTP expired. Request a new code.")
-    entry["attempts"] += 1
-    if entry["attempts"] > 5:
-        _otp_store.pop(phone, None)
+    await db.otp_codes.update_one({"phone": phone}, {"$inc": {"attempts": 1}})
+    if entry.get("attempts", 0) + 1 > 5:
+        await db.otp_codes.delete_many({"phone": phone})
         raise HTTPException(429, "Too many OTP attempts")
-    if body.otp.strip() != entry["code"]:
+    if not hmac.compare_digest(_otp_hash(phone, body.otp.strip()), entry.get("code_hash", "")):
         raise HTTPException(401, "Invalid OTP")
-    _otp_store.pop(phone, None)
+    await db.otp_codes.delete_many({"phone": phone})
 
     # Find existing user by phone variants
     variants = {phone, phone.lstrip("+"), phone[-10:] if len(phone) >= 10 else phone}
@@ -1915,7 +1948,11 @@ async def upload_image(request: Request, file: UploadFile = File(...),
         raise HTTPException(413, "Image too large (max 5 MB)")
     if not data: raise HTTPException(400, "Empty file")
     name = f"{uuid.uuid4().hex}{ext}"
-    (UPLOAD_DIR / name).write_bytes(data)
+    try: (UPLOAD_DIR / name).write_bytes(data)
+    except OSError as e: logger.warning(f"upload disk cache failed (Mongo copy kept): {e}")
+    from bson import Binary
+    await db.media.insert_one({"file": name, "data": Binary(data), "content_type": (file.content_type or "").lower(),
+                               "user_id": u["id"], "created_at": datetime.now(timezone.utc).isoformat()})
     await db.uploads.insert_one({"file": name, "user_id": u["id"], "size": len(data),
                                  "created_at": datetime.now(timezone.utc).isoformat()})
     rel = f"/api/media/{name}"  # same file is also served at /uploads/{name}
@@ -2137,10 +2174,20 @@ async def _migrate_booking_payments():
 
 @app.on_event("startup")
 async def on_startup():
+    # Don't let a DB outage at cold start kill the whole function (serverless):
+    # log it and keep serving; DB-backed routes will return errors until it's reachable.
+    try:
+        await _startup_db()
+    except Exception as e:
+        logger.error(f"Startup DB init failed: {type(e).__name__}: {str(e)[:200]}")
+
+async def _startup_db():
     await db.users.create_index("email", unique=True)
     await db.vendors.create_index("category")
     await db.bookings.create_index("customer_id")
     await db.bookings.create_index("vendor_id")
+    await db.otp_codes.create_index("phone", unique=True)
+    await db.media.create_index("file", unique=True)
     await seed()
     await _migrate_booking_payments()
     if not ENABLE_DEMO_SEED: return
