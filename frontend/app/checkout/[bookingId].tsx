@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, ScrollView, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { View, Text, Pressable, ActivityIndicator, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, type ImageSourcePropType } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { GoldButton } from "@/src/components/UI";
-import { fonts, numeric, spacing, themedStyles, press, useColors } from "@/src/theme";
-import { Divider, EyebrowLabel, KeyValue, Section, SerifTitle, TextLink, editorialGold, gutter, hairlineColor } from "@/src/components/ui";
+import { fonts, spacing, themedStyles, press, useColors } from "@/src/theme";
+import { Divider, EyebrowLabel, KeyValue, Section, SerifTitle, TextLink, editorialGold, gutter } from "@/src/components/ui";
 import { formatInr } from "@/src/utils/price";
 import { NumText } from "@/src/components/Num";
 import { PolicyInfo } from "@/src/components/PolicyInfo";
@@ -16,6 +16,7 @@ import {
   PAY_LATER, POPULAR_BANKS, UPI_APPS, WALLETS, buildRazorpayConfig, isValidVpa, loadLastSelection,
   prettyDate, saveLastSelection, selectionKey, selectionLabel, type PaySelection, type SavedCard,
 } from "@/src/payments/methods";
+import { BANK_LOGOS, CARD_NETWORKS, PAY_LATER_LOGOS, UPI_APP_LOGOS, UPI_LOGO, WALLET_LOGOS, cardNetworkLogo } from "@/src/payments/logos";
 
 type Breakdown = {
   service: number; gst: number; gst_rate: number; subtotal: number; total: number;
@@ -201,11 +202,11 @@ export default function Checkout() {
             <Section eyebrow="UPI" style={{ marginTop: spacing.lg }} testID="pm-upi">
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 {UPI_APPS.map((a) => (
-                  <Tile key={a.code} testID={`upi-${a.code}`} label={a.label} mark={a.mark} on={key === `upi:${a.code}`} onPress={() => choose({ method: "upi", app: a.code })} />
+                  <Tile key={a.code} testID={`upi-${a.code}`} label={a.label} logo={UPI_APP_LOGOS[a.code]} on={key === `upi:${a.code}`} onPress={() => choose({ method: "upi", app: a.code })} />
                 ))}
               </View>
               <Divider style={{ marginTop: spacing.lg }} />
-              <Row testID="upi-id" title="Pay with UPI ID" subtitle="Approve the request in your UPI app" icon="at-outline"
+              <Row testID="upi-id" title="Pay with UPI ID" subtitle="Approve the request in your UPI app" logo={UPI_LOGO}
                 on={key === "upi:vpa"} onPress={() => { setSel({ method: "upi", vpa }); setVpaOpen(true); }} last={!vpaOpen} />
               {vpaOpen && sel.method === "upi" ? (
                 <View style={{ paddingLeft: 50, paddingBottom: spacing.md }}>
@@ -220,16 +221,25 @@ export default function Checkout() {
             <Section eyebrow="Cards" testID="pm-cards">
               {savedCards.map((c) => (
                 <Row key={`${c.network}${c.last4}`} testID={`card-${c.last4}`} title={`${c.network} •••• ${c.last4}`} subtitle={c.issuer ? `${c.issuer}${c.type ? ` · ${c.type}` : ""}` : "Saved card"}
-                  icon="card-outline" on={key === `card:${c.network}:${c.last4}`} onPress={() => choose({ method: "card", saved: c })} />
+                  logo={cardNetworkLogo(c.network)} icon="card-outline" on={key === `card:${c.network}:${c.last4}`} onPress={() => choose({ method: "card", saved: c })} />
               ))}
-              <Row testID="card-new" title={savedCards.length ? "Add a new card" : "Credit or debit card"} subtitle="Visa, Mastercard, RuPay, Amex · saved securely by Razorpay"
-                icon="add-circle-outline" on={key === "card:new"} onPress={() => choose({ method: "card" })} last />
+              <Row testID="card-new" title={savedCards.length ? "Add a new card" : "Credit or debit card"} subtitle="Saved securely by Razorpay"
+                icon="card-outline" on={key === "card:new"} onPress={() => choose({ method: "card" })} last
+                footer={
+                  <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }} accessibilityLabel="Visa, Mastercard, RuPay, American Express">
+                    {CARD_NETWORKS.map((n) => (
+                      <View key={n.code} style={{ width: 34, height: 22, borderRadius: 4, backgroundColor: "#FFFFFF", overflow: "hidden" }}>
+                        <Image source={n.logo} style={{ width: 34, height: 22 }} resizeMode="contain" />
+                      </View>
+                    ))}
+                  </View>
+                } />
             </Section>
 
             <Section eyebrow="Net banking" testID="pm-netbanking">
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 {POPULAR_BANKS.map((bk) => (
-                  <Tile key={bk.code} testID={`nb-${bk.code}`} label={bk.short || bk.label} mark={bk.mark} on={key === `nb:${bk.code}`} onPress={() => choose({ method: "netbanking", bank: bk.code })} />
+                  <Tile key={bk.code} testID={`nb-${bk.code}`} label={bk.short || bk.label} logo={BANK_LOGOS[bk.code]} variant="bank" on={key === `nb:${bk.code}`} onPress={() => choose({ method: "netbanking", bank: bk.code })} />
                 ))}
               </View>
               <Divider style={{ marginTop: spacing.lg }} />
@@ -238,13 +248,13 @@ export default function Checkout() {
 
             <Section eyebrow="Wallets" testID="pm-wallets">
               {WALLETS.map((w, i) => (
-                <Row key={w.code} testID={`wallet-${w.code}`} title={w.label} mark={w.mark} on={key === `wallet:${w.code}`} onPress={() => choose({ method: "wallet", wallet: w.code })} last={i === WALLETS.length - 1} />
+                <Row key={w.code} testID={`wallet-${w.code}`} title={w.label} logo={WALLET_LOGOS[w.code]} on={key === `wallet:${w.code}`} onPress={() => choose({ method: "wallet", wallet: w.code })} last={i === WALLETS.length - 1} />
               ))}
             </Section>
 
             <Section eyebrow="Pay later" testID="pm-paylater">
               {PAY_LATER.map((p, i) => (
-                <Row key={p.code} testID={`pl-${p.code}`} title={p.label} subtitle="Subject to eligibility" mark={p.mark} on={key === `pl:${p.code}`} onPress={() => choose({ method: "paylater", provider: p.code })} last={i === PAY_LATER.length - 1} />
+                <Row key={p.code} testID={`pl-${p.code}`} title={p.label} subtitle="Subject to eligibility" logo={PAY_LATER_LOGOS[p.code]} on={key === `pl:${p.code}`} onPress={() => choose({ method: "paylater", provider: p.code })} last={i === PAY_LATER.length - 1} />
               ))}
             </Section>
 
@@ -295,45 +305,54 @@ function Radio({ on }: { on: boolean }) {
   return <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? editorialGold(colors) : colors.textMuted} />;
 }
 
-function Mark({ text, on, size = 46 }: { text: string; on: boolean; size?: number }) {
+/** White chip that carries an official brand mark unaltered; a gold ring shows the selection. */
+function LogoChip({ source, on, w, h, round }: { source: ImageSourcePropType; on?: boolean; w: number; h: number; round?: boolean }) {
   const colors = useColors();
-  const gold = editorialGold(colors);
+  const r = round ? (h + 6) / 2 : 9;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center",
-      borderWidth: on ? 1.2 : 0.75, borderColor: on ? gold : hairlineColor(colors, "strong"), backgroundColor: on ? colors.brandTint : "transparent" }}>
-      <Text style={{ color: on ? gold : colors.text, fontFamily: fonts.displayBold, fontSize: text.length > 2 ? 13 : 18, ...numeric }}>{text}</Text>
+    <View style={{ padding: 2, borderRadius: r, borderWidth: 1.25, borderColor: on ? editorialGold(colors) : "transparent" }}>
+      <View style={{ width: w, height: h, borderRadius: round ? h / 2 : 6, backgroundColor: "#FFFFFF", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+        <Image source={source} style={{ width: w, height: h }} resizeMode="contain" accessibilityIgnoresInvertColors />
+      </View>
     </View>
   );
 }
 
-/** Open radio row: mark/icon · title/subtitle · radio. Gold hairline below. */
-function Row({ testID, title, subtitle, mark, icon, on, onPress, last }: {
-  testID: string; title: string; subtitle?: string; mark?: string; icon?: keyof typeof Ionicons.glyphMap; on: boolean; onPress: () => void; last?: boolean;
+/** Open radio row: brand chip/icon · title/subtitle · radio. Gold hairline below. */
+function Row({ testID, title, subtitle, logo, icon, on, onPress, last, footer }: {
+  testID: string; title: string; subtitle?: string; logo?: ImageSourcePropType; icon?: keyof typeof Ionicons.glyphMap;
+  on: boolean; onPress: () => void; last?: boolean; footer?: ReactNode;
 }) {
   const colors = useColors();
   return (
     <View>
-      <Pressable testID={testID} onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }}
+      <Pressable testID={testID} onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={title}
         style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-        {mark ? <Mark text={mark} on={on} size={34} /> : <View style={{ width: 34, alignItems: "center" }}><Ionicons name={icon || "ellipse-outline"} size={20} color={on ? editorialGold(colors) : colors.textSubtle} /></View>}
+        <View style={{ width: 50, alignItems: "center" }}>
+          {logo ? <LogoChip source={logo} on={on} w={42} h={28} /> : <Ionicons name={icon || "ellipse-outline"} size={22} color={on ? editorialGold(colors) : colors.textSubtle} />}
+        </View>
         <View style={{ flex: 1 }}>
           <NumText style={{ color: colors.text, fontSize: 15.5, fontWeight: on ? "600" : "400" }}>{title}</NumText>
           {subtitle ? <NumText style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{subtitle}</NumText> : null}
+          {footer}
         </View>
         <Radio on={on} />
       </Pressable>
-      {last ? null : <Divider inset={50} />}
+      {last ? null : <Divider inset={66} />}
     </View>
   );
 }
 
-/** Round monogram tile for UPI apps and popular banks. */
-function Tile({ testID, label, mark, on, onPress }: { testID: string; label: string; mark: string; on: boolean; onPress: () => void }) {
+/** Logo tile for UPI apps (round) and popular banks (wordmark chip). */
+function Tile({ testID, label, logo, on, onPress, variant = "round" }: {
+  testID: string; label: string; logo: ImageSourcePropType; on: boolean; onPress: () => void; variant?: "round" | "bank";
+}) {
   const colors = useColors();
+  const round = variant === "round";
   return (
     <Pressable testID={testID} onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={label}
-      style={({ pressed }) => [{ alignItems: "center", width: 72, gap: 8 }, pressed && { opacity: 0.6 }]}>
-      <Mark text={mark} on={on} />
+      style={({ pressed }) => [{ alignItems: "center", width: round ? 74 : 66, gap: 7 }, pressed && { opacity: 0.6 }]}>
+      {round ? <LogoChip source={logo} on={on} w={50} h={50} round /> : <LogoChip source={logo} on={on} w={58} h={36} />}
       <Text numberOfLines={1} style={{ color: on ? editorialGold(colors) : colors.textSubtle, fontSize: 11.5, fontWeight: on ? "600" : "400" }}>{label}</Text>
     </Pressable>
   );
