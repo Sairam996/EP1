@@ -7,7 +7,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api";
 import { useTheme } from "@/src/context/ThemeContext";
 import { fonts, spacing, useThemedStyles } from "@/src/theme";
-import { Divider, EyebrowLabel, StatusText, gutter } from "@/src/components/ui";
+import { Divider, EyebrowLabel, StatusText, TextLink, gutter } from "@/src/components/ui";
+import { formatInr } from "@/src/utils/price";
 import { EmptyState } from "@/src/components/Polish";
 import { GoldButton } from "@/src/components/UI";
 import { useOnReconnect } from "@/src/hooks/use-reconnect";
@@ -72,8 +73,13 @@ export default function Bookings() {
                   <Text style={styles.name} numberOfLines={1}>{item.vendor_name}</Text>
                   <Text style={styles.meta}>{item.event_type} • {item.event_date}</Text>
                   <NumText style={styles.meta}>{`${item.guests} guests • ₹${(total || 0).toLocaleString("en-IN")}`}</NumText>
-                  <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
+                  <View style={{ flexDirection: "row", gap: 16, marginTop: 6, alignItems: "center" }}>
                     <StatusText status={item.display_status || item.status} color={sc} />
+                    {item.advance_payable || item.balance_payable ? (
+                      <TextLink testID={`pay-${item.id}`} size={12.5} arrow
+                        title={item.advance_payable ? `Pay advance ₹${formatInr(item.advance_amount)}` : `Pay balance ₹${formatInr(item.balance_amount)}`}
+                        onPress={() => router.push(`/checkout/${item.id}?kind=${item.advance_payable ? "advance" : "balance"}` as any)} />
+                    ) : null}
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ opacity: 0.6 }} />

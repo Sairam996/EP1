@@ -84,6 +84,13 @@ export default function Dashboard() {
       ]} />
       <Divider style={{ marginHorizontal: gutter }} />
 
+      <View style={{ paddingHorizontal: gutter }}>
+        <ListRow testID="payouts-row" icon="wallet-outline" chevron={false} last
+          title={data.payout_account_linked ? "Payouts · linked to your bank" : "Payouts · settled by Thara"}
+          subtitle={`Advances ${formatINRShort(data.advances_collected ?? 0)} collected · balance ${formatINRShort(data.balances_pending ?? 0)} due on event days${data.commission_pct != null ? ` · Thara fee ${data.commission_pct}%` : ""}`} />
+        <Divider />
+      </View>
+
       <Section eyebrow="Profile strength" testID="profile-strength">
         <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
           <Text style={styles.strengthPct}>{comp.percent}%</Text>

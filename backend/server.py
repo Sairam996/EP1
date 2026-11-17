@@ -278,6 +278,7 @@ class PayOrderIn(BaseModel):
     booking_id: str
     redeem_points: int = 0
     kind: Literal["advance", "balance"] = "advance"
+    method: Optional[str] = Field(default=None, max_length=40)   # upi / card / netbanking / wallet / paylater
 
 class ApplyReferralIn(BaseModel):
     code: str
@@ -288,6 +289,17 @@ class PayVerifyIn(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     kind: Literal["advance", "balance"] = "advance"
+    method: Optional[str] = Field(default=None, max_length=40)
+
+class PayFailIn(BaseModel):
+    booking_id: str
+    kind: Literal["advance", "balance"] = "advance"
+    razorpay_order_id: Optional[str] = Field(default=None, max_length=60)
+    reason: Optional[str] = Field(default=None, max_length=300)
+    code: Optional[str] = Field(default=None, max_length=60)
+
+class RefundIn(BaseModel):
+    booking_id: str
 
 class KycIn(BaseModel):
     business_name: str
@@ -1063,6 +1075,7 @@ async def _enrich_booking(b: dict) -> dict:
             "status": "paid" if _advance_is_paid(b) else ("due" if b.get("status") == "confirmed" else "pending"),
             "at": b.get("advance_paid_at"),
             "method": b.get("payment_method_advance"),
+            "instrument": b.get("payment_instrument_advance"),
         },
         {
             "key": "balance",
@@ -1071,13 +1084,14 @@ async def _enrich_booking(b: dict) -> dict:
             "status": b.get("balance_status") or "due",
             "at": b.get("balance_paid_at") or b.get("balance_claimed_at"),
             "method": b.get("payment_method_balance"),
+            "instrument": b.get("payment_instrument_balance"),
             "due_on": b.get("event_date"),
             "unlocked": event_reached,
         },
     ]
     return {**b,
             "vendor_name": v["name"] if v else "Partner",
-            "vendor_cover": v["cover"] if v else "",
+            "vendor_cover": (v or {}).get("cover") or "",
             "customer_name": c["name"] if c else "Customer",
             "price_unit": price_unit_for((v or {}).get("category")),
             "price_breakdown": breakdown,
@@ -1200,24 +1214,9 @@ async def cancel_booking(bid: str, u: dict = Depends(require_role("customer"))):
     b = await db.bookings.find_one({"id": bid}, {"_id": 0})
     if not b or b["customer_id"] != u["id"]:
         raise HTTPException(404, "Booking not found")
-    preview = cancel_refund_preview(b)
-    if not preview["cancellable"]:
-        raise HTTPException(409, "This booking can no longer be cancelled")
-    refund_amount = preview["refund_amount"]
-    refund_percent = preview["refund_percent"] if preview["paid"] else 0
-    upd = {
-        "status": "cancelled",
-        "cancelled_at": datetime.now(timezone.utc).isoformat(),
-        "cancelled_by": "customer",
-        "refund_percent": refund_percent,
-        "refund_amount": refund_amount,
-        "refund_status": "refunded" if refund_amount > 0 else ("n/a" if not preview["paid"] else "none"),
-    }
-    if refund_amount > 0:
-        # Mock refund — no Razorpay refund call in mock/dev. Live refunds need Razorpay Refunds API + keys.
-        upd["payment_status"] = "refunded"
-    await db.bookings.update_one({"id": bid}, {"$set": upd})
-    b.update(upd)
+    b = await _cancel_and_refund(apply_booking_payments(b), "customer")
+    refund_amount = int(b.get("refund_amount") or 0)
+    refund_percent = int(b.get("refund_percent") or 0)
     try:
         v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
         owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "email": 1, "name": 1, "id": 1}) if v else None
@@ -1417,15 +1416,120 @@ async def ai_chat(body: AIChatIn, u: dict = Depends(get_current_user)):
                                               "updated_at": datetime.now(timezone.utc).isoformat()})
     return {"conversation_id": cid, "reply": reply}
 
+# ── Payments: Razorpay (test/live) or mock ───────────────────────────────────
+# PAYMENT_MODE=mock           → no Razorpay calls; the app simulates the checkout.
+# PAYMENT_MODE=razorpay_test  → Razorpay test keys (rzp_test_…); real Checkout, no real money.
+# PAYMENT_MODE=razorpay_live  → live keys after KYC (alias: "live").
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+RAZORPAY_API = os.environ.get("RAZORPAY_API_BASE", "https://api.razorpay.com/v1")
+RAZORPAY_MODES = ("razorpay_test", "razorpay_live", "live")
+try:
+    THARA_COMMISSION_PCT = float(os.environ.get("THARA_COMMISSION_PCT", "10") or 10)
+except ValueError:
+    THARA_COMMISSION_PCT = 10.0
+PAY_METHODS = ("upi", "card", "netbanking", "wallet", "paylater", "emi")
+
+
+def _rzp_mode_requested() -> bool:
+    return (PAYMENT_MODE or "mock").lower() in RAZORPAY_MODES
+
+
+def _rzp_enabled() -> bool:
+    """True when a Razorpay mode is selected and keys that match it are present."""
+    if not _rzp_mode_requested() or not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        return False
+    if (PAYMENT_MODE or "").lower() == "razorpay_test" and not RAZORPAY_KEY_ID.startswith("rzp_test_"):
+        return False  # never charge real money while the app says "test"
+    return True
+
+
+def _require_rzp_config() -> None:
+    if _rzp_mode_requested() and not _rzp_enabled():
+        raise HTTPException(503, "Razorpay is not configured (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET "
+                                 "that match PAYMENT_MODE)")
+
+
+def _public_pay_mode() -> str:
+    if not _rzp_enabled():
+        return "mock"
+    return "razorpay_test" if RAZORPAY_KEY_ID.startswith("rzp_test_") else "razorpay_live"
+
+
+async def _rzp_request(method: str, path: str, payload: Optional[dict] = None) -> dict:
+    """Minimal Razorpay REST client (basic auth). Raises HTTPException(502) on API errors."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=20.0, auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) as c:
+            r = await c.request(method, f"{RAZORPAY_API}{path}", json=payload)
+    except httpx.HTTPError as e:
+        logger.warning(f"razorpay {method} {path} network error: {e}")
+        raise HTTPException(502, "Could not reach Razorpay. Please try again.")
+    try:
+        data = r.json()
+    except ValueError:
+        data = {}
+    if r.status_code >= 400:
+        desc = ((data or {}).get("error") or {}).get("description") or f"Razorpay error {r.status_code}"
+        logger.warning(f"razorpay {method} {path} -> {r.status_code}: {desc}")
+        raise HTTPException(502, f"Razorpay: {desc}")
+    return data or {}
+
+
+def _hmac_sha256_hex(secret: str, msg: bytes) -> str:
+    return hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
+
+
 def _verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
     if not RAZORPAY_KEY_SECRET:
         return False
-    digest = hmac.new(
-        RAZORPAY_KEY_SECRET.encode(),
-        f"{order_id}|{payment_id}".encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    digest = _hmac_sha256_hex(RAZORPAY_KEY_SECRET, f"{order_id}|{payment_id}".encode())
     return hmac.compare_digest(digest, (signature or "").strip())
+
+
+def _verify_webhook_signature(raw: bytes, signature: str) -> bool:
+    if not RAZORPAY_WEBHOOK_SECRET:
+        return False
+    return hmac.compare_digest(_hmac_sha256_hex(RAZORPAY_WEBHOOK_SECRET, raw), (signature or "").strip())
+
+
+# --- Razorpay Route (Partner payouts) ---
+def _event_end_epoch(event_date: str) -> Optional[int]:
+    try:
+        d = datetime.strptime((event_date or "")[:10], "%Y-%m-%d")
+    except ValueError:
+        return None
+    return int(datetime(d.year, d.month, d.day, 23, 59, tzinfo=IST).timestamp())
+
+
+def partner_payout_split(amount_paise: int, commission_pct: Optional[float] = None) -> dict:
+    pct = THARA_COMMISSION_PCT if commission_pct is None else commission_pct
+    pct = min(max(float(pct), 0.0), 100.0)
+    commission = int(round(int(amount_paise) * pct / 100.0))
+    return {"commission_pct": pct, "thara_fee": commission, "partner_share": max(0, int(amount_paise) - commission)}
+
+
+def build_route_transfers(vendor: Optional[dict], amount_paise: int, kind: str, event_date: str,
+                          booking_id: str, commission_pct: Optional[float] = None,
+                          now_epoch: Optional[int] = None) -> list:
+    """Order-level Route transfer to the Partner's linked account (acc_…), minus Thara's commission.
+    Returns [] when the Partner has no linked account, so payments still go through to Thara."""
+    acc = str((vendor or {}).get("razorpay_account_id") or "").strip()
+    if not acc.startswith("acc_") or int(amount_paise) <= 0:
+        return []
+    split = partner_payout_split(amount_paise, commission_pct)
+    if split["partner_share"] <= 0:
+        return []
+    t = {"account": acc, "amount": split["partner_share"], "currency": "INR",
+         "notes": {"booking_id": booking_id, "kind": kind, "thara_fee_paise": str(split["thara_fee"])},
+         "linked_account_notes": ["booking_id", "kind"]}
+    if kind == "advance":
+        # The advance is refundable until the event, so hold the Partner's share until the event day ends.
+        until = _event_end_epoch(event_date)
+        now_epoch = int(time.time()) if now_epoch is None else now_epoch
+        if until and until > now_epoch + 3600:
+            t["on_hold"] = 1
+            t["on_hold_until"] = until
+    return [t]
 
 
 # --- Payments (Razorpay or mock) + Loyalty redeem ---
@@ -1437,17 +1541,41 @@ def _infer_pay_kind(b: dict, requested: str | None = None) -> str:
     return "advance"
 
 
-async def _open_razorpay_order(amount_paise: int, receipt: str) -> tuple[str, bool]:
-    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
-    if PAYMENT_MODE == "live" and not live:
-        raise HTTPException(503, "Razorpay is not configured (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)")
-    if live and amount_paise > 0:
-        import razorpay
-        rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        order = rzp.order.create({"amount": amount_paise, "currency": "INR",
-                                  "receipt": receipt, "payment_capture": 1})
+async def _open_razorpay_order(amount_paise: int, receipt: str, notes: Optional[dict] = None,
+                               transfers: Optional[list] = None) -> tuple[str, bool]:
+    _require_rzp_config()
+    if amount_paise <= 0:
+        return f"order_free_{uuid.uuid4().hex[:14]}", False   # fully covered by points
+    if _rzp_enabled():
+        payload: dict = {"amount": int(amount_paise), "currency": "INR", "receipt": receipt[:40],
+                         "notes": notes or {}}
+        if transfers:
+            payload["transfers"] = transfers
+        order = await _rzp_request("POST", "/orders", payload)
         return order["id"], True
     return f"order_mock_{uuid.uuid4().hex[:14]}", False
+
+
+async def _rzp_customer_id(user_id: str) -> Optional[str]:
+    """Razorpay customer for saved (tokenised) cards. Best-effort; never blocks a payment."""
+    if not _rzp_enabled():
+        return None
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "razorpay_customer_id": 1, "name": 1,
+                                                      "email": 1, "phone": 1})
+    if not user:
+        return None
+    if user.get("razorpay_customer_id"):
+        return user["razorpay_customer_id"]
+    try:
+        c = await _rzp_request("POST", "/customers", {
+            "name": (user.get("name") or "Thara customer")[:50], "email": user.get("email") or "",
+            "contact": user.get("phone") or "", "fail_existing": "0"})
+    except HTTPException:
+        return None
+    cid = c.get("id")
+    if cid:
+        await db.users.update_one({"id": user_id}, {"$set": {"razorpay_customer_id": cid}})
+    return cid
 
 
 async def _award_points(user_id: str, booking_id: str, paid_amt: int) -> tuple[int, dict, bool, int]:
@@ -1468,6 +1596,16 @@ async def _award_points(user_id: str, booking_id: str, paid_amt: int) -> tuple[i
             "at": datetime.now(timezone.utc).isoformat()})
     new_tier = compute_tier(lifetime_before + earn)
     return earn, new_tier, new_tier["name"] != tier["name"], int(tier["boost"] * 100)
+
+
+@api.get("/payments/methods")
+async def payment_methods(u: dict = Depends(require_role("customer"))):
+    """Checkout bootstrap: mode, saved card labels (network/last4 only — never card numbers), last method."""
+    user = await db.users.find_one({"id": u["id"]}, {"_id": 0, "saved_cards": 1, "last_payment_method": 1})
+    return {"mode": _public_pay_mode(),
+            "saved_cards": (user or {}).get("saved_cards") or [],
+            "last_method": (user or {}).get("last_payment_method"),
+            "methods": list(PAY_METHODS[:5])}
 
 
 @api.post("/payments/quote")
@@ -1511,13 +1649,15 @@ async def quote_payment(body: PayOrderIn, u: dict = Depends(require_role("custom
         "blocked_reason": blocked,
         "event_date": b.get("event_date"),
         "event_reached": event_reached,
-        "mode": PAYMENT_MODE,
+        "mode": _public_pay_mode(),
         **bd,
     }
 
 
 @api.post("/payments/order")
+@api.post("/payments/create-order")
 async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role("customer"))):
+    """Create a Razorpay order for the advance or the balance (mock order in PAYMENT_MODE=mock)."""
     b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0})
     if not b: raise HTTPException(404, "Booking not found")
     b = apply_booking_payments(b)
@@ -1542,7 +1682,13 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
     redeem = 0 if kind == "balance" else (body.redeem_points or 0)
     bd = compute_price_breakdown(int(b.get("amount") or 0), redeem, available, lifetime, kind=kind)
     amount_paise = int(bd["charge"]) * 100
-    oid, live = await _open_razorpay_order(amount_paise, f"{kind[:3]}_{b['id']}")
+    v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "razorpay_account_id": 1})
+    transfers = build_route_transfers(v, amount_paise, kind, b.get("event_date") or "", b["id"]) if _rzp_enabled() else []
+    method = (body.method or "").lower() or None
+    oid, live = await _open_razorpay_order(
+        amount_paise, f"{kind[:3]}_{b['id']}",
+        notes={"booking_id": b["id"], "kind": kind, "method": method or "any"},
+        transfers=transfers)
     now = datetime.now(timezone.utc).isoformat()
     upd = {
         "gst_amount": bd["gst"],
@@ -1556,23 +1702,167 @@ async def create_payment_order(body: PayOrderIn, u: dict = Depends(require_role(
             "razorpay_advance_order_id": oid,
             "points_redeemed": bd["points_redeemed"],
             "advance_charged": bd["charge"],
+            "route_transfers_advance": bool(transfers),
         })
     else:
         upd["razorpay_balance_order_id"] = oid
+        upd["route_transfers_balance"] = bool(transfers)
     await db.bookings.update_one({"id": b["id"]}, {"$set": upd})
     await db.payments.insert_one({
         "id": str(uuid.uuid4()), "booking_id": b["id"], "kind": kind,
         "amount": bd["charge"], "points_redeemed": bd["points_redeemed"],
-        "razorpay_order_id": oid, "method": "in_app", "status": "created",
-        "at": now,
+        "razorpay_order_id": oid, "method": "in_app", "instrument": method, "status": "created",
+        "route_transfer": bool(transfers), "at": now,
     })
     label = "Advance" if kind == "advance" else "Balance"
+    customer_id = await _rzp_customer_id(u["id"]) if live else None
     return {"order_id": oid, "amount": amount_paise, "currency": "INR",
-            "razorpay_key_id": RAZORPAY_KEY_ID if live else (RAZORPAY_KEY_ID or "rzp_test_mock"),
-            "mode": "live" if live else "mock",
-            "name": "Thara", "description": f"{label} for booking {b['id'][:8]}",
-            "prefill": {"email": u.get("email") or "", "contact": u.get("phone") or ""},
+            "razorpay_key_id": RAZORPAY_KEY_ID if live else "rzp_test_mock",
+            "mode": _public_pay_mode() if live else ("free" if oid.startswith("order_free_") else "mock"),
+            "kind": kind, "customer_id": customer_id,
+            "route_transfer": bool(transfers),
+            "name": "Thara", "description": f"{label} · {(v or {}).get('name') or 'Partner'}",
+            "prefill": {"email": u.get("email") or "", "contact": u.get("phone") or "", "name": u.get("name") or ""},
             **bd}
+
+
+def _card_meta(pay: dict) -> Optional[dict]:
+    card = pay.get("card") or {}
+    if pay.get("method") != "card" or not card.get("last4"):
+        return None
+    return {"network": card.get("network") or "Card", "last4": str(card.get("last4"))[-4:],
+            "issuer": card.get("issuer") or "", "type": card.get("type") or ""}
+
+
+async def _remember_method(user_id: str, method: Optional[str], card: Optional[dict]) -> None:
+    upd: dict = {}
+    if method:
+        upd["last_payment_method"] = method
+    if card:
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "saved_cards": 1})
+        cards = [c for c in ((user or {}).get("saved_cards") or [])
+                 if not (c.get("last4") == card["last4"] and c.get("network") == card["network"])]
+        upd["saved_cards"] = ([card] + cards)[:5]
+    if upd:
+        await db.users.update_one({"id": user_id}, {"$set": upd})
+
+
+async def _settle_payment(b: dict, kind: str, order_id: str, payment_id: str,
+                          method: Optional[str] = None, card: Optional[dict] = None,
+                          source: str = "client") -> dict:
+    """Idempotently mark the advance or balance paid. Shared by /verify, /status and the webhook."""
+    bid = b["id"]
+    cust = await db.users.find_one({"id": b["customer_id"]}, {"_id": 0, "id": 1, "name": 1, "email": 1})
+    u = cust or {"id": b["customer_id"], "name": "Customer", "email": ""}
+    now = datetime.now(timezone.utc).isoformat()
+    pay_filter = {"booking_id": bid, "kind": kind, "razorpay_order_id": order_id}
+
+    if kind == "advance":
+        # Money arrived for a booking that is no longer payable (e.g. cancelled meanwhile): refund in full.
+        if b.get("status") not in ("confirmed", "booked"):
+            await db.payments.update_many(pay_filter, {"$set": {"status": "orphan", "razorpay_payment_id": payment_id}})
+            amt = int(b.get("advance_charged") or 0)
+            if amt > 0 and _rzp_enabled() and payment_id.startswith("pay_"):
+                try:
+                    await _rzp_request("POST", f"/payments/{payment_id}/refund",
+                                       {"amount": amt * 100, "notes": {"booking_id": bid, "reason": "booking_not_payable"}})
+                except HTTPException as e:
+                    logger.warning(f"orphan refund failed for {bid}: {e.detail}")
+            raise HTTPException(409, "This booking can no longer be paid; any amount taken will be refunded")
+        redeemed = int(b.get("points_redeemed") or 0)
+        paid_amt = int(b.get("advance_charged") if b.get("advance_charged") is not None
+                       else (b.get("advance_amount") or 0) - redeemed)
+        claim = await db.bookings.update_one({"id": bid, "advance_paid": {"$ne": True}}, {"$set": {
+            "status": "booked", "advance_paid": True, "advance_paid_at": now, "advance_charged": paid_amt,
+            "payment_status": "advance_paid", "payment_method_advance": "in_app",
+            "payment_instrument_advance": method, "razorpay_payment_id": payment_id,
+            "razorpay_advance_payment_id": payment_id, "advance_settled_by": source,
+        }})
+        if claim.modified_count == 0:
+            fresh = await db.bookings.find_one({"id": bid}, {"_id": 0}) or b
+            return {"success": True, "kind": "advance", "already_paid": True, "status": fresh.get("status"),
+                    "earned_points": int(fresh.get("points_earned_advance") or 0),
+                    "redeemed_points": int(fresh.get("points_redeemed") or 0),
+                    "balance_amount": int(fresh.get("balance_amount") or 0), "event_date": fresh.get("event_date"),
+                    "payment_id": fresh.get("razorpay_advance_payment_id"), "method": fresh.get("payment_instrument_advance")}
+        if redeemed > 0:
+            await db.users.update_one({"id": u["id"]}, {"$inc": {"points": -redeemed}})
+            await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
+                "delta": -redeemed, "reason": "redeem", "booking_id": bid, "at": now})
+        earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], bid, paid_amt)
+        await db.bookings.update_one({"id": bid}, {"$set": {"points_earned": earn, "points_earned_advance": earn}})
+        await db.payments.update_many(pay_filter, {"$set": {"status": "paid", "razorpay_payment_id": payment_id,
+                                                            "instrument": method, "points_earned": earn, "paid_at": now}})
+        await _remember_method(u["id"], method, card)
+        try:
+            v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+            subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="advance")
+            if u.get("email"):
+                await send_email(u["email"], subj, html, prev)
+            await send_push([u["id"]], "Advance paid — date locked",
+                f"₹{paid_amt:,} advance paid to {v['name'] if v else 'partner'}. Balance ₹{int(b.get('balance_amount') or 0):,} is due on {b.get('event_date')}."
+                + (f" +{earn} points!" if earn else ""),
+                action_url=f"/booking-detail/{bid}")
+            owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
+            if owner:
+                await send_push([owner["id"]], "Advance received",
+                    f"{u.get('name') or 'A customer'} paid ₹{paid_amt:,} to lock {b.get('event_date')}.",
+                    action_url="/(vendor)/bookings")
+        except Exception as e:
+            logger.warning(f"advance payment notify failed: {e}")
+        return {"success": True, "kind": "advance", "earned_points": earn, "redeemed_points": redeemed,
+                "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
+                "status": "booked", "paid_amount": paid_amt, "balance_amount": int(b.get("balance_amount") or 0),
+                "event_date": b.get("event_date"), "payment_id": payment_id, "method": method}
+
+    # Balance in-app
+    paid_amt = int(b.get("balance_amount") or 0)
+    claim = await db.bookings.update_one(
+        {"id": bid, "balance_status": {"$nin": ["paid_in_app", "paid_offline"]}},
+        {"$set": {"balance_status": "paid_in_app", "balance_paid_at": now, "payment_method_balance": "in_app",
+                  "payment_instrument_balance": method, "payment_status": "paid",
+                  "razorpay_balance_payment_id": payment_id, "balance_settled_by": source}})
+    if claim.modified_count == 0:
+        fresh = await db.bookings.find_one({"id": bid}, {"_id": 0}) or b
+        return {"success": True, "kind": "balance", "already_paid": True, "status": fresh.get("status"),
+                "earned_points": int(fresh.get("points_earned_balance") or 0), "redeemed_points": 0,
+                "payment_id": fresh.get("razorpay_balance_payment_id"), "method": fresh.get("payment_instrument_balance")}
+    earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], bid, paid_amt)
+    await db.bookings.update_one({"id": bid}, {"$set": {"points_earned_balance": earn}})
+    await db.payments.update_many(pay_filter, {"$set": {"status": "paid", "razorpay_payment_id": payment_id,
+                                                        "instrument": method, "points_earned": earn, "paid_at": now}})
+    await _remember_method(u["id"], method, card)
+    try:
+        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
+        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="balance")
+        if u.get("email"):
+            await send_email(u["email"], subj, html, prev)
+        await send_push([u["id"]], "Balance paid",
+            f"₹{paid_amt:,} balance paid to {v['name'] if v else 'partner'}."
+            + (f" +{earn} points!" if earn else ""),
+            action_url=f"/booking-detail/{bid}")
+        owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
+        if owner:
+            await send_push([owner["id"]], "Balance received",
+                f"{u.get('name') or 'A customer'} paid the remaining ₹{paid_amt:,} in the app.",
+                action_url="/(vendor)/bookings")
+    except Exception as e:
+        logger.warning(f"balance payment notify failed: {e}")
+    return {"success": True, "kind": "balance", "earned_points": earn, "redeemed_points": 0,
+            "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
+            "status": "booked", "payment_status": "paid", "paid_amount": paid_amt,
+            "payment_id": payment_id, "method": method}
+
+
+async def _fetch_captured_payment(payment_id: str, order_id: str) -> dict:
+    """Fetch a Razorpay payment, capture it if only authorised, and check it belongs to the order."""
+    pay = await _rzp_request("GET", f"/payments/{payment_id}")
+    if pay.get("order_id") != order_id:
+        raise HTTPException(400, "Payment does not belong to this order")
+    if pay.get("status") == "authorized":
+        pay = await _rzp_request("POST", f"/payments/{payment_id}/capture",
+                                 {"amount": pay.get("amount"), "currency": pay.get("currency") or "INR"})
+    return pay
 
 
 @api.post("/payments/verify")
@@ -1585,23 +1875,17 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
     if kind == "advance" and _advance_is_paid(b):
         return {"success": True, "kind": "advance", "already_paid": True,
                 "earned_points": int(b.get("points_earned_advance") or b.get("points_earned") or 0),
-                "redeemed_points": int(b.get("points_redeemed") or 0)}
+                "redeemed_points": int(b.get("points_redeemed") or 0),
+                "balance_amount": int(b.get("balance_amount") or 0), "event_date": b.get("event_date"),
+                "payment_id": b.get("razorpay_advance_payment_id")}
     if kind == "balance" and _balance_settled(b):
         return {"success": True, "kind": "balance", "already_paid": True,
                 "earned_points": int(b.get("points_earned_balance") or 0),
-                "redeemed_points": 0}
+                "redeemed_points": 0, "payment_id": b.get("razorpay_balance_payment_id")}
     stored_oid = b.get("razorpay_advance_order_id") if kind == "advance" else b.get("razorpay_balance_order_id")
     stored_oid = stored_oid or (b.get("razorpay_order_id") if kind == "advance" else None)
     if stored_oid and body.razorpay_order_id != stored_oid:
         raise HTTPException(400, "Order id does not match this booking")
-    live = PAYMENT_MODE == "live" and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
-    if live:
-        if not body.razorpay_payment_id or not body.razorpay_signature:
-            raise HTTPException(400, "Payment signature is required")
-        if not _verify_razorpay_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
-            raise HTTPException(400, "Signature mismatch")
-    elif PAYMENT_MODE == "live":
-        raise HTTPException(503, "Razorpay is not configured")
     if kind == "advance":
         if b.get("status") != "confirmed":
             raise HTTPException(409, "The 20% advance can be paid after the partner confirms this booking")
@@ -1613,85 +1897,199 @@ async def verify_payment(body: PayVerifyIn, u: dict = Depends(require_role("cust
         if not _event_reached(b.get("event_date") or "2099-01-01"):
             raise HTTPException(409, f"The balance is due on {b.get('event_date')}")
 
-    now = datetime.now(timezone.utc).isoformat()
-    if kind == "advance":
-        redeemed = int(b.get("points_redeemed") or 0)
-        paid_amt = int(b.get("advance_charged") if b.get("advance_charged") is not None else (b.get("advance_amount") or 0) - redeemed)
-        if redeemed > 0:
-            await db.users.update_one({"id": u["id"]}, {"$inc": {"points": -redeemed}})
-            await db.point_history.insert_one({"id": str(uuid.uuid4()), "user_id": u["id"],
-                "delta": -redeemed, "reason": "redeem", "booking_id": body.booking_id,
-                "at": now})
-        earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], body.booking_id, paid_amt)
-        await db.bookings.update_one({"id": body.booking_id}, {"$set": {
-            "status": "booked",
-            "advance_paid": True,
-            "advance_paid_at": now,
-            "advance_charged": paid_amt,
-            "payment_status": "advance_paid",
-            "payment_method_advance": "in_app",
-            "razorpay_payment_id": body.razorpay_payment_id,
-            "razorpay_advance_payment_id": body.razorpay_payment_id,
-            "points_earned": earn,
-            "points_earned_advance": earn,
-        }})
-        await db.payments.update_many(
-            {"booking_id": body.booking_id, "kind": "advance", "razorpay_order_id": body.razorpay_order_id},
-            {"$set": {"status": "paid", "razorpay_payment_id": body.razorpay_payment_id,
-                      "points_earned": earn, "paid_at": now}})
-        try:
-            v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
-            subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="advance")
-            await send_email(u["email"], subj, html, prev)
-            await send_push([u["id"]], "Advance paid — date locked",
-                f"₹{paid_amt:,} advance paid to {v['name'] if v else 'partner'}. Balance ₹{int(b.get('balance_amount') or 0):,} is due on {b.get('event_date')}."
-                + (f" +{earn} points!" if earn else ""),
-                action_url=f"/booking-detail/{body.booking_id}")
-            owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
-            if owner:
-                await send_push([owner["id"]], "Advance received",
-                    f"{u.get('name') or 'A customer'} paid ₹{paid_amt:,} to lock {b.get('event_date')}.",
-                    action_url="/(vendor)/bookings")
-        except Exception as e:
-            logger.warning(f"advance payment notify failed: {e}")
-        return {"success": True, "kind": "advance", "earned_points": earn, "redeemed_points": redeemed,
-                "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
-                "status": "booked", "balance_amount": int(b.get("balance_amount") or 0),
-                "event_date": b.get("event_date")}
+    method = (body.method or "").lower() or None
+    card = None
+    free = (body.razorpay_order_id or "").startswith("order_free_") and kind == "advance" \
+        and int(b.get("advance_charged") or 0) == 0
+    _require_rzp_config()
+    if _rzp_enabled() and not free:
+        if not body.razorpay_payment_id or not body.razorpay_signature:
+            raise HTTPException(400, "Payment signature is required")
+        if not _verify_razorpay_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
+            raise HTTPException(400, "Signature mismatch")
+        pay = await _fetch_captured_payment(body.razorpay_payment_id, body.razorpay_order_id)
+        if pay.get("status") != "captured":
+            return {"success": False, "pending": True, "kind": kind, "status": pay.get("status") or "pending"}
+        method = pay.get("method") or method
+        card = _card_meta(pay)
+    return await _settle_payment(b, kind, body.razorpay_order_id, body.razorpay_payment_id,
+                                 method=method, card=card, source="verify")
 
-    # Balance in-app
-    paid_amt = int(b.get("balance_amount") or 0)
-    earn, new_tier, tier_up, boost_pct = await _award_points(u["id"], body.booking_id, paid_amt)
-    await db.bookings.update_one({"id": body.booking_id}, {"$set": {
-        "balance_status": "paid_in_app",
-        "balance_paid_at": now,
-        "payment_method_balance": "in_app",
-        "payment_status": "paid",
-        "razorpay_balance_payment_id": body.razorpay_payment_id,
-        "points_earned_balance": earn,
-    }})
-    await db.payments.update_many(
-        {"booking_id": body.booking_id, "kind": "balance", "razorpay_order_id": body.razorpay_order_id},
-        {"$set": {"status": "paid", "razorpay_payment_id": body.razorpay_payment_id,
-                  "points_earned": earn, "paid_at": now}})
+
+@api.post("/payments/failed")
+async def payment_failed(body: PayFailIn, u: dict = Depends(require_role("customer"))):
+    """The app reports a failed / dismissed checkout so the booking shows the right state."""
+    b = await db.bookings.find_one({"id": body.booking_id, "customer_id": u["id"]}, {"_id": 0, "id": 1})
+    if not b: raise HTTPException(404, "Booking not found")
+    q: dict = {"booking_id": body.booking_id, "kind": body.kind, "status": "created"}
+    if body.razorpay_order_id:
+        q["razorpay_order_id"] = body.razorpay_order_id
+    await db.payments.update_many(q, {"$set": {
+        "status": "failed", "error_code": (body.code or "")[:60], "error": (body.reason or "Payment failed")[:300],
+        "failed_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True}
+
+
+@api.get("/payments/status/{bid}")
+async def payment_status(bid: str, kind: Optional[Literal["advance", "balance"]] = None,
+                         u: dict = Depends(require_role("customer"))):
+    """Poll target for the pending screen. With Razorpay on, reconciles against the order's payments."""
+    b = await db.bookings.find_one({"id": bid, "customer_id": u["id"]}, {"_id": 0})
+    if not b: raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    kind = _infer_pay_kind(b, kind)
+    paid = _advance_is_paid(b) if kind == "advance" else _balance_settled(b)
+    base = {"booking_id": bid, "kind": kind, "event_date": b.get("event_date"),
+            "balance_amount": int(b.get("balance_amount") or 0)}
+    if paid:
+        return {**base, "status": "paid",
+                "amount": int(b.get("advance_charged") or 0) if kind == "advance" else int(b.get("balance_amount") or 0),
+                "payment_id": b.get("razorpay_advance_payment_id") if kind == "advance" else b.get("razorpay_balance_payment_id")}
+    oid = (b.get("razorpay_advance_order_id") or b.get("razorpay_order_id")) if kind == "advance" else b.get("razorpay_balance_order_id")
+    if _rzp_enabled() and oid and oid.startswith("order_") and not oid.startswith(("order_mock_", "order_free_")):
+        data = await _rzp_request("GET", f"/orders/{oid}/payments")
+        items = data.get("items") or []
+        for p in items:
+            if p.get("status") == "authorized":
+                p.update(await _fetch_captured_payment(p["id"], oid))
+        captured = next((p for p in items if p.get("status") == "captured"), None)
+        if captured:
+            res = await _settle_payment(b, kind, oid, captured["id"], method=captured.get("method"),
+                                        card=_card_meta(captured), source="status")
+            return {**base, **res, "status": "paid"}
+        if items and all(p.get("status") == "failed" for p in items):
+            return {**base, "status": "failed", "reason": items[0].get("error_description") or "Payment failed"}
+        return {**base, "status": "pending"}
+    last = await db.payments.find_one({"booking_id": bid, "kind": kind}, {"_id": 0}, sort=[("at", -1)])
+    st = (last or {}).get("status")
+    if st == "failed":
+        return {**base, "status": "failed", "reason": (last or {}).get("error") or "Payment failed"}
+    return {**base, "status": "pending" if st == "created" else "none"}
+
+
+@api.post("/payments/webhook")
+async def razorpay_webhook(request: Request, x_razorpay_signature: str = Header(default=""),
+                           x_razorpay_event_id: str = Header(default="")):
+    """Razorpay webhook (payment.captured, order.paid, payment.failed, refund.*). Signed with RAZORPAY_WEBHOOK_SECRET."""
+    raw = await request.body()
+    if not RAZORPAY_WEBHOOK_SECRET:
+        raise HTTPException(503, "Webhook secret not configured")
+    if not _verify_webhook_signature(raw, x_razorpay_signature):
+        raise HTTPException(400, "Invalid webhook signature")
     try:
-        v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "name": 1, "owner_id": 1})
-        subj, html, prev = tpl_payment_receipt(u["name"], v["name"] if v else "partner", paid_amt, earn, kind="balance")
-        await send_email(u["email"], subj, html, prev)
-        await send_push([u["id"]], "Balance paid",
-            f"₹{paid_amt:,} balance paid to {v['name'] if v else 'partner'}."
-            + (f" +{earn} points!" if earn else ""),
-            action_url=f"/booking-detail/{body.booking_id}")
-        owner = await db.users.find_one({"id": (v or {}).get("owner_id")}, {"_id": 0, "id": 1}) if v else None
-        if owner:
-            await send_push([owner["id"]], "Balance received",
-                f"{u.get('name') or 'A customer'} paid the remaining ₹{paid_amt:,} in the app.",
-                action_url="/(vendor)/bookings")
-    except Exception as e:
-        logger.warning(f"balance payment notify failed: {e}")
-    return {"success": True, "kind": "balance", "earned_points": earn, "redeemed_points": 0,
-            "tier": new_tier["name"], "tier_up": tier_up, "boost_pct": boost_pct,
-            "status": "booked", "payment_status": "paid"}
+        evt = json_mod.loads(raw or b"{}")
+    except ValueError:
+        raise HTTPException(400, "Invalid JSON")
+    if x_razorpay_event_id:
+        if await db.webhook_events.find_one({"id": x_razorpay_event_id}):
+            return {"ok": True, "duplicate": True}
+        await db.webhook_events.insert_one({"id": x_razorpay_event_id, "event": evt.get("event"),
+                                            "at": datetime.now(timezone.utc).isoformat()})
+    event = evt.get("event") or ""
+    payload = evt.get("payload") or {}
+    pay = (payload.get("payment") or {}).get("entity") or {}
+    order = (payload.get("order") or {}).get("entity") or {}
+    refund = (payload.get("refund") or {}).get("entity") or {}
+    if event in ("payment.captured", "order.paid"):
+        oid = pay.get("order_id") or order.get("id")
+        if not oid or not pay.get("id"):
+            return {"ok": True, "ignored": "no order/payment"}
+        b = await db.bookings.find_one({"$or": [{"razorpay_advance_order_id": oid}, {"razorpay_order_id": oid},
+                                                {"razorpay_balance_order_id": oid}]}, {"_id": 0})
+        if not b:
+            return {"ok": True, "ignored": "unknown order"}
+        b = apply_booking_payments(b)
+        kind = "balance" if b.get("razorpay_balance_order_id") == oid else "advance"
+        try:
+            res = await _settle_payment(b, kind, oid, pay["id"], method=pay.get("method"),
+                                        card=_card_meta(pay), source="webhook")
+        except HTTPException as e:
+            return {"ok": True, "note": e.detail}
+        return {"ok": True, "settled": res.get("kind"), "already_paid": bool(res.get("already_paid"))}
+    if event == "payment.failed":
+        oid = pay.get("order_id")
+        if oid:
+            await db.payments.update_many({"razorpay_order_id": oid, "status": "created"}, {"$set": {
+                "status": "failed", "error_code": pay.get("error_code") or "",
+                "error": pay.get("error_description") or "Payment failed",
+                "failed_at": datetime.now(timezone.utc).isoformat()}})
+        return {"ok": True}
+    if event.startswith("refund.") and refund.get("id"):
+        st = {"refund.processed": "refunded", "refund.failed": "failed", "refund.created": "processing"}.get(event)
+        if st:
+            await db.bookings.update_one({"razorpay_refund_id": refund["id"]}, {"$set": {"refund_status": st}})
+        return {"ok": True}
+    return {"ok": True, "ignored": event}
+
+
+# --- Refunds (tiered: 100% >7 days, 50% 2–7 days, 0% <48h — on the advance) ---
+async def _refund_advance(b: dict, amount: int, reason: str) -> dict:
+    """Refund part of the advance. Returns fields to $set on the booking. Never raises."""
+    if amount <= 0:
+        return {}
+    pid = b.get("razorpay_advance_payment_id") or b.get("razorpay_payment_id") or ""
+    if _rzp_enabled() and pid.startswith("pay_") and not pid.startswith("pay_mock"):
+        payload: dict = {"amount": int(amount) * 100, "speed": "normal",
+                         "notes": {"booking_id": b["id"], "reason": reason[:120]}}
+        if b.get("route_transfers_advance"):
+            payload["reverse_all"] = 1   # pull back the Partner's on-hold share first
+        try:
+            r = await _rzp_request("POST", f"/payments/{pid}/refund", payload)
+        except HTTPException as e:
+            logger.warning(f"refund failed for {b['id']}: {e.detail}")
+            return {"refund_status": "failed", "refund_error": str(e.detail)[:200], "payment_status": "refund_failed"}
+        out = {"refund_status": "refunded" if r.get("status") == "processed" else "processing",
+               "razorpay_refund_id": r.get("id"), "payment_status": "refunded", "refund_mode": _public_pay_mode()}
+        # Partial refund with Route: the Partner's share of what Thara keeps is paid by a direct transfer.
+        charged = int(b.get("advance_charged") or 0)
+        if b.get("route_transfers_advance") and 0 < amount < charged:
+            v = await db.vendors.find_one({"id": b["vendor_id"]}, {"_id": 0, "razorpay_account_id": 1})
+            kept = build_route_transfers(v, (charged - amount) * 100, "cancellation", "", b["id"])
+            if kept:
+                try:
+                    await _rzp_request("POST", "/transfers", {k: kept[0][k] for k in ("account", "amount", "currency", "notes")})
+                    out["partner_cancellation_transfer"] = kept[0]["amount"]
+                except HTTPException as e:
+                    out["partner_cancellation_transfer_error"] = str(e.detail)[:200]
+        return out
+    return {"refund_status": "refunded", "payment_status": "refunded", "refund_mode": "mock"}
+
+
+async def _cancel_and_refund(b: dict, cancelled_by: str, percent_override: Optional[int] = None) -> dict:
+    preview = cancel_refund_preview(b)
+    if not preview["cancellable"]:
+        raise HTTPException(409, "This booking can no longer be cancelled")
+    if preview["paid"]:
+        refund_percent = preview["refund_percent"] if percent_override is None else max(0, min(100, int(percent_override)))
+        refund_amount = int(round(int(b.get("advance_charged") or 0) * refund_percent / 100.0))
+    else:
+        refund_percent, refund_amount = 0, 0
+    upd = {
+        "status": "cancelled",
+        "cancelled_at": datetime.now(timezone.utc).isoformat(),
+        "cancelled_by": cancelled_by,
+        "refund_percent": refund_percent,
+        "refund_amount": refund_amount,
+        "refund_status": "n/a" if not preview["paid"] else "none",
+    }
+    if refund_amount > 0:
+        upd.update(await _refund_advance(b, refund_amount, f"cancelled_by_{cancelled_by}"))
+    await db.bookings.update_one({"id": b["id"]}, {"$set": upd})
+    b.update(upd)
+    return b
+
+
+@api.get("/payments/refund-preview/{bid}")
+async def refund_preview(bid: str, u: dict = Depends(require_role("customer"))):
+    b = await db.bookings.find_one({"id": bid, "customer_id": u["id"]}, {"_id": 0})
+    if not b: raise HTTPException(404, "Booking not found")
+    return cancel_refund_preview(apply_booking_payments(b))
+
+
+@api.post("/payments/refund")
+async def refund_payment(body: RefundIn, u: dict = Depends(require_role("customer"))):
+    """Customer cancels and gets the tiered refund on the advance (same as POST /bookings/{id}/cancel)."""
+    return await cancel_booking(body.booking_id, u)
 
 
 # --- Referrals & Loyalty ---
@@ -1824,6 +2222,36 @@ async def admin_vendor_kyc(vendor_id: str, _: bool = Depends(require_admin)):
         for f in KYC_SECRET_FIELDS: k[f] = kyc_decrypt(k.get(f, ""))
     return k
 
+class AdminPayoutAccountIn(BaseModel):
+    razorpay_account_id: str = Field(default="", max_length=40)
+
+@api.post("/admin/vendors/{vendor_id}/payout-account")
+async def admin_set_payout_account(vendor_id: str, body: AdminPayoutAccountIn, _: bool = Depends(require_admin)):
+    """Link a Partner to their Razorpay Route account (acc_…). Empty string unlinks."""
+    acc = body.razorpay_account_id.strip()
+    if acc and not re.fullmatch(r"acc_[A-Za-z0-9]{6,30}", acc):
+        raise HTTPException(400, "Expected a Razorpay linked account id like acc_XXXXXXXX")
+    r = await db.vendors.update_one({"id": vendor_id}, {"$set": {"razorpay_account_id": acc or None}})
+    if r.matched_count == 0: raise HTTPException(404, "Partner not found")
+    return {"vendor_id": vendor_id, "razorpay_account_id": acc or None, "commission_pct": THARA_COMMISSION_PCT}
+
+class AdminRefundIn(BaseModel):
+    booking_id: str
+    percent: Optional[int] = Field(default=None, ge=0, le=100)   # override the tier, e.g. 100 when the Partner cancels
+
+@api.post("/admin/payments/refund")
+async def admin_refund(body: AdminRefundIn, _: bool = Depends(require_admin)):
+    """Cancel + refund on Thara's side (Partner no-show, disputes) or retry a failed refund."""
+    b = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
+    if not b: raise HTTPException(404, "Booking not found")
+    b = apply_booking_payments(b)
+    if b.get("status") == "cancelled" and b.get("refund_status") == "failed":
+        upd = await _refund_advance(b, int(b.get("refund_amount") or 0), "admin_retry")
+        await db.bookings.update_one({"id": b["id"]}, {"$set": upd}); b.update(upd)
+    else:
+        b = await _cancel_and_refund(b, "admin", body.percent)
+    return {k: b.get(k) for k in ("id", "status", "refund_percent", "refund_amount", "refund_status", "razorpay_refund_id")}
+
 @api.get("/admin/vendors/pending")
 async def admin_pending(_: bool = Depends(require_admin)):
     items = await db.vendors.find({"kyc_status": "pending"}, {"_id": 0}).to_list(200)
@@ -1879,6 +2307,8 @@ async def vendor_dashboard(u: dict = Depends(require_role("vendor"))):
             "advances_collected": advances_collected,
             "balances_pending": balances_pending,
             "balances_collected": balances_collected,
+            "payout_account_linked": bool((v or {}).get("razorpay_account_id")),
+            "commission_pct": THARA_COMMISSION_PCT,
             "views": int((v or {}).get("views", 0)), "inquiries": len(chats) + pending,
             "kyc_status": kyc_status, "completeness": completeness,
             "services_count": svc, "founding_vendor": bool((v or {}).get("founding_vendor")),

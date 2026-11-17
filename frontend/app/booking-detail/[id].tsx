@@ -14,8 +14,9 @@ import { formatInr } from "@/src/utils/price";
 import { PolicyInfo } from "@/src/components/PolicyInfo";
 import { NumText } from "@/src/components/Num";
 
-function prettyMethod(m?: string) {
-  if (m === "in_app") return "Paid in the app";
+const INSTRUMENT: Record<string, string> = { upi: "UPI", card: "Card", netbanking: "Net banking", wallet: "Wallet", paylater: "Pay Later", emi: "EMI" };
+function prettyMethod(m?: string, instrument?: string) {
+  if (m === "in_app") return instrument && INSTRUMENT[instrument] ? `Paid in the app · ${INSTRUMENT[instrument]}` : "Paid in the app";
   if (m === "offline") return "Paid directly to the partner";
   return m || "";
 }
@@ -138,7 +139,11 @@ export default function BookingDetail() {
         ) : null}
         {b.refund_status && b.refund_status !== "n/a" ? (
           <NumText style={[s.notes, { fontStyle: "normal" }]}>
-            {b.refund_status === "refunded" ? `Refund of ₹${formatInr(b.refund_amount)} (${b.refund_percent}% of the advance) is being processed.` : "This booking was cancelled with no refund of the advance, as it was within 48 hours of the event."}
+            {(b.refund_amount || 0) > 0
+              ? (b.refund_status === "failed"
+                ? `Refund of ₹${formatInr(b.refund_amount)} (${b.refund_percent}% of the advance) is delayed. Thara is retrying it for you.`
+                : `Refund of ₹${formatInr(b.refund_amount)} (${b.refund_percent}% of the advance) ${b.refund_status === "refunded" ? "is on its way" : "is being processed"}. It usually reaches your account in 5–7 working days.`)
+              : "This booking was cancelled with no refund of the advance, as it was within 48 hours of the event."}
           </NumText>
         ) : null}
       </Section>
@@ -153,7 +158,7 @@ export default function BookingDetail() {
           return (
             <View key={line.key}>
               <KeyValue label={line.label} value={value} last={last && !line.at && !line.method} />
-              {line.at ? <NumText style={s.when}>{`${line.status === "claimed_offline" ? "Claimed" : "Paid"} ${new Date(line.at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric"})}${line.method ? ` · ${prettyMethod(line.method)}` : ""}`}</NumText> : null}
+              {line.at ? <NumText style={s.when}>{`${line.status === "claimed_offline" ? "Claimed" : "Paid"} ${new Date(line.at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric"})}${line.method ? ` · ${prettyMethod(line.method, line.instrument)}` : ""}`}</NumText> : null}
             </View>
           );
         })}
