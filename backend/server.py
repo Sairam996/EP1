@@ -389,6 +389,7 @@ EVENT_TYPES = [
     {"id": "anniversary", "name": "Anniversary", "icon": "rose"},
     {"id": "engagement", "name": "Engagement", "icon": "diamond"},
     {"id": "baby_shower", "name": "Baby Shower", "icon": "happy"},
+    {"id": "housewarming", "name": "Housewarming", "icon": "home"},
 ]
 CATEGORIES = [
     {"id": "venues", "name": "Venues", "icon": "business"},
@@ -957,8 +958,8 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
                        event_type: Optional[str] = None, q: Optional[str] = None,
                        trending: Optional[bool] = None, limit: int = 50,
                        lat: Optional[float] = None, lng: Optional[float] = None):
-    # Listing gate: only verified vendors with a launch-ready profile are listed.
-    query: dict = {"verified": True}
+    # Listing gate: verified partners, or tagged demo partners (badge stays tied to verified).
+    query: dict = {"$or": [{"verified": True}, {"is_demo": True}]}
     if city: query["city"] = city
     if category: query["category"] = category
     if event_type: query["event_types"] = event_type
@@ -988,7 +989,7 @@ async def list_vendors(city: Optional[str] = None, category: Optional[str] = Non
         items = [v for v in items if all(term in _haystack(v) for term in terms)]
     items = items[:limit]
     svc_counts = await _service_counts([v["id"] for v in items])
-    items = [v for v in items if profile_completeness(v, svc_counts.get(v["id"], 0))["listable"]]
+    items = [v for v in items if v.get("is_demo") or profile_completeness(v, svc_counts.get(v["id"], 0))["listable"]]
     return [_vendor_pub(v, city or "Hyderabad", lat, lng) for v in items]
 
 @api.get("/vendors/{vendor_id}")
@@ -1016,7 +1017,8 @@ async def similar_vendors(vendor_id: str):
     v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not v: return []
     items = await db.vendors.find(
-        {"category": v["category"], "city": v.get("city"), "id": {"$ne": vendor_id}, "verified": True}, {"_id": 0}
+        {"category": v["category"], "city": v.get("city"), "id": {"$ne": vendor_id},
+         "$or": [{"verified": True}, {"is_demo": True}]}, {"_id": 0}
     ).limit(6).to_list(6)
     return [_vendor_pub(x, v.get("city", "Hyderabad")) for x in items]
 
@@ -2399,6 +2401,7 @@ def _is_uploaded(url: str) -> bool:
 def profile_completeness(v: dict, services_count: int, has_availability: bool = True) -> dict:
     """Listing rules (all must pass for GET /api/vendors to return a vendor):
       1. verified == True (set only by admin via POST /api/admin/vendors/{id}/verify, or seed data)
+         OR is_demo == True (LEAP/preview partners; Thara Pro badge stays off)
       2. description is not the signup placeholder and is >= 30 chars
       3. cover is set and is not the signup stock image (cover_is_placeholder flag)
       4. photos: >= 3 gallery photos, OR an uploaded cover plus >= 1 uploaded gallery photo
